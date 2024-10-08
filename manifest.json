@@ -20,7 +20,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/watch*"],
-      "js": ["dist/content.bundle.js"] // Updated content script path
+      "js": ["popup/popup.js"]
     }
   ],
   "permissions": [
