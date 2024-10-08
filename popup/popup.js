@@ -22,7 +22,7 @@ const loadTranscriptBtn = document.getElementById('load-transcript-btn');
 let transcript = [];
 let segments = [];
 let currentSegmentIndex = 0;
-const SEGMENT_DURATION = 20 * 60; // 20 minutes in seconds
+const SEGMENT_DURATION = 15 * 60; // 20 minutes in seconds
 
 const llmUtils = new LLM_API_Utils();
 

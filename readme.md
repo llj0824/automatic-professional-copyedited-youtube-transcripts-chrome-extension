@@ -10,6 +10,8 @@ This Chrome extension automatically retrieves and provides high-quality, profess
 - **Segmented Display:** Transcripts are divided into manageable segments (e.g., 20-minute intervals) for easy navigation.
 - **API Key Management:** Securely save and manage API keys for OpenAI and Anthropic.
 
+
+
 ## Installation
 
 1. Clone the repository.
@@ -37,3 +39,8 @@ Contributions are welcome! Please open an issue or submit a pull request for any
 ## License
 
 MIT License
+
+## TO-DO
+
+Possibly
+1. add slider for segment duration
