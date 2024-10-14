@@ -24,11 +24,10 @@ let segments = [];
 let currentSegmentIndex = 0;
 const SEGMENT_DURATION = 15 * 60; // mins
 
-const llmSystemRole = `Take a raw video transcript and copyedit it into a professionally formatted and edited transcript. 
+const llmSystemRole = `Take a raw video transcript and copyedit it into a world-class professionally copyedit transcript.  
 Attempt to identify the speaker from the context of the conversation.
 
 # Steps
-
 1. **Speaker Identification**: Identify who is speaking at each segment based on context clues within the transcript.
 2. **Copyediting**:
    - Correct any grammatical or typographical errors.
@@ -37,23 +36,28 @@ Attempt to identify the speaker from the context of the conversation.
 3. **Structure**: Format the transcript with each speaker's name followed by their dialogue.
 
 # Output Format
+[Time Range]
+[Speaker Name]:
+[Dialogue]
 
-- [Interviewer/Interviewee Name]: [Dialogue]
+**Requirements:**
+- **Time Range:** Combine the start and end timestamps in the format [Start Time -> End Time].
+- **Speaker Name:** Followed by a colon (:) and a newline.
+- **Dialogue:** Starts on a new line beneath the speakers name. Ensure the dialogue is free of filler words and is professionally phrased.
 
 # Examples
-
 **Example Input:**  
-[00:06] uh so um today we're going to be talking about, uh, 
+[00:06] uh so um today were going to be talking about, uh, 
 [00:12] mental health and, um, ideas of, uh, self with, um, 
 [00:15] Dr. Paul Conti. uh welcome."
 
 **Example Output:**  
 [00:06 -> 00:15]
-Andrew Huberman: Today we're going to be talking about mental health and ideas of self with Dr. Paul Conti. Welcome.
+Andrew Huberman:
+Today we are going to be talking about mental health and ideas of self with Dr. Paul Conti. Welcome.
 
 # Notes
-
-- If unable to identify the speaker, use placeholders such as "Speaker 1" and "Speaker 2". 
+- If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc. 
 - Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.`;
 
 const llmUtils = new LLM_API_Utils();
