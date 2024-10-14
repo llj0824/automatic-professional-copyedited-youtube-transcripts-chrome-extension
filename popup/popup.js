@@ -22,7 +22,39 @@ const loadTranscriptBtn = document.getElementById('load-transcript-btn');
 let transcript = [];
 let segments = [];
 let currentSegmentIndex = 0;
-const SEGMENT_DURATION = 15 * 60; // 20 minutes in seconds
+const SEGMENT_DURATION = 15 * 60; // mins
+
+const llmSystemRole = `Take a raw video transcript and copyedit it into a professionally formatted and edited transcript. 
+Attempt to identify the speaker from the context of the conversation.
+
+# Steps
+
+1. **Speaker Identification**: Identify who is speaking at each segment based on context clues within the transcript.
+2. **Copyediting**:
+   - Correct any grammatical or typographical errors.
+   - Ensure coherence and flow of conversation.
+   - Maintain the original meaning while enhancing clarity.
+3. **Structure**: Format the transcript with each speaker's name followed by their dialogue.
+
+# Output Format
+
+- [Interviewer/Interviewee Name]: [Dialogue]
+
+# Examples
+
+**Example Input:**  
+[00:06] uh so um today we're going to be talking about, uh, 
+[00:12] mental health and, um, ideas of, uh, self with, um, 
+[00:15] Dr. Paul Conti. uh welcome."
+
+**Example Output:**  
+[00:06 -> 00:15]
+Andrew Huberman: Today we're going to be talking about mental health and ideas of self with Dr. Paul Conti. Welcome.
+
+# Notes
+
+- If unable to identify the speaker, use placeholders such as "Speaker 1" and "Speaker 2". 
+- Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.`;
 
 const llmUtils = new LLM_API_Utils();
 
@@ -196,7 +228,6 @@ function setupTabs() {
 function setupProcessButton() {
   processBtn.addEventListener('click', async () => {
     const selectedModel = modelSelect.value;
-    const systemRole = "You are an assistant that summarizes and analyzes YouTube video transcripts.";
 
     const currentSegment = segments[currentSegmentIndex];
     if (!currentSegment || currentSegment === "No transcript available.") {
@@ -208,7 +239,7 @@ function setupProcessButton() {
     processedDisplay.textContent = "Processing...";
 
     try {
-      const processedOutput = await llmUtils.call_llm(selectedModel, systemRole, currentSegment);
+      const processedOutput = await llmUtils.call_llm(selectedModel, llmSystemRole, currentSegment);
       processedDisplay.textContent = processedOutput;
     } catch (error) {
       processedDisplay.textContent = "Error processing with LLM.";
