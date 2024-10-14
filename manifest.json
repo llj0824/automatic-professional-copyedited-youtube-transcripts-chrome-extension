@@ -9,13 +9,13 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_popup": "popup/popup.html",
     "default_icon": {
       "48": "icons/redHeadIcon.png"
     }
+    // Removed "default_popup" to use side panel instead
   },
-  "icons": {
-    "48": "icons/redHeadIcon.png"
+  "background": {
+    "service_worker": "background/service_worker.js"
   },
   "content_scripts": [
     {
@@ -26,8 +26,12 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "storage" // Added storage permission if not already present
+    "storage",
+    "sidePanel" // Added sidePanel permission
   ],
+  "side_panel": {
+    "default_path": "popup/popup.html"
+  },
   "web_accessible_resources": [
     {
       "resources": ["dist/popup.bundle.js"],
