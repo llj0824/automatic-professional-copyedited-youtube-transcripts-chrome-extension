@@ -22,10 +22,12 @@ const loadTranscriptBtn = document.getElementById('load-transcript-btn');
 
 let transcript = [];
 let segments = [];
+let processedSegments = [];
 let currentSegmentIndex = 0;
-const SEGMENT_DURATION = 15 * 60; // mins
+let SEGMENT_DURATION = 15 * 60; // seconds (modifiable)
 
-const llmSystemRole = `Take a raw video transcript and copyedit it into a world-class professionally copyedit transcript.  
+
+const llmSystemRole = `Take a raw video transcript and copyedit it into a world-class professionally copyedited transcript.  
 Attempt to identify the speaker from the context of the conversation.
 
 # Steps
@@ -44,7 +46,7 @@ Attempt to identify the speaker from the context of the conversation.
 **Requirements:**
 - **Time Range:** Combine the start and end timestamps in the format [Start Time -> End Time].
 - **Speaker Name:** Followed by a colon (:) and a newline.
-- **Dialogue:** Starts on a new line beneath the speakers name. Ensure the dialogue is free of filler words and is professionally phrased.
+- **Dialogue:** Starts on a new line beneath the speaker's name. Ensure the dialogue is free of filler words and is professionally phrased.
 
 # Examples
 **Example Input:**  
@@ -66,6 +68,7 @@ const storageUtils = new StorageUtils();
 
 // Initialize the popup
 document.addEventListener('DOMContentLoaded', initializePopup);
+
 /**
  * Initialize the popup by loading API keys and any existing transcripts.
  */
@@ -80,11 +83,10 @@ async function initializePopup() {
     setupLoadTranscriptButton();
 
     // Load existing transcripts if available
-    const videoId = await getCurrentYouTubeVideoId();
+    const videoId = await storageUtils.getCurrentYouTubeVideoId();
     console.log(`Current YouTube Video ID: ${videoId}`);
     if (videoId) {
-      const storageKey = storageUtils.generateStorageKey(videoId);
-      const transcripts = await storageUtils.loadTranscriptsById(storageKey);
+      const transcripts = await storageUtils.loadTranscriptsById(videoId);
       console.log('Loaded Transcripts:', transcripts);
       if (transcripts.rawTranscript) {
         transcriptInput.value = transcripts.rawTranscript;
@@ -95,7 +97,10 @@ async function initializePopup() {
         alert('Raw transcript loaded from storage.');
       }
       if (transcripts.processedTranscript) {
-        processedDisplay.textContent = transcripts.processedTranscript;
+        processedSegments = paginateProcessedTranscript(transcripts.processedTranscript);
+        if (processedSegments.length > 0) {
+          processedDisplay.textContent = processedSegments[0];
+        }
       }
     } else {
       console.warn('No YouTube Video ID found.');
@@ -104,35 +109,6 @@ async function initializePopup() {
     console.error('Error initializing popup:', error);
     transcriptDisplay.textContent = 'Error initializing popup.';
   }
-}
-
-/**
- * Retrieves the current YouTube video ID using chrome.tabs.query.
- * @returns {Promise<string|null>} - A promise that resolves to the video ID or null if not found.
- */
-function getCurrentYouTubeVideoId() {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (chrome.runtime.lastError) {
-        console.error('Error querying tabs:', chrome.runtime.lastError);
-        return resolve(null);
-      }
-      if (tabs.length === 0) {
-        console.error('No active tab found.');
-        return resolve(null);
-      }
-
-      const activeTab = tabs[0];
-      const url = activeTab.url ? new URL(activeTab.url) : null;
-      const videoId = url ? url.searchParams.get('v') : null;
-      if (videoId) {
-        return resolve(videoId);
-      } else {
-        console.error('Video ID not found in URL.');
-        return resolve(null);
-      }
-    });
-  });
 }
 
 // Load API keys from storage and populate the UI
@@ -177,7 +153,7 @@ function setupLoadTranscriptButton() {
     displaySegment();
     updatePaginationButtons();
 
-    const videoId = await getCurrentYouTubeVideoId();
+    const videoId = await storageUtils.getCurrentYouTubeVideoId();
     console.log(`Saving transcript for Video ID: ${videoId}`);
     if (videoId) {
       try {
@@ -193,10 +169,9 @@ function setupLoadTranscriptButton() {
 }
 
 /**
- * Function to fetch and process the transcript (Removed automatic retrieval)
+ * Parse the raw transcript into an array of objects with timestamp and text
+ * @param {string} rawTranscript 
  */
-
-// Parse the raw transcript into an array of objects with timestamp and text
 function parseTranscript(rawTranscript) {
   console.log('parseTranscript called.');
   transcript = rawTranscript.split('\n').map(line => {
@@ -215,23 +190,25 @@ function parseTranscript(rawTranscript) {
   console.log('Parsed Transcript:', transcript);
 }
 
-// Paginate the transcript into 15-minute segments
+// Paginate the transcript into segments based on SEGMENT_DURATION
 function paginateTranscript() {
   console.log('paginateTranscript called.');
   segments = [];
-  let segmentStartIndex = 0;
+  let segmentStartTime = 0;
+  let segmentEndTime = SEGMENT_DURATION;
 
-  while (segmentStartIndex < transcript.length) {
-    const segmentEndTime = transcript[segmentStartIndex].timestamp + SEGMENT_DURATION;
-    let endIndex = transcript.findIndex(item => item.timestamp > segmentEndTime, segmentStartIndex);
-    if (endIndex === -1) endIndex = transcript.length;
-
-    const segment = transcript.slice(segmentStartIndex, endIndex)
-      .map(item => `[${formatTime(item.timestamp)}] ${item.text}`)
-      .join('\n');
-    segments.push(segment);
-    segmentStartIndex = endIndex;
-  }
+  transcript.forEach(item => {
+    if (item.timestamp >= segmentStartTime && item.timestamp < segmentEndTime) {
+      if (!segments[segments.length - 1]) {
+        segments.push('');
+      }
+      segments[segments.length - 1] += `[${formatTime(item.timestamp)}] ${item.text}\n`;
+    } else if (item.timestamp >= segmentEndTime) {
+      segmentStartTime += SEGMENT_DURATION;
+      segmentEndTime += SEGMENT_DURATION;
+      segments.push(`[${formatTime(item.timestamp)}] ${item.text}\n`);
+    }
+  });
 
   if (segments.length === 0) {
     segments.push("No transcript available.");
@@ -242,6 +219,54 @@ function paginateTranscript() {
   console.log('Paginated Segments:', segments);
 }
 
+/**
+ * Paginate the processed transcript into segments based on SEGMENT_DURATION
+ * @param {string} processedTranscript 
+ * @returns {string[]}
+ */
+function paginateProcessedTranscript(processedTranscript) {
+  console.log('paginateProcessedTranscript called.');
+  const lines = processedTranscript.split('\n');
+  const paginated = [];
+  let currentPage = '';
+  let currentDuration = 0;
+
+  lines.forEach(line => {
+    // This regex matches time range patterns in the format [mm:ss -> mm:ss]
+    // Examples of matches:
+    // - [00:00 -> 00:05]
+    // - [12:34 -> 56:78]
+    // Examples of non-matches:
+    // - [00:00-00:05] (missing spaces around the arrow)
+    // - 00:00 -> 00:05 (missing square brackets)
+    const match = line.match(/\[(\d+):(\d+) -> (\d+):(\d+)\]/);
+    if (match) {
+      const startMinutes = parseInt(match[1], 10);
+      const startSeconds = parseInt(match[2], 10);
+      const endMinutes = parseInt(match[3], 10);
+      const endSeconds = parseInt(match[4], 10);
+      const duration = (endMinutes * 60 + endSeconds) - (startMinutes * 60 + startSeconds);
+
+      if (currentDuration + duration > SEGMENT_DURATION && currentPage.length > 0) {
+        paginated.push(currentPage.trim());
+        currentPage = '';
+        currentDuration = 0;
+      }
+
+      currentPage += `${line}\n`;
+      currentDuration += duration;
+    } else {
+      currentPage += `${line}\n`;
+    }
+  });
+
+  if (currentPage.trim().length > 0) {
+    paginated.push(currentPage.trim());
+  }
+
+  return paginated;
+}
+
 // Format time from seconds to mm:ss
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -249,16 +274,34 @@ function formatTime(seconds) {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Display the current segment
+// Display the current segment or processed segment
 function displaySegment() {
-  transcriptDisplay.textContent = segments[currentSegmentIndex];
-  processedDisplay.textContent = "Processed output will appear here.";
+  if (tabContents[0].classList.contains('hidden')) {
+    // If not on the processed tab
+    transcriptDisplay.textContent = segments[currentSegmentIndex];
+  } else {
+    // On the processed tab
+    if (processedSegments.length > 0) {
+      processedDisplay.textContent = processedSegments[currentSegmentIndex] || "Processed output will appear here.";
+    } else {
+      processedDisplay.textContent = "Processed output will appear here.";
+    }
+  }
 }
 
 // Update pagination buttons
 function updatePaginationButtons() {
   prevBtn.disabled = currentSegmentIndex === 0;
-  nextBtn.disabled = currentSegmentIndex === segments.length - 1;
+  nextBtn.disabled = currentSegmentIndex === (getCurrentDisplaySegments().length - 1);
+}
+
+// Get current display segments based on active tab
+function getCurrentDisplaySegments() {
+  if (tabContents[0].classList.contains('hidden')) {
+    return segments;
+  } else {
+    return processedSegments;
+  }
 }
 
 // Setup pagination button events
@@ -273,7 +316,8 @@ function setupPagination() {
   });
 
   nextBtn.addEventListener('click', () => {
-    if (currentSegmentIndex < segments.length - 1) {
+    const currentSegments = getCurrentDisplaySegments();
+    if (currentSegmentIndex < currentSegments.length - 1) {
       currentSegmentIndex++;
       displaySegment();
       updatePaginationButtons();
@@ -284,7 +328,8 @@ function setupPagination() {
 
 // Update segment info display
 function updateSegmentInfo() {
-  segmentInfo.textContent = `Segment ${currentSegmentIndex + 1} of ${segments.length}`;
+  const currentSegments = getCurrentDisplaySegments();
+  segmentInfo.textContent = `Segment ${currentSegmentIndex + 1} of ${currentSegments.length}`;
 }
 
 // Setup tab switching
@@ -303,6 +348,9 @@ function setupTabs() {
       if (tabContent) {
         tabContent.classList.remove('hidden');
       }
+      displaySegment();
+      updatePaginationButtons();
+      updateSegmentInfo();
     });
   });
 }
@@ -312,159 +360,54 @@ function setupProcessButton() {
   processBtn.addEventListener('click', async () => {
     const selectedModel = modelSelect.value;
 
-    const currentSegment = segments[currentSegmentIndex];
-    if (!currentSegment || currentSegment === "No transcript available.") {
-      alert('No transcript segment to process.');
+    const videoId = await storageUtils.getCurrentYouTubeVideoId();
+    if (!videoId) {
+      alert('Unable to determine YouTube Video ID.');
       return;
     }
 
-    loader.classList.remove('hidden');
-    processedDisplay.textContent = "Processing...";
-
     try {
-      const processedOutput = await llmUtils.call_llm(selectedModel, llmSystemRole, currentSegment);
-      processedDisplay.textContent = processedOutput;
+      const transcripts = await storageUtils.loadTranscriptsById(videoId);
+      if (!transcripts.rawTranscript) {
+        alert('No raw transcript available to process.');
+        return;
+      }
 
-      // Save the processed transcript
-      const videoId = await getCurrentYouTubeVideoId();
-      console.log(`Saving processed transcript for Video ID: ${videoId}`);
-      if (videoId) {
-        try {
-          await storageUtils.saveProcessedTranscriptById(videoId, processedOutput);
-          console.log('Processed transcript saved successfully!');
-        } catch (error) {
-          console.error('Error saving processed transcript:', error);
-          alert('Failed to save the processed transcript.');
+      // Check if the processedTranscript exists and is sufficient
+      if (transcripts.processedTranscript) {
+        const totalWords = transcripts.processedTranscript.split(/\s+/).length;
+        // Define a threshold for "sufficient" processing
+        const wordThreshold = 1000; // Example threshold
+        if (totalWords >= wordThreshold) {
+          alert('Processed transcript is already sufficient.');
+          return;
         }
       }
+
+      loader.classList.remove('hidden');
+
+      let processedTranscript = transcripts.processedTranscript || '';
+
+      // If processed transcript is missing or insufficient, process it
+      if (!processedTranscript || processedTranscript.split(/\s+/).length < 1000) {
+        const response = await llmUtils.call_llm(selectedModel, llmSystemRole, transcripts.rawTranscript);
+        processedTranscript = response;
+        await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
+        processedSegments = paginateProcessedTranscript(processedTranscript);
+        alert('Processed transcript updated successfully!');
+      }
+
+      // Update the display
+      processedSegments = paginateProcessedTranscript(processedTranscript);
+      currentSegmentIndex = 0;
+      displaySegment();
+      updatePaginationButtons();
+      updateSegmentInfo();
     } catch (error) {
-      processedDisplay.textContent = "Error processing with LLM.";
-      console.error('LLM processing error:', error);
+      console.error('Error processing transcript:', error);
+      alert('Failed to process the transcript.');
     } finally {
       loader.classList.add('hidden');
     }
-  });
-}
-
-// Format timestamp in seconds to mm:ss
-function formatTimestamp(startSeconds) {
-  const mins = Math.floor(startSeconds / 60);
-  const secs = Math.floor(startSeconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
-// Additional Methods in StorageUtils to Handle Storage Key
-
-// Add these methods in storage_utils.js to handle storage using videoId directly
-
-/**
- * Saves the raw transcript for a specific YouTube video by storage key.
- * @param {string} videoId - The YouTube video ID.
- * @param {string} rawTranscript - The raw transcript text to save.
- * @returns {Promise<void>}
- */
-StorageUtils.prototype.saveRawTranscriptById = function(videoId, rawTranscript) {
-  console.log(`saveRawTranscriptById called for Video ID: ${videoId}`);
-  if (!videoId) {
-    console.error('Invalid video ID. Cannot save raw transcript.');
-    return Promise.reject('Invalid video ID.');
-  }
-
-  const storageKey = this.generateStorageKey(videoId);
-  const data = {};
-  data[storageKey] = { rawTranscript };
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get([storageKey], (result) => {
-      if (chrome.runtime.lastError) {
-        console.error('Error retrieving existing data:', chrome.runtime.lastError);
-        reject(chrome.runtime.lastError);
-        return;
-      }
-      const existingData = result[storageKey] || {};
-      const updatedData = { ...existingData, rawTranscript };
-      data[storageKey] = updatedData;
-
-      chrome.storage.local.set(data, () => {
-        if (chrome.runtime.lastError) {
-          console.error('Error saving raw transcript:', chrome.runtime.lastError);
-          reject(chrome.runtime.lastError);
-        } else {
-          console.log('Raw transcript saved successfully for Video ID:', videoId);
-          resolve();
-        }
-      });
-    });
-  });
-};
-
-/**
- * Saves the processed transcript for a specific YouTube video by storage key.
- * @param {string} videoId - The YouTube video ID.
- * @param {string} processedTranscript - The processed transcript text to save.
- * @returns {Promise<void>}
- */
-StorageUtils.prototype.saveProcessedTranscriptById = function(videoId, processedTranscript) {
-  console.log(`saveProcessedTranscriptById called for Video ID: ${videoId}`);
-  if (!videoId) {
-    console.error('Invalid video ID. Cannot save processed transcript.');
-    return Promise.reject('Invalid video ID.');
-  }
-
-  const storageKey = this.generateStorageKey(videoId);
-  const data = {};
-  data[storageKey] = { processedTranscript };
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get([storageKey], (result) => {
-      if (chrome.runtime.lastError) {
-        console.error('Error retrieving existing data:', chrome.runtime.lastError);
-        reject(chrome.runtime.lastError);
-        return;
-      }
-      const existingData = result[storageKey] || {};
-      const updatedData = { ...existingData, processedTranscript };
-      data[storageKey] = updatedData;
-
-      chrome.storage.local.set(data, () => {
-        if (chrome.runtime.lastError) {
-          console.error('Error saving processed transcript:', chrome.runtime.lastError);
-          reject(chrome.runtime.lastError);
-        } else {
-          console.log('Processed transcript saved successfully for Video ID:', videoId);
-          resolve();
-        }
-      });
-    });
-  });
-};
-
-/**
- * Loads both the raw and processed transcripts for a specific YouTube video by storage key.
- * @param {string} storageKey - The storage key for the YouTube video.
- * @returns {Promise<{ rawTranscript: string|null, processedTranscript: string|null }>} 
- *          - The retrieved transcripts or null if not found.
- */
-StorageUtils.prototype.loadTranscriptsById = function(storageKey) {
-  console.log(`loadTranscriptsById called for Storage Key: ${storageKey}`);
-  if (!storageKey) {
-    console.error('Invalid storage key. Cannot load transcripts.');
-    return Promise.reject('Invalid storage key.');
-  }
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get([storageKey], (result) => {
-      if (chrome.runtime.lastError) {
-        console.error('Error loading transcripts:', chrome.runtime.lastError);
-        reject(chrome.runtime.lastError);
-      } else {
-        const data = result[storageKey] || {};
-        console.log(`Transcripts loaded for Storage Key ${storageKey}:`, data);
-        resolve({
-          rawTranscript: data.rawTranscript || null,
-          processedTranscript: data.processedTranscript || null,
-        });
-      }
-    });
   });
 }
