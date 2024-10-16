@@ -1,41 +1,47 @@
-{
-  "manifest_version": 3,
-  "name": "Readable Transcript Chrome Extension",
-  "version": "1.0",
-  "description": "A Chrome extension to enhance YouTube transcripts with professional clarity.",
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  },
-  "action": {
-    "default_icon": {
-      "48": "icons/redHeadIcon.png"
-    }
-    // Removed "default_popup" to use side panel instead
-  },
-  "background": {
-    "service_worker": "background/service_worker.js"
-  },
-  "content_scripts": [
+    // Start of Selection
     {
-      "matches": ["https://www.youtube.com/watch*"],
-      "js": ["popup/popup.js"]
+      "manifest_version": 3,
+      "name": "Readable Transcript Chrome Extension",
+      "version": "1.0",
+      "description": "A Chrome extension to enhance YouTube transcripts with professional clarity.",
+      "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+      },
+      "action": {
+        "default_icon": {
+          "48": "icons/redHeadIcon.png"
+        }
+        // Removed "default_popup" to use side panel instead
+      },
+      "background": {
+        "service_worker": "background/service_worker.js"
+      },
+      "content_scripts": [
+        {
+          "matches": ["https://www.youtube.com/watch*"],
+          "js": ["popup/popup.js"]
+        }
+      ],
+      "permissions": [
+        "activeTab",
+        "scripting",
+        "storage",
+        "sidePanel" // Added sidePanel permission
+      ],
+      "side_panel": {
+        "default_path": "popup/popup.html"
+      },
+      "web_accessible_resources": [
+        {
+          "resources": [
+            "popup/popup.js",
+            "background/service_worker.js",
+            "popup/storage_utils.js",
+            "popup/llm_api_utils.js"
+          ],
+          "matches": ["<all_urls>"]
+        }
+      ]
     }
-  ],
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage",
-    "sidePanel" // Added sidePanel permission
-  ],
-  "side_panel": {
-    "default_path": "popup/popup.html"
-  },
-  "web_accessible_resources": [
-    {
-      "resources": ["dist/popup.bundle.js"],
-      "matches": ["<all_urls>"]
-    }
-  ]
-}

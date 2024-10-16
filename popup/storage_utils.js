@@ -1,8 +1,9 @@
-// storage/storage_utils.js
+// popup/storage_utils.js
 
 class StorageUtils {
   constructor() {
     if (!chrome || !chrome.storage) {
+      console.error('chrome.storage API is not available.');
       throw new Error('chrome.storage API is not available.');
     }
   }
@@ -13,11 +14,14 @@ class StorageUtils {
    * @returns {string|null} - The extracted video ID or null if invalid.
    */
   getVideoId(videoUrl) {
+    console.log(`getVideoId called with URL: ${videoUrl}`);
     try {
       const url = new URL(videoUrl);
-      return url.searchParams.get('v');
+      const videoId = url.searchParams.get('v');
+      console.log(`Extracted Video ID: ${videoId}`);
+      return videoId;
     } catch (error) {
-      console.error('Invalid video URL:', videoUrl);
+      console.error('Invalid video URL:', videoUrl, error);
       return null;
     }
   }
@@ -37,8 +41,12 @@ class StorageUtils {
    * }
    */
   saveRawTranscript(videoUrl, rawTranscript) {
+    console.log(`saveRawTranscript called for URL: ${videoUrl}`);
     const videoId = this.getVideoId(videoUrl);
-    if (!videoId) return Promise.reject('Invalid video URL.');
+    if (!videoId) {
+      console.error('Invalid video URL. Cannot save raw transcript.');
+      return Promise.reject('Invalid video URL.');
+    }
 
     return new Promise((resolve, reject) => {
       const data = {};
@@ -58,6 +66,7 @@ class StorageUtils {
             console.error('Error saving raw transcript:', chrome.runtime.lastError);
             reject(chrome.runtime.lastError);
           } else {
+            console.log('Raw transcript saved successfully for Video ID:', videoId);
             resolve();
           }
         });
@@ -72,8 +81,12 @@ class StorageUtils {
    * @returns {Promise<void>}
    */
   saveProcessedTranscript(videoUrl, processedTranscript) {
+    console.log(`saveProcessedTranscript called for URL: ${videoUrl}`);
     const videoId = this.getVideoId(videoUrl);
-    if (!videoId) return Promise.reject('Invalid video URL.');
+    if (!videoId) {
+      console.error('Invalid video URL. Cannot save processed transcript.');
+      return Promise.reject('Invalid video URL.');
+    }
 
     return new Promise((resolve, reject) => {
       const data = {};
@@ -93,6 +106,7 @@ class StorageUtils {
             console.error('Error saving processed transcript:', chrome.runtime.lastError);
             reject(chrome.runtime.lastError);
           } else {
+            console.log('Processed transcript saved successfully for Video ID:', videoId);
             resolve();
           }
         });
@@ -107,8 +121,12 @@ class StorageUtils {
    *          - The retrieved transcripts or null if not found.
    */
   loadTranscripts(videoUrl) {
+    console.log(`loadTranscripts called for URL: ${videoUrl}`);
     const videoId = this.getVideoId(videoUrl);
-    if (!videoId) return Promise.reject('Invalid video URL.');
+    if (!videoId) {
+      console.error('Invalid video URL. Cannot load transcripts.');
+      return Promise.reject('Invalid video URL.');
+    }
 
     return new Promise((resolve, reject) => {
       chrome.storage.local.get([videoId], (result) => {
@@ -117,6 +135,7 @@ class StorageUtils {
           reject(chrome.runtime.lastError);
         } else {
           const data = result[videoId] || {};
+          console.log(`Transcripts loaded for Video ID ${videoId}:`, data);
           resolve({
             rawTranscript: data.rawTranscript || null,
             processedTranscript: data.processedTranscript || null,
@@ -132,8 +151,12 @@ class StorageUtils {
    * @returns {Promise<void>}
    */
   removeTranscripts(videoUrl) {
+    console.log(`removeTranscripts called for URL: ${videoUrl}`);
     const videoId = this.getVideoId(videoUrl);
-    if (!videoId) return Promise.reject('Invalid video URL.');
+    if (!videoId) {
+      console.error('Invalid video URL. Cannot remove transcripts.');
+      return Promise.reject('Invalid video URL.');
+    }
 
     return new Promise((resolve, reject) => {
       chrome.storage.local.remove([videoId], () => {
@@ -141,6 +164,7 @@ class StorageUtils {
           console.error('Error removing transcripts:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
         } else {
+          console.log('Transcripts removed successfully for Video ID:', videoId);
           resolve();
         }
       });

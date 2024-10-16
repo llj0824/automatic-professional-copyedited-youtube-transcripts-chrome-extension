@@ -1,7 +1,7 @@
 // popup/popup.js
 
-import { LLM_API_Utils } from './llm_api_utils.js';
-import StorageUtils from './storage/storage_utils.js';
+import LLM_API_Utils from './llm_api_utils.js';
+import StorageUtils from './storage_utils.js';
 
 const transcriptDisplay = document.getElementById('transcript-display');
 const processedDisplay = document.getElementById('processed-display');
@@ -82,8 +82,10 @@ async function initializePopup() {
 
     // Load existing transcripts if available
     const videoUrl = getCurrentYouTubeVideoUrl();
+    console.log(`Current YouTube Video URL: ${videoUrl}`);
     if (videoUrl) {
       const transcripts = await storageUtils.loadTranscripts(videoUrl);
+      console.log('Loaded Transcripts:', transcripts);
       if (transcripts.rawTranscript) {
         transcriptInput.value = transcripts.rawTranscript;
         parseTranscript(transcripts.rawTranscript);
@@ -95,6 +97,8 @@ async function initializePopup() {
       if (transcripts.processedTranscript) {
         processedDisplay.textContent = transcripts.processedTranscript;
       }
+    } else {
+      console.warn('No YouTube Video URL found.');
     }
   } catch (error) {
     console.error('Error initializing popup:', error);
@@ -104,24 +108,37 @@ async function initializePopup() {
 
 /**
  * Retrieves the current YouTube video URL.
- * @returns {string|null} - The video URL or null if not found.
+ * @returns {string|null} - The video ID or null if not found.
  */
 function getCurrentYouTubeVideoUrl() {
-  // Assuming this function retrieves the current YouTube tab URL.
-  // Implementation may vary based on your extension's architecture.
-  // For example, you might use chrome.tabs API to get the active tab's URL.
-  return 'https://www.youtube.com/watch?v=SzCpCbQ27Kk'; // Placeholder
+  try {
+    const videoUrl = window.location.href;
+    const url = new URL(videoUrl);
+    const videoId = url.searchParams.get('v');
+    if (videoId) {
+      return `id:${videoId}`;
+    } else {
+      console.error('Video ID not found in URL.');
+      return null;
+    }
+  } catch (error) {
+    console.error('Invalid video URL:', error);
+    return null;
+  }
 }
 
 // Load API keys from storage and populate the UI
 function loadApiKeysIntoUI() {
+  console.log('loadApiKeysIntoUI called.');
   openaiApiKeyInput.value = llmUtils.openai_api_key || '';
   anthropicApiKeyInput.value = llmUtils.anthropic_api_key || '';
 }
 
 // Save API keys to storage
 function setupSaveKeysButton() {
+  console.log('setupSaveKeysButton called.');
   saveKeysBtn.addEventListener('click', async () => {
+    console.log('Save Keys button clicked.');
     const openaiKey = openaiApiKeyInput.value.trim();
     const anthropicKey = anthropicApiKeyInput.value.trim();
 
@@ -138,9 +155,12 @@ function setupSaveKeysButton() {
 
 // Setup load transcript button event
 function setupLoadTranscriptButton() {
+  console.log('setupLoadTranscriptButton called.');
   loadTranscriptBtn.addEventListener('click', async () => {
+    console.log('Load Transcript button clicked.');
     const rawTranscript = transcriptInput.value.trim();
     if (!rawTranscript) {
+      console.warn('No transcript entered.');
       alert('Please enter a transcript.');
       return;
     }
@@ -150,9 +170,11 @@ function setupLoadTranscriptButton() {
     updatePaginationButtons();
 
     const videoUrl = getCurrentYouTubeVideoUrl();
+    console.log(`Saving transcript for Video URL: ${videoUrl}`);
     if (videoUrl) {
       try {
         await storageUtils.saveRawTranscript(videoUrl, rawTranscript);
+        console.log('Transcript saved successfully.');
         alert('Transcript loaded and saved successfully!');
       } catch (error) {
         console.error('Error saving raw transcript:', error);
@@ -168,6 +190,7 @@ function setupLoadTranscriptButton() {
 
 // Parse the raw transcript into an array of objects with timestamp and text
 function parseTranscript(rawTranscript) {
+  console.log('parseTranscript called.');
   transcript = rawTranscript.split('\n').map(line => {
     const match = line.match(/\[(\d+):(\d+)\]\s*(.*)/);
     if (match) {
@@ -181,10 +204,12 @@ function parseTranscript(rawTranscript) {
     }
     return null;
   }).filter(item => item !== null);
+  console.log('Parsed Transcript:', transcript);
 }
 
 // Paginate the transcript into 20-minute segments
 function paginateTranscript() {
+  console.log('paginateTranscript called.');
   segments = [];
   let segmentStartIndex = 0;
 
@@ -206,6 +231,7 @@ function paginateTranscript() {
 
   currentSegmentIndex = 0;
   updateSegmentInfo();
+  console.log('Paginated Segments:', segments);
 }
 
 // Format time from seconds to mm:ss
@@ -293,6 +319,7 @@ function setupProcessButton() {
 
       // Save the processed transcript
       const videoUrl = getCurrentYouTubeVideoUrl();
+      console.log(`Saving processed transcript for Video URL: ${videoUrl}`);
       if (videoUrl) {
         const existingProcessed = await storageUtils.loadTranscripts(videoUrl);
         await storageUtils.saveProcessedTranscript(videoUrl, processedOutput);

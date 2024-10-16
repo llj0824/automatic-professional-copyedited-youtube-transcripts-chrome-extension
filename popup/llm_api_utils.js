@@ -112,4 +112,4 @@ class LLM_API_Utils {
 }
 
 // Export the LLM_API_Utils class
-export { LLM_API_Utils };
+export default LLM_API_Utils;
