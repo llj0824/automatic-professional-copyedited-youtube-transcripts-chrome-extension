@@ -1,6 +1,7 @@
 // popup/popup.js
 
 import { LLM_API_Utils } from './llm_api_utils.js';
+import StorageUtils from './storage/storage_utils.js';
 
 const transcriptDisplay = document.getElementById('transcript-display');
 const processedDisplay = document.getElementById('processed-display');
@@ -61,10 +62,14 @@ Today we are going to be talking about mental health and ideas of self with Dr. 
 - Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.`;
 
 const llmUtils = new LLM_API_Utils();
+const storageUtils = new StorageUtils();
 
 // Initialize the popup
 document.addEventListener('DOMContentLoaded', initializePopup);
 
+/**
+ * Initialize the popup by loading API keys and any existing transcripts.
+ */
 async function initializePopup() {
   try {
     await llmUtils.loadApiKeys();
@@ -74,10 +79,38 @@ async function initializePopup() {
     setupProcessButton();
     setupSaveKeysButton();
     setupLoadTranscriptButton();
+
+    // Load existing transcripts if available
+    const videoUrl = getCurrentYouTubeVideoUrl();
+    if (videoUrl) {
+      const transcripts = await storageUtils.loadTranscripts(videoUrl);
+      if (transcripts.rawTranscript) {
+        transcriptInput.value = transcripts.rawTranscript;
+        parseTranscript(transcripts.rawTranscript);
+        paginateTranscript();
+        displaySegment();
+        updatePaginationButtons();
+        alert('Raw transcript loaded from storage.');
+      }
+      if (transcripts.processedTranscript) {
+        processedDisplay.textContent = transcripts.processedTranscript;
+      }
+    }
   } catch (error) {
     console.error('Error initializing popup:', error);
     transcriptDisplay.textContent = 'Error initializing popup.';
   }
+}
+
+/**
+ * Retrieves the current YouTube video URL.
+ * @returns {string|null} - The video URL or null if not found.
+ */
+function getCurrentYouTubeVideoUrl() {
+  // Assuming this function retrieves the current YouTube tab URL.
+  // Implementation may vary based on your extension's architecture.
+  // For example, you might use chrome.tabs API to get the active tab's URL.
+  return 'https://www.youtube.com/watch?v=SzCpCbQ27Kk'; // Placeholder
 }
 
 // Load API keys from storage and populate the UI
@@ -105,7 +138,7 @@ function setupSaveKeysButton() {
 
 // Setup load transcript button event
 function setupLoadTranscriptButton() {
-  loadTranscriptBtn.addEventListener('click', () => {
+  loadTranscriptBtn.addEventListener('click', async () => {
     const rawTranscript = transcriptInput.value.trim();
     if (!rawTranscript) {
       alert('Please enter a transcript.');
@@ -115,11 +148,23 @@ function setupLoadTranscriptButton() {
     paginateTranscript();
     displaySegment();
     updatePaginationButtons();
-    alert('Transcript loaded successfully!');
+
+    const videoUrl = getCurrentYouTubeVideoUrl();
+    if (videoUrl) {
+      try {
+        await storageUtils.saveRawTranscript(videoUrl, rawTranscript);
+        alert('Transcript loaded and saved successfully!');
+      } catch (error) {
+        console.error('Error saving raw transcript:', error);
+        alert('Failed to save the raw transcript.');
+      }
+    }
   });
 }
 
-// Function to fetch and process the transcript (Removed automatic retrieval)
+/**
+ * Function to fetch and process the transcript (Removed automatic retrieval)
+ */
 
 // Parse the raw transcript into an array of objects with timestamp and text
 function parseTranscript(rawTranscript) {
@@ -245,6 +290,14 @@ function setupProcessButton() {
     try {
       const processedOutput = await llmUtils.call_llm(selectedModel, llmSystemRole, currentSegment);
       processedDisplay.textContent = processedOutput;
+
+      // Save the processed transcript
+      const videoUrl = getCurrentYouTubeVideoUrl();
+      if (videoUrl) {
+        const existingProcessed = await storageUtils.loadTranscripts(videoUrl);
+        await storageUtils.saveProcessedTranscript(videoUrl, processedOutput);
+        console.log('Processed transcript saved successfully!');
+      }
     } catch (error) {
       processedDisplay.textContent = "Error processing with LLM.";
       console.error('LLM processing error:', error);
