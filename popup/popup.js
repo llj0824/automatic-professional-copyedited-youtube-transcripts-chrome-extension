@@ -278,7 +278,7 @@ function formatTime(seconds) {
 function displaySegment() {
   if (tabContents[0].classList.contains('hidden')) {
     // If not on the processed tab
-    transcriptDisplay.textContent = segments[currentSegmentIndex];
+    transcriptDisplay.textContent = segments[currentSegmentIndex]  || "No transcript available.";
   } else {
     // On the processed tab
     if (processedSegments.length > 0) {

@@ -4,11 +4,11 @@
  * Below is a simplified example using Jest and jsdom.
  */
 
-import StorageUtils from './storage_utils.js';
-import { initializePopup, parseTranscript, paginateTranscript } from './popup.js';
+import StorageUtils from '../popup/storage_utils.js';
+import { initializePopup, parseTranscript, paginateTranscript } from '../popup/popup.js';
 
 // Mock dependencies
-jest.mock('./storage_utils.js');
+jest.mock('../popup/storage_utils.js');
 
 describe('Popup Integration Tests', () => {
   let storageUtils;
@@ -75,5 +75,58 @@ describe('Popup Integration Tests', () => {
 
     expect(segments.length).toBe(1);
     expect(segments[0]).toBe('[00:00] Hello\n[00:05] World\n');
+  });
+
+  it('should display loaded transcript in the transcript area', async () => {
+    // Set up DOM elements
+    document.body.innerHTML = `
+      <textarea id="transcript-input"></textarea>
+      <pre id="transcript-display"></pre>
+    `;
+
+    const rawTranscript = '[00:00] Hello\n[00:05] World';
+    document.getElementById('transcript-input').value = rawTranscript;
+
+    // Mock storageUtils methods
+    storageUtils.getCurrentYouTubeVideoId = jest.fn().mockResolvedValue('abcdefghijk');
+    storageUtils.loadTranscriptsById = jest.fn().mockResolvedValue({ rawTranscript });
+
+    await initializePopup();
+
+    expect(document.getElementById('transcript-display').textContent).toBe(rawTranscript);
+  });
+
+  it('should store processed responses correctly', async () => {
+    // Mock storageUtils methods
+    storageUtils.getCurrentYouTubeVideoId = jest.fn().mockResolvedValue('abcdefghijk');
+    storageUtils.saveProcessedTranscriptById = jest.fn().mockResolvedValue();
+
+    const processedTranscript = 'Processed transcript content';
+    await storageUtils.saveProcessedTranscriptById('abcdefghijk', processedTranscript);
+
+    expect(storageUtils.saveProcessedTranscriptById).toHaveBeenCalledWith('abcdefghijk', processedTranscript);
+  });
+
+  it('should toggle prev/next pages responsively', async () => {
+    // Set up DOM elements
+    document.body.innerHTML = `
+      <button id="prev-btn"></button>
+      <button id="next-btn"></button>
+      <pre id="transcript-display"></pre>
+    `;
+
+    const segments = ['Segment 1', 'Segment 2'];
+    global.segments = segments;
+    global.currentSegmentIndex = 0;
+
+    // Simulate clicking next
+    document.getElementById('next-btn').click();
+    expect(global.currentSegmentIndex).toBe(1);
+    expect(document.getElementById('transcript-display').textContent).toBe('Segment 2');
+
+    // Simulate clicking prev
+    document.getElementById('prev-btn').click();
+    expect(global.currentSegmentIndex).toBe(0);
+    expect(document.getElementById('transcript-display').textContent).toBe('Segment 1');
   });
 });
