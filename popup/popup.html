@@ -65,7 +65,7 @@
       </div>
     </div>
     
-    <!-- **Added Transcript Input Section** -->
+    <!-- Transcript Input Section -->
     <div id="transcript-input-section">
       <h3>Load Transcript</h3>
       <textarea id="transcript-input" placeholder="Paste your transcript here..." rows="5" cols="50"></textarea>
@@ -74,9 +74,10 @@
     <!-- **End of Added Section** -->
     
   </div>
-<script type="module" src="../dist/popup.bundle.js"></script>
-  <!-- <script type="module" src="../dist/bundle.js"></script>
-  <script src="llm_api_utils.js" type="module"></script>
-  <script src="popup.js" type="module"></script> -->
+  
+  <!-- Include JavaScript files as modules -->
+  <script type="module" src="llm_api_utils.js"></script>
+  <script type="module" src="storage_utils.js"></script>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>
