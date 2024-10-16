@@ -28,6 +28,8 @@
         "activeTab",
         "scripting",
         "storage",
+        "tabs",
+        "activeTab",
         "sidePanel" // Added sidePanel permission
       ],
       "side_panel": {
