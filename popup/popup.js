@@ -66,7 +66,6 @@ const storageUtils = new StorageUtils();
 
 // Initialize the popup
 document.addEventListener('DOMContentLoaded', initializePopup);
-
 /**
  * Initialize the popup by loading API keys and any existing transcripts.
  */
@@ -81,10 +80,11 @@ async function initializePopup() {
     setupLoadTranscriptButton();
 
     // Load existing transcripts if available
-    const videoUrl = getCurrentYouTubeVideoUrl();
-    console.log(`Current YouTube Video URL: ${videoUrl}`);
-    if (videoUrl) {
-      const transcripts = await storageUtils.loadTranscripts(videoUrl);
+    const videoId = await getCurrentYouTubeVideoId();
+    console.log(`Current YouTube Video ID: ${videoId}`);
+    if (videoId) {
+      const storageKey = storageUtils.generateStorageKey(videoId);
+      const transcripts = await storageUtils.loadTranscriptsById(storageKey);
       console.log('Loaded Transcripts:', transcripts);
       if (transcripts.rawTranscript) {
         transcriptInput.value = transcripts.rawTranscript;
@@ -98,7 +98,7 @@ async function initializePopup() {
         processedDisplay.textContent = transcripts.processedTranscript;
       }
     } else {
-      console.warn('No YouTube Video URL found.');
+      console.warn('No YouTube Video ID found.');
     }
   } catch (error) {
     console.error('Error initializing popup:', error);
@@ -107,24 +107,32 @@ async function initializePopup() {
 }
 
 /**
- * Retrieves the current YouTube video URL.
- * @returns {string|null} - The video ID or null if not found.
+ * Retrieves the current YouTube video ID using chrome.tabs.query.
+ * @returns {Promise<string|null>} - A promise that resolves to the video ID or null if not found.
  */
-function getCurrentYouTubeVideoUrl() {
-  try {
-    const videoUrl = window.location.href;
-    const url = new URL(videoUrl);
-    const videoId = url.searchParams.get('v');
-    if (videoId) {
-      return `id:${videoId}`;
-    } else {
-      console.error('Video ID not found in URL.');
-      return null;
-    }
-  } catch (error) {
-    console.error('Invalid video URL:', error);
-    return null;
-  }
+function getCurrentYouTubeVideoId() {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error querying tabs:', chrome.runtime.lastError);
+        return resolve(null);
+      }
+      if (tabs.length === 0) {
+        console.error('No active tab found.');
+        return resolve(null);
+      }
+
+      const activeTab = tabs[0];
+      const url = activeTab.url ? new URL(activeTab.url) : null;
+      const videoId = url ? url.searchParams.get('v') : null;
+      if (videoId) {
+        return resolve(videoId);
+      } else {
+        console.error('Video ID not found in URL.');
+        return resolve(null);
+      }
+    });
+  });
 }
 
 // Load API keys from storage and populate the UI
@@ -169,11 +177,11 @@ function setupLoadTranscriptButton() {
     displaySegment();
     updatePaginationButtons();
 
-    const videoUrl = getCurrentYouTubeVideoUrl();
-    console.log(`Saving transcript for Video URL: ${videoUrl}`);
-    if (videoUrl) {
+    const videoId = await getCurrentYouTubeVideoId();
+    console.log(`Saving transcript for Video ID: ${videoId}`);
+    if (videoId) {
       try {
-        await storageUtils.saveRawTranscript(videoUrl, rawTranscript);
+        await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
         console.log('Transcript saved successfully.');
         alert('Transcript loaded and saved successfully!');
       } catch (error) {
@@ -207,7 +215,7 @@ function parseTranscript(rawTranscript) {
   console.log('Parsed Transcript:', transcript);
 }
 
-// Paginate the transcript into 20-minute segments
+// Paginate the transcript into 15-minute segments
 function paginateTranscript() {
   console.log('paginateTranscript called.');
   segments = [];
@@ -318,12 +326,16 @@ function setupProcessButton() {
       processedDisplay.textContent = processedOutput;
 
       // Save the processed transcript
-      const videoUrl = getCurrentYouTubeVideoUrl();
-      console.log(`Saving processed transcript for Video URL: ${videoUrl}`);
-      if (videoUrl) {
-        const existingProcessed = await storageUtils.loadTranscripts(videoUrl);
-        await storageUtils.saveProcessedTranscript(videoUrl, processedOutput);
-        console.log('Processed transcript saved successfully!');
+      const videoId = await getCurrentYouTubeVideoId();
+      console.log(`Saving processed transcript for Video ID: ${videoId}`);
+      if (videoId) {
+        try {
+          await storageUtils.saveProcessedTranscriptById(videoId, processedOutput);
+          console.log('Processed transcript saved successfully!');
+        } catch (error) {
+          console.error('Error saving processed transcript:', error);
+          alert('Failed to save the processed transcript.');
+        }
       }
     } catch (error) {
       processedDisplay.textContent = "Error processing with LLM.";
@@ -339,4 +351,120 @@ function formatTimestamp(startSeconds) {
   const mins = Math.floor(startSeconds / 60);
   const secs = Math.floor(startSeconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Additional Methods in StorageUtils to Handle Storage Key
+
+// Add these methods in storage_utils.js to handle storage using videoId directly
+
+/**
+ * Saves the raw transcript for a specific YouTube video by storage key.
+ * @param {string} videoId - The YouTube video ID.
+ * @param {string} rawTranscript - The raw transcript text to save.
+ * @returns {Promise<void>}
+ */
+StorageUtils.prototype.saveRawTranscriptById = function(videoId, rawTranscript) {
+  console.log(`saveRawTranscriptById called for Video ID: ${videoId}`);
+  if (!videoId) {
+    console.error('Invalid video ID. Cannot save raw transcript.');
+    return Promise.reject('Invalid video ID.');
+  }
+
+  const storageKey = this.generateStorageKey(videoId);
+  const data = {};
+  data[storageKey] = { rawTranscript };
+
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get([storageKey], (result) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error retrieving existing data:', chrome.runtime.lastError);
+        reject(chrome.runtime.lastError);
+        return;
+      }
+      const existingData = result[storageKey] || {};
+      const updatedData = { ...existingData, rawTranscript };
+      data[storageKey] = updatedData;
+
+      chrome.storage.local.set(data, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error saving raw transcript:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log('Raw transcript saved successfully for Video ID:', videoId);
+          resolve();
+        }
+      });
+    });
+  });
+};
+
+/**
+ * Saves the processed transcript for a specific YouTube video by storage key.
+ * @param {string} videoId - The YouTube video ID.
+ * @param {string} processedTranscript - The processed transcript text to save.
+ * @returns {Promise<void>}
+ */
+StorageUtils.prototype.saveProcessedTranscriptById = function(videoId, processedTranscript) {
+  console.log(`saveProcessedTranscriptById called for Video ID: ${videoId}`);
+  if (!videoId) {
+    console.error('Invalid video ID. Cannot save processed transcript.');
+    return Promise.reject('Invalid video ID.');
+  }
+
+  const storageKey = this.generateStorageKey(videoId);
+  const data = {};
+  data[storageKey] = { processedTranscript };
+
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get([storageKey], (result) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error retrieving existing data:', chrome.runtime.lastError);
+        reject(chrome.runtime.lastError);
+        return;
+      }
+      const existingData = result[storageKey] || {};
+      const updatedData = { ...existingData, processedTranscript };
+      data[storageKey] = updatedData;
+
+      chrome.storage.local.set(data, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error saving processed transcript:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log('Processed transcript saved successfully for Video ID:', videoId);
+          resolve();
+        }
+      });
+    });
+  });
+};
+
+/**
+ * Loads both the raw and processed transcripts for a specific YouTube video by storage key.
+ * @param {string} storageKey - The storage key for the YouTube video.
+ * @returns {Promise<{ rawTranscript: string|null, processedTranscript: string|null }>} 
+ *          - The retrieved transcripts or null if not found.
+ */
+StorageUtils.prototype.loadTranscriptsById = function(storageKey) {
+  console.log(`loadTranscriptsById called for Storage Key: ${storageKey}`);
+  if (!storageKey) {
+    console.error('Invalid storage key. Cannot load transcripts.');
+    return Promise.reject('Invalid storage key.');
+  }
+
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get([storageKey], (result) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error loading transcripts:', chrome.runtime.lastError);
+        reject(chrome.runtime.lastError);
+      } else {
+        const data = result[storageKey] || {};
+        console.log(`Transcripts loaded for Storage Key ${storageKey}:`, data);
+        resolve({
+          rawTranscript: data.rawTranscript || null,
+          processedTranscript: data.processedTranscript || null,
+        });
+      }
+    });
+  });
 }

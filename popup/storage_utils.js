@@ -6,6 +6,7 @@ class StorageUtils {
       console.error('chrome.storage API is not available.');
       throw new Error('chrome.storage API is not available.');
     }
+    this.KEY_PREFIX = 'youtube_video:'; // Prefix for human-readable keys
   }
 
   /**
@@ -27,18 +28,19 @@ class StorageUtils {
   }
 
   /**
+   * Generates a human-readable storage key for a YouTube video.
+   * @param {string} videoId - The YouTube video ID.
+   * @returns {string} - The formatted storage key.
+   */
+  generateStorageKey(videoId) {
+    return `${this.KEY_PREFIX}${videoId}`;
+  }
+
+  /**
    * Saves the raw transcript for a specific YouTube video.
    * @param {string} videoUrl - The full URL of the YouTube video.
    * @param {string} rawTranscript - The raw transcript text to save.
    * @returns {Promise<void>}
-   * @example
-   * {
-   *   "videoId": {
-   *     "rawTranscript": "Raw transcript text...",
-   *     "processedTranscript": "Processed transcript text..."
-   *   },
-   *   ...
-   * }
    */
   saveRawTranscript(videoUrl, rawTranscript) {
     console.log(`saveRawTranscript called for URL: ${videoUrl}`);
@@ -48,18 +50,20 @@ class StorageUtils {
       return Promise.reject('Invalid video URL.');
     }
 
+    const storageKey = this.generateStorageKey(videoId);
+    const data = {};
+    data[storageKey] = { rawTranscript };
+
     return new Promise((resolve, reject) => {
-      const data = {};
-      data[videoId] = { rawTranscript };
-      chrome.storage.local.get([videoId], (result) => {
+      chrome.storage.local.get([storageKey], (result) => {
         if (chrome.runtime.lastError) {
           console.error('Error retrieving existing data:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
           return;
         }
-        const existingData = result[videoId] || {};
+        const existingData = result[storageKey] || {};
         const updatedData = { ...existingData, rawTranscript };
-        data[videoId] = updatedData;
+        data[storageKey] = updatedData;
 
         chrome.storage.local.set(data, () => {
           if (chrome.runtime.lastError) {
@@ -88,18 +92,20 @@ class StorageUtils {
       return Promise.reject('Invalid video URL.');
     }
 
+    const storageKey = this.generateStorageKey(videoId);
+    const data = {};
+    data[storageKey] = { processedTranscript };
+
     return new Promise((resolve, reject) => {
-      const data = {};
-      data[videoId] = { processedTranscript };
-      chrome.storage.local.get([videoId], (result) => {
+      chrome.storage.local.get([storageKey], (result) => {
         if (chrome.runtime.lastError) {
           console.error('Error retrieving existing data:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
           return;
         }
-        const existingData = result[videoId] || {};
+        const existingData = result[storageKey] || {};
         const updatedData = { ...existingData, processedTranscript };
-        data[videoId] = updatedData;
+        data[storageKey] = updatedData;
 
         chrome.storage.local.set(data, () => {
           if (chrome.runtime.lastError) {
@@ -128,14 +134,16 @@ class StorageUtils {
       return Promise.reject('Invalid video URL.');
     }
 
+    const storageKey = this.generateStorageKey(videoId);
+
     return new Promise((resolve, reject) => {
-      chrome.storage.local.get([videoId], (result) => {
+      chrome.storage.local.get([storageKey], (result) => {
         if (chrome.runtime.lastError) {
           console.error('Error loading transcripts:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
         } else {
-          const data = result[videoId] || {};
-          console.log(`Transcripts loaded for Video ID ${videoId}:`, data);
+          const data = result[storageKey] || {};
+          console.log(`Transcripts loaded for Storage Key ${storageKey}:`, data);
           resolve({
             rawTranscript: data.rawTranscript || null,
             processedTranscript: data.processedTranscript || null,
@@ -158,13 +166,15 @@ class StorageUtils {
       return Promise.reject('Invalid video URL.');
     }
 
+    const storageKey = this.generateStorageKey(videoId);
+
     return new Promise((resolve, reject) => {
-      chrome.storage.local.remove([videoId], () => {
+      chrome.storage.local.remove([storageKey], () => {
         if (chrome.runtime.lastError) {
           console.error('Error removing transcripts:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
         } else {
-          console.log('Transcripts removed successfully for Video ID:', videoId);
+          console.log('Transcripts removed successfully for Storage Key:', storageKey);
           resolve();
         }
       });
