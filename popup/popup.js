@@ -12,7 +12,6 @@ const processBtn = document.getElementById('process-btn');
 const loader = document.getElementById('loader');
 const tabButtons = document.querySelectorAll('.tab-button');
 const tabContents = document.querySelectorAll('.tab-content');
-
 const openaiApiKeyInput = document.getElementById('openai-api-key');
 const anthropicApiKeyInput = document.getElementById('anthropic-api-key');
 const saveKeysBtn = document.getElementById('save-keys-btn');
@@ -75,6 +74,7 @@ document.addEventListener('DOMContentLoaded', initializePopup);
 async function initializePopup() {
   try {
     await llmUtils.loadApiKeys();
+    console.log('about to loadApiKeysIntoUI');
     loadApiKeysIntoUI();
     setupTabs();
     setupPagination();

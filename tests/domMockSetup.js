@@ -30,11 +30,11 @@ export function domMockSetup() {
           <div id="api-key-inputs">
             <div class="api-key-group">
               <label for="openai-api-key">OpenAI API Key:</label>
-              <input type="password" id="openai-api-key" placeholder="Enter your OpenAI API key">
+              <input type="password" id="openai-api-key" placeholder="Enter your OpenAI API key" value="">
             </div>
             <div class="api-key-group">
               <label for="anthropic-api-key">Anthropic Claude API Key:</label>
-              <input type="password" id="anthropic-api-key" placeholder="Enter your Anthropic API key">
+              <input type="password" id="anthropic-api-key" placeholder="Enter your Anthropic API key" value="">
             </div>
             <button id="save-keys-btn">Save API Keys</button>
           </div>
