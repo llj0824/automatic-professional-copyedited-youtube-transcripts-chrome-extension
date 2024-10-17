@@ -15,11 +15,5 @@
   },
   "scripts": {
     "test": "jest"
-  },
-  "jest": {
-    "testEnvironment": "jsdom",
-    "transform": {
-      "^.+\\.jsx?$": "babel-jest"
-    }
   }
 }
