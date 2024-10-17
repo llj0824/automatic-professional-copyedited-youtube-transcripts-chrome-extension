@@ -4,12 +4,31 @@
  * Below is a simplified example using Jest and jsdom.
  */
 
+import { domMockSetup } from './domMockSetup';
+// Set up the DOM before importing the module
+beforeAll(() => {
+  console.log('beforeAll')
+  domMockSetup();
+});
+// import './setupJestMocks'; // Ensure this path is correct
 import StorageUtils from '../popup/storage_utils.js';
 import { initializePopup, parseTranscript, paginateTranscript } from '../popup/popup.js';
-import { domMockSetup } from './domMockSetup';
+import LLM_API_Utils from '../popup/llm_api_utils.js';
+
+// Mock LLM_API_Utils
+jest.mock('../popup/llm_api_utils.js', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      loadApiKeys: jest.fn().mockResolvedValue(),
+      call_llm: jest.fn().mockResolvedValue('Mocked LLM response'),
+      // Add other methods if needed
+    };
+  });
+});
+
 
 beforeEach(() => {
-  domMockSetup();
+  jest.clearAllMocks();
 
   // Reset any global variables if used
   global.segments = [];
@@ -29,7 +48,7 @@ describe('Popup Integration Tests', () => {
     storageUtils = new StorageUtils();
   });
 
-  it('should initialize popup and load existing transcripts', async () => {
+  it.only('should initialize popup and load existing transcripts', async () => {
     // Set up DOM elements
     document.body.innerHTML = `
       <input id="transcript-input" />
