@@ -188,6 +188,7 @@ function parseTranscript(rawTranscript) {
     return null;
   }).filter(item => item !== null);
   console.log('Parsed Transcript:', transcript);
+  return transcript
 }
 
 // Paginate the transcript into segments based on SEGMENT_DURATION
@@ -411,3 +412,7 @@ function setupProcessButton() {
     }
   });
 }
+
+
+// Export the functions for testing purposes
+export { initializePopup, parseTranscript, paginateTranscript };

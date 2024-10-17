@@ -6,6 +6,16 @@
 
 import StorageUtils from '../popup/storage_utils.js';
 import { initializePopup, parseTranscript, paginateTranscript } from '../popup/popup.js';
+import { domMockSetup } from './domMockSetup';
+
+beforeEach(() => {
+  domMockSetup();
+
+  // Reset any global variables if used
+  global.segments = [];
+  global.processedSegments = [];
+  global.currentSegmentIndex = 0;
+});
 
 // Mock dependencies
 jest.mock('../popup/storage_utils.js');
