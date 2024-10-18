@@ -45,16 +45,148 @@ describe('Popup Integration Tests with DI', () => {
     initializePopup(document, mockStorageUtils);
   });
 
-  it.only('should parse transcript correctly', () => {
-    const rawTranscript = '[00:00] Hello\n[00:05] World';
-    const expected = [
-      { timestamp: 0, text: 'Hello' },
-      { timestamp: 5, text: 'World' },
-    ];
 
-    const parsed = parseTranscript(rawTranscript);
+  describe('Transcript Parsing and Pagination', () => {
+    it('should parse raw transcript correctly and result in one page display in the transcript area, when available', async () => {
+      // Mock storageUtils methods
+      mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue('abcdefghijk');
+      mockStorageUtils.loadTranscriptsById.mockResolvedValue({ rawTranscript: '[00:00] Hello\n[00:05] World\n' });
+  
+      // Re-initialize with updated mocks
+      await initializePopup(document, mockStorageUtils);
+  
+      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[00:00] Hello\n[00:05] World');
+    });
 
-    expect(parsed).toEqual(expected);
+    it('if raw transcripts contains multiple segments, each segment should display in the transcript area, when available', async () => {
+      // Mock storageUtils methods
+      mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue('abcdefghijk');
+      mockStorageUtils.loadTranscriptsById.mockResolvedValue({
+        rawTranscript: '[00:00] Segment1\n[15:00] Segment2\n[30:00] Segment3\n'
+      });
+  
+      // Re-initialize with updated mocks
+      await initializePopup(document, mockStorageUtils);
+  
+      // Check the first segment is displayed initially
+      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[00:00] Segment1');
+  
+      // Simulate clicking the next button to go to the second segment
+      document.getElementById('next-btn').click();
+      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[15:00] Segment2');
+  
+      // Simulate clicking the next button to go to the third segment
+      document.getElementById('next-btn').click();
+      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[30:00] Segment3');
+  
+      // Simulate clicking the previous button to go back to the second segment
+      document.getElementById('prev-btn').click();
+      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[15:00] Segment2');
+    });
+
+    
+    it.only('should parse transcript correctly and result in three pages', () => {
+      const rawTranscript = 
+        '[00:00] Start\n' +
+        '[14:59] End of page 1\n' +
+        '[15:00] Page 2\n' +
+        '[29:59] End of page 2\n' +
+        '[30:00] Page 3\n' +
+        '[44:59] End of page 3\n' +
+        '[45:00] Page 4\n' +
+        '[59:59] End of page 4\n';
+      const expected = [
+        { timestamp: 0, text: 'Start' },
+        { timestamp: 899, text: 'End of page 1' },
+        { timestamp: 900, text: 'Page 2' },
+        { timestamp: 1799, text: 'End of page 2' },
+        { timestamp: 1800, text: 'Page 3' },
+        { timestamp: 2699, text: 'End of page 3' },
+        { timestamp: 2700, text: 'Page 4' },
+        { timestamp: 3599, text: 'End of page 4' },
+      ];
+
+      const parsed = parseTranscript(rawTranscript);
+
+      expect(parsed).toEqual(expected);
+
+      // Paginate the transcript
+      const paginatedSegments = paginateTranscript(); // Capture the returned segments
+
+      // Validate pagination
+      expect(paginatedSegments.length).toBe(4); // Three pages
+
+      expect(paginatedSegments[0]).toBe('[00:00] Start\n[14:59] End of page 1');
+      expect(paginatedSegments[1]).toBe('[15:00] Page 2\n[29:59] End of page 2');
+      expect(paginatedSegments[2]).toBe('[30:00] Page 3\n[44:59] End of page 3');
+      expect(paginatedSegments[3]).toBe('[45:00] Page 4\n[59:59] End of page 4');
+    });
+  });
+
+
+  describe('Processed Transcript Toggle Segments', () => {
+    it('should toggle processed transcript segments correctly', async () => {
+      // Mock the processed transcript
+      global.processedSegments = [
+        '[00:00 -> 00:05]\nSpeaker1:\nHello\n',
+        '[00:05 -> 00:10]\nSpeaker2:\nWorld\n',
+        '[00:10 -> 00:15]\nSpeaker1:\nAgain\n',
+      ];
+      global.currentSegmentIndex = 0;
+
+      // Add processed display element to the DOM
+      const processedDisplay = document.createElement('pre');
+      processedDisplay.id = 'processed-display';
+      document.body.appendChild(processedDisplay);
+
+      // Add segment info element
+      const segmentInfo = document.createElement('div');
+      segmentInfo.id = 'segment-info';
+      document.body.appendChild(segmentInfo);
+
+      // Add next and prev buttons
+      const nextBtn = document.createElement('button');
+      nextBtn.id = 'next-btn';
+      document.body.appendChild(nextBtn);
+
+      const prevBtn = document.createElement('button');
+      prevBtn.id = 'prev-btn';
+      document.body.appendChild(prevBtn);
+
+      // Setup pagination for processed segments
+      const tabButtons = [];
+      const tabContents = [];
+      setupPagination(prevBtn, nextBtn);
+
+      // Simulate active tab for processed transcript
+      const tabContent = document.createElement('div');
+      tabContent.id = 'processed-tab';
+      tabContent.classList.remove('hidden');
+      document.body.appendChild(tabContent);
+
+      // Initial display
+      displayRawOrProcessedSegment();
+      expect(processedDisplay.textContent).toBe('[00:00 -> 00:05]\nSpeaker1:\nHello\n');
+      expect(segmentInfo.textContent).toBe('Segment 1 of 3');
+
+      // Click next to go to second segment
+      nextBtn.click();
+      expect(global.currentSegmentIndex).toBe(1);
+      expect(processedDisplay.textContent).toBe('[00:05 -> 00:10]\nSpeaker2:\nWorld\n');
+      expect(segmentInfo.textContent).toBe('Segment 2 of 3');
+
+      // Click next to go to third segment
+      nextBtn.click();
+      expect(global.currentSegmentIndex).toBe(2);
+      expect(processedDisplay.textContent).toBe('[00:10 -> 00:15]\nSpeaker1:\nAgain\n');
+      expect(segmentInfo.textContent).toBe('Segment 3 of 3');
+
+      // Click prev to go back to second segment
+      prevBtn.click();
+      expect(global.currentSegmentIndex).toBe(1);
+      expect(processedDisplay.textContent).toBe('[00:05 -> 00:10]\nSpeaker2:\nWorld\n');
+      expect(segmentInfo.textContent).toBe('Segment 2 of 3');
+    });
   });
 
   it('should paginate transcript correctly', () => {
@@ -75,16 +207,6 @@ describe('Popup Integration Tests with DI', () => {
     expect(segments[0]).toBe('[00:00] Hello\n[00:05] World\n');
   });
 
-  it.only('raw transcript automatically should display in the transcript area, when available', async () => {
-    // Mock storageUtils methods
-    mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue('abcdefghijk');
-    mockStorageUtils.loadTranscriptsById.mockResolvedValue({ rawTranscript: '[00:00] Hello\n[00:05] World\n' });
-
-    // Re-initialize with updated mocks
-    await initializePopup(document, mockStorageUtils);
-
-    expect(document.getElementById('transcript-display').textContent.trim()).toBe('[00:00] Hello\n[00:05] World');
-  });
 
   it('should store processed transcripts correctly', async () => {
     const processedTranscript = 'Processed transcript content';
