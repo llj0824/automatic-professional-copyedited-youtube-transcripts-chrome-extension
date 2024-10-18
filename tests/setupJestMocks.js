@@ -1,6 +1,11 @@
 // tests/setupJest.js
 
-// Mocking chrome APIs
+
+
+import { domMockSetup } from './domMockSetup';
+domMockSetup();
+
+
 global.chrome = {
   storage: {
     local: {
