@@ -1,13 +1,15 @@
 // jest.config.js
 
-export default {
+module.exports = {
   testEnvironment: 'jsdom',
   transform: {
     '^.+\\.jsx?$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!node-fetch)',
-    '/node_modules/(?!data-uri-to-buffer)'
+    'node_modules/(?!(node-fetch|fetch-blob|data-uri-to-buffer|formdata-polyfill)/)',
   ],
   setupFilesAfterEnv: ['<rootDir>/tests/setupJestMocks.js'],
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
+  },
 };

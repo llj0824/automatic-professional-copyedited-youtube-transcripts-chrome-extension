@@ -4,6 +4,11 @@ import YoutubeTranscriptRetriever from '../popup/youtube_transcript_retrival.js'
 // // Mock the global fetch function
 // global.fetch = fetch;
 
+import { TextDecoder, TextEncoder } from 'text-encoding';
+
+global.TextDecoder = TextDecoder;
+global.TextEncoder = TextEncoder;
+
 describe('YoutubeTranscriptRetriever', () => {
   describe('fetchRawTranscript', () => {
     it.only('should fetch and return the raw transcript as a string for a valid video ID', async () => {
