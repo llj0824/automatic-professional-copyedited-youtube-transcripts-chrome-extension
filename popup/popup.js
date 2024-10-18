@@ -408,40 +408,40 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
         return;
       }
 
-      // Check if the processedTranscript exists and is sufficient
-      if (transcripts.processedTranscript) {
-        const totalWords = transcripts.processedTranscript.split(/\s+/).length;
-        // Define a threshold for "sufficient" processing
-        const wordThreshold = 1000; // Example threshold
-        if (totalWords >= wordThreshold) {
-          alert('Processed transcript is already sufficient.');
-          return;
-        }
-      }
-
       const loader = document.getElementById('loader');
       loader.classList.remove('hidden');
 
-      let processedTranscript = transcripts.processedTranscript || '';
-
-      // If processed transcript is missing or insufficient, process it
-      if (!processedTranscript || processedTranscript.split(/\s+/).length < 1000) {
-        const response = await llmUtils.call_llm(selectedModel, llmSystemRole, transcripts.rawTranscript);
-        processedTranscript = response;
-        await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
-        processedTranscriptSegments = paginateProcessedTranscript(processedTranscript);
-        alert('Processed transcript updated successfully!');
+      // Process only the current segment
+      const currentRawSegment = rawTranscriptSegments[currentSegmentIndex];
+      
+      // Check if the current segment is already processed sufficiently
+      if (processedTranscriptSegments[currentSegmentIndex] && 
+          processedTranscriptSegments[currentSegmentIndex].split(/\s+/).length >= 100) {
+        alert('Current segment is already processed sufficiently.');
+        return;
       }
 
+      const response = await llmUtils.call_llm(selectedModel, llmSystemRole, currentRawSegment);
+      
+      // Update the processed segment
+      processedTranscriptSegments[currentSegmentIndex] = response;
+
+      // Update the display for the current segment
+      processedDisplay.textContent = response;
+
+      // Combine all processed segments and save
+      const processedTranscript = processedTranscriptSegments.join('\n\n');
+      await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
+
+      alert('Current segment processed successfully!');
+
       // Update the display
-      processedTranscriptSegments = paginateProcessedTranscript(processedTranscript);
-      currentSegmentIndex = 0;
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updateSegmentInfo();
     } catch (error) {
       console.error('Error processing transcript:', error);
-      alert('Failed to process the transcript.');
+      alert('Failed to process the current segment.');
     } finally {
       const loader = document.getElementById('loader');
       loader.classList.add('hidden');
