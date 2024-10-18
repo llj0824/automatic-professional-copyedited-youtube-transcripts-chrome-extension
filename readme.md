@@ -42,5 +42,11 @@ MIT License
 
 ## TO-DO
 
-Possibly
-1. add slider for segment duration
+### Features
+0. [top priority] autoparse transcript
+0. [very low priority] add slider for segment duration
+
+### Bugs
+1. if no processed transcripts sets segments to 0, even when there is a raw transcript for that page.
+2. loading saved processed transcripts still not working
+

@@ -6,6 +6,8 @@ import StorageUtils from './storage_utils.js';
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, openaiApiKeyInput, anthropicApiKeyInput, saveKeysBtn, modelSelect, transcriptInput, loadTranscriptBtn;
 
+
+let isRawTranscriptVisible = true; // true for 'raw transcript', false for 'processed transcript'
 let transcript = [];
 let rawTranscriptSegments = [];
 let processedTranscriptSegments = [];
@@ -86,10 +88,10 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     await llmUtils.loadApiKeys();
     loadApiKeysIntoUI(doc);
     setupTabs(doc, tabButtons, tabContents);
-    setupPagination(prevBtn, nextBtn, segmentInfo);
     setupProcessButton(processBtn, modelSelect, storageUtils);
     setupSaveKeysButton(saveKeysBtn, openaiApiKeyInput, anthropicApiKeyInput);
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
+    setupPagination(prevBtn, nextBtn, segmentInfo);
 
     // Load existing transcripts if available
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
@@ -101,9 +103,6 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
         transcriptDisplay.textContent = transcripts.rawTranscript;
         parseTranscript(transcripts.rawTranscript);
         paginateTranscript();
-        setRawAndProcessedTranscriptText();
-        updatePaginationButtons();
-        alert('Raw transcript loaded from storage.');
       }
       if (transcripts.processedTranscript) {
         processedTranscriptSegments = paginateProcessedTranscript(transcripts.processedTranscript);
@@ -111,9 +110,12 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
           processedDisplay.textContent = processedTranscriptSegments[0];
         }
       }
+      setRawAndProcessedTranscriptText();
+      updatePaginationButtons();
+      updateSegmentInfo();
     } else {
       console.warn('No YouTube Video ID found.');
-    }
+    } 
   } catch (error) {
     console.error('Error initializing popup:', error);
     transcriptDisplay.textContent = 'Error initializing popup.';
@@ -317,36 +319,39 @@ function updatePaginationButtons() {
   nextBtn.disabled = currentSegmentIndex === (getCurrentDisplaySegments().length - 1);
 }
 
+
 // Get current display segments based on active tab
 function getCurrentDisplaySegments() {
-  if (tabContents[0].classList.contains('hidden')) {
-    return rawTranscriptSegments;
-  } else {
-    return processedTranscriptSegments;
+  return isRawTranscriptVisible ? rawTranscriptSegments : processedTranscriptSegments;
+}
+
+// Define the event handler functions outside of setupPagination
+function handlePrevClick() {
+  if (currentSegmentIndex > 0) {
+    console.log('prevBtn clicked');
+    currentSegmentIndex--;
+    setRawAndProcessedTranscriptText();
+    updatePaginationButtons();
+    updateSegmentInfo();
+  }
+}
+
+function handleNextClick() {
+  const currentSegments = getCurrentDisplaySegments();
+  if (currentSegmentIndex < currentSegments.length - 1) {
+    console.log('nextBtn clicked');
+    currentSegmentIndex++;
+    setRawAndProcessedTranscriptText();
+    updatePaginationButtons();
+    updateSegmentInfo();
   }
 }
 
 // Setup pagination button events
 function setupPagination(prevBtn, nextBtn) {
-  prevBtn.addEventListener('click', () => {
-    if (currentSegmentIndex > 0) {
-      currentSegmentIndex--;
-      setRawAndProcessedTranscriptText();
-      updatePaginationButtons();
-      updateSegmentInfo();
-    }
-  });
-
-  nextBtn.addEventListener('click', () => {
-    console.log('nextBtn clicked');
-    const currentSegments = getCurrentDisplaySegments();
-    if (currentSegmentIndex < currentSegments.length - 1) {
-      currentSegmentIndex++;
-      setRawAndProcessedTranscriptText();
-      updatePaginationButtons();
-      updateSegmentInfo();
-    }
-  });
+  // Add event listeners
+  prevBtn.addEventListener('click', handlePrevClick);
+  nextBtn.addEventListener('click', handleNextClick);
 }
 
 // Update segment info display
@@ -361,16 +366,23 @@ function setupTabs(doc, tabButtons, tabContents) {
     button.addEventListener('click', () => {
       // Remove active class from all buttons
       tabButtons.forEach(btn => btn.classList.remove('active'));
-      // Hide all tab contents
-      tabContents.forEach(content => content.classList.add('hidden'));
       // Add active class to clicked button
       button.classList.add('active');
+
+      // Hide all tab contents
+      tabContents.forEach(content => content.classList.add('hidden'));
+      
       // Show corresponding tab content
       const tab = button.getAttribute('data-tab');
       const tabContent = doc.getElementById(tab);
       if (tabContent) {
         tabContent.classList.remove('hidden');
       }
+
+      // Update the isRawTranscriptVisible state
+      isRawTranscriptVisible = (tab === 'raw-tab');
+
+      // Update the display based on the new state
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updateSegmentInfo();

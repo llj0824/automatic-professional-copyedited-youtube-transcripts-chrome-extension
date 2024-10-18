@@ -4,7 +4,7 @@
  */
 
 import StorageUtils from '../popup/storage_utils.js';
-import { initializePopup, parseTranscript, paginateTranscript } from '../popup/popup.js';
+import { initializePopup, parseTranscript, paginateTranscript,handlePrevClick,handleNextClick } from '../popup/popup.js';
 
 // Import the setup for Jest mocks, including DOM setup
 import './setupJestMocks.js';
@@ -62,30 +62,31 @@ describe('Popup Integration Tests with DI', () => {
       // Mock storageUtils methods
       mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue('abcdefghijk');
       mockStorageUtils.loadTranscriptsById.mockResolvedValue({
-        rawTranscript: '[00:00] Segment1\n[15:00] Segment2\n[30:00] Segment3\n'
+        rawTranscript: '[00:00] page1\n[15:00] page2\n[30:00] page3\n'
       });
   
       // Re-initialize with updated mocks
       await initializePopup(document, mockStorageUtils);
   
       // Check the first segment is displayed initially
-      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[00:00] Segment1');
+      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[00:00] page1');
   
       // Simulate clicking the next button to go to the second segment
       document.getElementById('next-btn').click();
-      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[15:00] Segment2');
+      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[15:00] page2');
   
       // Simulate clicking the next button to go to the third segment
       document.getElementById('next-btn').click();
-      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[30:00] Segment3');
+      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[30:00] page3');
   
       // Simulate clicking the previous button to go back to the second segment
       document.getElementById('prev-btn').click();
-      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[15:00] Segment2');
+      expect(document.getElementById('transcript-display').textContent.trim()).toBe('[15:00] page2');
     });
 
     
-    it.only('should parse transcript correctly and result in three pages', () => {
+    it('should parse transcript correctly and result in three pages', () => {
+      // Note this will fail if we update the SEGMENT_DURATION...
       const rawTranscript = 
         '[00:00] Start\n' +
         '[14:59] End of page 1\n' +
