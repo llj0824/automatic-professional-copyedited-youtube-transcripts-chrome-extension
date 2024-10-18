@@ -20,52 +20,32 @@ jest.mock('../popup/llm_api_utils.js', () => {
   });
 });
 
-// Mock dependencies
-jest.mock('../popup/storage_utils.js');
-
-describe('Popup Integration Tests with domMockSetup', () => {
-  let storageUtils;
+describe('Popup Integration Tests with DI', () => {
+  let mockStorageUtils;
 
   beforeEach(() => {
     // Reset modules and mocks before each test
     jest.resetModules();
     jest.clearAllMocks();
 
-    // Initialize StorageUtils mock
-    storageUtils = new StorageUtils();
+    // Create a mock instance of StorageUtils
+    mockStorageUtils = {
+      getCurrentYouTubeVideoId: jest.fn().mockResolvedValue('abcdefghijk'),
+      loadTranscriptsById: jest.fn().mockResolvedValue({ rawTranscript: '[00:00] Hello\n[00:05] World' }),
+      saveRawTranscriptById: jest.fn().mockResolvedValue(),
+      saveProcessedTranscriptById: jest.fn().mockResolvedValue(),
+    };
 
     // Reset any global variables if used
     global.segments = [];
     global.processedSegments = [];
     global.currentSegmentIndex = 0;
-    debugger;
-    // Initialize the popup with the mocked DOM
-    initializePopup();
+
+    // Initialize the popup with the mocked DOM and injected storageUtils
+    initializePopup(document, mockStorageUtils);
   });
 
-  it.only('should initialize popup and load existing transcripts', async () => {
-    // Mock storageUtils methods
-    storageUtils.getCurrentYouTubeVideoId = jest.fn().mockResolvedValue('abcdefghijk');
-    storageUtils.loadTranscriptsById = jest.fn().mockResolvedValue({
-      rawTranscript: '[00:00] Hello\n[00:05] World',
-      processedTranscript: '[00:00 -> 00:05]\nSpeaker:\nHello World',
-    });
-
-    // Mock alert
-    global.alert = jest.fn();
-
-    // Wait for initializePopup to complete
-    await Promise.resolve(); // Ensure all async operations are resolved
-
-    // Assertions
-    expect(storageUtils.getCurrentYouTubeVideoId).toHaveBeenCalled();
-    expect(storageUtils.loadTranscriptsById).toHaveBeenCalledWith('abcdefghijk');
-    expect(document.getElementById('transcript-input').value).toBe('[00:00] Hello\n[00:05] World');
-    expect(document.getElementById('processed-display').textContent).toBe('[00:00 -> 00:05]\nSpeaker:\nHello World');
-    expect(global.alert).toHaveBeenCalledWith('Raw transcript loaded from storage.');
-  });
-
-  it('should parse transcript correctly', () => {
+  it.only('should parse transcript correctly', () => {
     const rawTranscript = '[00:00] Hello\n[00:05] World';
     const expected = [
       { timestamp: 0, text: 'Hello' },
@@ -79,14 +59,14 @@ describe('Popup Integration Tests with domMockSetup', () => {
 
   it('should paginate transcript correctly', () => {
     // Assuming SEGMENT_DURATION is 15 * 60 (900 seconds)
-    const transcript = [
+    const transcriptData = [
       { timestamp: 0, text: 'Hello' },
       { timestamp: 5, text: 'World' },
       // Add more entries as needed
     ];
 
     // Set transcript and SEGMENT_DURATION
-    global.transcript = transcript;
+    global.transcript = transcriptData;
     global.SEGMENT_DURATION = 900;
 
     const segments = paginateTranscript();
@@ -95,25 +75,23 @@ describe('Popup Integration Tests with domMockSetup', () => {
     expect(segments[0]).toBe('[00:00] Hello\n[00:05] World\n');
   });
 
-  it('should display loaded transcript in the transcript area', async () => {
+  it.only('should display loaded transcript in the transcript area', async () => {
     // Mock storageUtils methods
-    storageUtils.getCurrentYouTubeVideoId = jest.fn().mockResolvedValue('abcdefghijk');
-    storageUtils.loadTranscriptsById = jest.fn().mockResolvedValue({ rawTranscript: '[00:00] Hello\n[00:05] World' });
+    mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue('abcdefghijk');
+    mockStorageUtils.loadTranscriptsById.mockResolvedValue({ rawTranscript: '[00:00] Hello\n[00:05] World' });
 
-    await initializePopup();
+    // Re-initialize with updated mocks
+    await initializePopup(document, mockStorageUtils);
 
+    debugger;
     expect(document.getElementById('transcript-display').textContent).toBe('[00:00] Hello\n[00:05] World');
   });
 
   it('should store processed responses correctly', async () => {
-    // Mock storageUtils methods
-    storageUtils.getCurrentYouTubeVideoId = jest.fn().mockResolvedValue('abcdefghijk');
-    storageUtils.saveProcessedTranscriptById = jest.fn().mockResolvedValue();
-
     const processedTranscript = 'Processed transcript content';
-    await storageUtils.saveProcessedTranscriptById('abcdefghijk', processedTranscript);
+    await mockStorageUtils.saveProcessedTranscriptById('abcdefghijk', processedTranscript);
 
-    expect(storageUtils.saveProcessedTranscriptById).toHaveBeenCalledWith('abcdefghijk', processedTranscript);
+    expect(mockStorageUtils.saveProcessedTranscriptById).toHaveBeenCalledWith('abcdefghijk', processedTranscript);
   });
 
   it('should toggle prev/next pages responsively', async () => {

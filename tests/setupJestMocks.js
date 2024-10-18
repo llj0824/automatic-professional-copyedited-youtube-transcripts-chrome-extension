@@ -24,3 +24,6 @@ global.chrome = {
   },
   // Mock other chrome APIs as required
 };
+
+// Mock window.alert
+global.alert = jest.fn();
