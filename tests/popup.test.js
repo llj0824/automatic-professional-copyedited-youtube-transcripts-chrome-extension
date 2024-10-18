@@ -75,25 +75,25 @@ describe('Popup Integration Tests with DI', () => {
     expect(segments[0]).toBe('[00:00] Hello\n[00:05] World\n');
   });
 
-  it.only('should display loaded transcript in the transcript area', async () => {
+  it.only('raw transcript automatically should display in the transcript area, when available', async () => {
     // Mock storageUtils methods
     mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue('abcdefghijk');
-    mockStorageUtils.loadTranscriptsById.mockResolvedValue({ rawTranscript: '[00:00] Hello\n[00:05] World' });
+    mockStorageUtils.loadTranscriptsById.mockResolvedValue({ rawTranscript: '[00:00] Hello\n[00:05] World\n' });
 
     // Re-initialize with updated mocks
     await initializePopup(document, mockStorageUtils);
 
-    expect(document.getElementById('transcript-display').textContent).toBe('[00:00] Hello\n[00:05] World');
+    expect(document.getElementById('transcript-display').textContent.trim()).toBe('[00:00] Hello\n[00:05] World');
   });
 
-  it('should store processed responses correctly', async () => {
+  it('should store processed transcripts correctly', async () => {
     const processedTranscript = 'Processed transcript content';
     await mockStorageUtils.saveProcessedTranscriptById('abcdefghijk', processedTranscript);
 
     expect(mockStorageUtils.saveProcessedTranscriptById).toHaveBeenCalledWith('abcdefghijk', processedTranscript);
   });
 
-  it('should toggle prev/next pages responsively', async () => {
+  it('should toggle raw transcripts prev/next pages responsively', async () => {
     // Set up DOM elements
     document.body.innerHTML = `
       <button id="prev-btn"></button>

@@ -101,7 +101,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
         transcriptDisplay.textContent = transcripts.rawTranscript;
         parseTranscript(transcripts.rawTranscript);
         paginateTranscript();
-        displayRawOrProcessedSegment();
+        setRawAndProcessedTranscriptText();
         updatePaginationButtons();
         alert('Raw transcript loaded from storage.');
       }
@@ -156,7 +156,7 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUt
     }
     parseTranscript(rawTranscript);
     paginateTranscript();
-    displayRawOrProcessedSegment();
+    setRawAndProcessedTranscriptText();
     updatePaginationButtons();
 
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
@@ -176,17 +176,23 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUt
 /**
  * Parse the raw transcript into an array of objects with timestamp and text
  * @param {string} rawTranscript 
+ * @returns {Array} Array of parsed transcript objects with timestamp and text
+ * 
+ * This function expects the timestamp in the format [mm:ss] or [hh:mm:ss]
+ * It handles both formats and converts them to seconds.
  */
 function parseTranscript(rawTranscript) {
   transcript = rawTranscript.split('\n').map(line => {
-    const match = line.match(/\[(\d+):(\d+)\]\s*(.*)/);
+    // This regex expects timestamps in the format [mm:ss] or [hh:mm:ss]
+    const match = line.match(/\[(?:(\d+):)?(\d+):(\d+)\]\s*(.*)/);
     if (match) {
-      const minutes = parseInt(match[1], 10);
-      const seconds = parseInt(match[2], 10);
-      const timeInSeconds = minutes * 60 + seconds;
+      const hours = parseInt(match[1] || '0', 10); // If hours are not provided, default to 0
+      const minutes = parseInt(match[2], 10);
+      const seconds = parseInt(match[3], 10);
+      const timeInSeconds = hours * 3600 + minutes * 60 + seconds;
       return {
         timestamp: timeInSeconds,
-        text: match[3]
+        text: match[4]
       };
     }
     return null;
@@ -200,25 +206,41 @@ function paginateTranscript() {
   let segmentStartTime = 0;
   let segmentEndTime = SEGMENT_DURATION;
 
+  // Iterate through each item in the transcript
   transcript.forEach(item => {
+    // Check if the item's timestamp is within the current segment
     if (item.timestamp >= segmentStartTime && item.timestamp < segmentEndTime) {
+      // If the current segment is not initialized, initialize it
       if (!segments[segments.length - 1]) {
         segments.push('');
       }
+      // Append the formatted timestamp and text to the current segment
       segments[segments.length - 1] += `[${formatTime(item.timestamp)}] ${item.text}\n`;
     } else if (item.timestamp >= segmentEndTime) {
+      // Move to the next segment
       segmentStartTime += SEGMENT_DURATION;
       segmentEndTime += SEGMENT_DURATION;
+      // Start a new segment with the formatted timestamp and text
       segments.push(`[${formatTime(item.timestamp)}] ${item.text}\n`);
     }
   });
 
+  // If no segments were created, add a default message
   if (segments.length === 0) {
     segments.push("No transcript available.");
   }
 
+  // Reset the current segment index and update the segment info
   currentSegmentIndex = 0;
   updateSegmentInfo();
+}
+
+// Format time from seconds to mm:ss with two digits for minutes and seconds
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
+
+  return `${mins}:${secs}`;
 }
 
 /**
@@ -261,24 +283,12 @@ function paginateProcessedTranscript(processedTranscript) {
   return paginated;
 }
 
-// Format time from seconds to mm:ss
-function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
 
 // Display the current segment or processed segment
-function displayRawOrProcessedSegment() {
-  if (tabContents[0].classList.contains('hidden')) {
-    transcriptDisplay.textContent = segments[currentSegmentIndex]  || "No transcript available.";
-  } else {
-    if (processedSegments.length > 0) {
-      processedDisplay.textContent = processedSegments[currentSegmentIndex] || "Processed output will appear here.";
-    } else {
-      processedDisplay.textContent = "Processed output will appear here.";
-    }
-  }
+function setRawAndProcessedTranscriptText() {
+  // Visibility is handled separately via CSS classes
+  transcriptDisplay.textContent = segments[currentSegmentIndex] || "No transcript available.";
+  processedDisplay.textContent = processedSegments[currentSegmentIndex] || "Processed output will appear here.";
 }
 
 // Update pagination buttons
@@ -301,7 +311,7 @@ function setupPagination(prevBtn, nextBtn) {
   prevBtn.addEventListener('click', () => {
     if (currentSegmentIndex > 0) {
       currentSegmentIndex--;
-      displayRawOrProcessedSegment();
+      setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updateSegmentInfo();
     }
@@ -311,7 +321,7 @@ function setupPagination(prevBtn, nextBtn) {
     const currentSegments = getCurrentDisplaySegments();
     if (currentSegmentIndex < currentSegments.length - 1) {
       currentSegmentIndex++;
-      displayRawOrProcessedSegment();
+      setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updateSegmentInfo();
     }
@@ -340,7 +350,7 @@ function setupTabs(doc, tabButtons, tabContents) {
       if (tabContent) {
         tabContent.classList.remove('hidden');
       }
-      displayRawOrProcessedSegment();
+      setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updateSegmentInfo();
     });
@@ -393,7 +403,7 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       // Update the display
       processedSegments = paginateProcessedTranscript(processedTranscript);
       currentSegmentIndex = 0;
-      displayRawOrProcessedSegment();
+      setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updateSegmentInfo();
     } catch (error) {
