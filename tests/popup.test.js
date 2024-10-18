@@ -83,7 +83,6 @@ describe('Popup Integration Tests with DI', () => {
     // Re-initialize with updated mocks
     await initializePopup(document, mockStorageUtils);
 
-    debugger;
     expect(document.getElementById('transcript-display').textContent).toBe('[00:00] Hello\n[00:05] World');
   });
 

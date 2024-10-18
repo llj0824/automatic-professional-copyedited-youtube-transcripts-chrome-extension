@@ -98,9 +98,10 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
       const transcripts = await storageUtils.loadTranscriptsById(videoId);
       if (transcripts.rawTranscript) {
         transcriptInput.value = transcripts.rawTranscript;
+        transcriptDisplay.textContent = transcripts.rawTranscript;
         parseTranscript(transcripts.rawTranscript);
         paginateTranscript();
-        displaySegment();
+        displayRawOrProcessedSegment();
         updatePaginationButtons();
         alert('Raw transcript loaded from storage.');
       }
@@ -155,7 +156,7 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUt
     }
     parseTranscript(rawTranscript);
     paginateTranscript();
-    displaySegment();
+    displayRawOrProcessedSegment();
     updatePaginationButtons();
 
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
@@ -268,7 +269,7 @@ function formatTime(seconds) {
 }
 
 // Display the current segment or processed segment
-function displaySegment() {
+function displayRawOrProcessedSegment() {
   if (tabContents[0].classList.contains('hidden')) {
     transcriptDisplay.textContent = segments[currentSegmentIndex]  || "No transcript available.";
   } else {
@@ -300,7 +301,7 @@ function setupPagination(prevBtn, nextBtn) {
   prevBtn.addEventListener('click', () => {
     if (currentSegmentIndex > 0) {
       currentSegmentIndex--;
-      displaySegment();
+      displayRawOrProcessedSegment();
       updatePaginationButtons();
       updateSegmentInfo();
     }
@@ -310,7 +311,7 @@ function setupPagination(prevBtn, nextBtn) {
     const currentSegments = getCurrentDisplaySegments();
     if (currentSegmentIndex < currentSegments.length - 1) {
       currentSegmentIndex++;
-      displaySegment();
+      displayRawOrProcessedSegment();
       updatePaginationButtons();
       updateSegmentInfo();
     }
@@ -339,7 +340,7 @@ function setupTabs(doc, tabButtons, tabContents) {
       if (tabContent) {
         tabContent.classList.remove('hidden');
       }
-      displaySegment();
+      displayRawOrProcessedSegment();
       updatePaginationButtons();
       updateSegmentInfo();
     });
@@ -392,7 +393,7 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       // Update the display
       processedSegments = paginateProcessedTranscript(processedTranscript);
       currentSegmentIndex = 0;
-      displaySegment();
+      displayRawOrProcessedSegment();
       updatePaginationButtons();
       updateSegmentInfo();
     } catch (error) {
