@@ -3,21 +3,8 @@
 import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
 
-const transcriptDisplay = document.getElementById('transcript-display');
-const processedDisplay = document.getElementById('processed-display');
-const prevBtn = document.getElementById('prev-btn');
-const nextBtn = document.getElementById('next-btn');
-const segmentInfo = document.getElementById('segment-info');
-const processBtn = document.getElementById('process-btn');
-const loader = document.getElementById('loader');
-const tabButtons = document.querySelectorAll('.tab-button');
-const tabContents = document.querySelectorAll('.tab-content');
-const openaiApiKeyInput = document.getElementById('openai-api-key');
-const anthropicApiKeyInput = document.getElementById('anthropic-api-key');
-const saveKeysBtn = document.getElementById('save-keys-btn');
-const modelSelect = document.getElementById('model-select');
-const transcriptInput = document.getElementById('transcript-input');
-const loadTranscriptBtn = document.getElementById('load-transcript-btn');
+// Declare the variables in a higher scope
+let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, openaiApiKeyInput, anthropicApiKeyInput, saveKeysBtn, modelSelect, transcriptInput, loadTranscriptBtn;
 
 let transcript = [];
 let segments = [];
@@ -65,22 +52,41 @@ Today we are going to be talking about mental health and ideas of self with Dr. 
 const llmUtils = new LLM_API_Utils();
 const storageUtils = new StorageUtils();
 
-// Initialize the popup
-document.addEventListener('DOMContentLoaded', initializePopup);
+// Initialize the popup with dependency injection
+document.addEventListener('DOMContentLoaded', () => initializePopup(document));
 
 /**
  * Initialize the popup by loading API keys and any existing transcripts.
+ * @param {Document} doc - The Document object to interact with the DOM.
  */
-async function initializePopup() {
+async function initializePopup(doc = document) {
   try {
+    // Initialize the variables within the function using dependency injection
+    // this is allow for jest testing...lol
+    transcriptDisplay = doc.getElementById('transcript-display');
+    processedDisplay = doc.getElementById('processed-display');
+    prevBtn = doc.getElementById('prev-btn');
+    nextBtn = doc.getElementById('next-btn');
+    segmentInfo = doc.getElementById('segment-info');
+    processBtn = doc.getElementById('process-btn');
+    loader = doc.getElementById('loader');
+    tabButtons = doc.querySelectorAll('.tab-button');
+    tabContents = doc.querySelectorAll('.tab-content');
+    openaiApiKeyInput = doc.getElementById('openai-api-key');
+    anthropicApiKeyInput = doc.getElementById('anthropic-api-key');
+    saveKeysBtn = doc.getElementById('save-keys-btn');
+    modelSelect = doc.getElementById('model-select');
+    transcriptInput = doc.getElementById('transcript-input');
+    loadTranscriptBtn = doc.getElementById('load-transcript-btn');
+
     await llmUtils.loadApiKeys();
     console.log('about to loadApiKeysIntoUI');
-    loadApiKeysIntoUI();
-    setupTabs();
-    setupPagination();
-    setupProcessButton();
-    setupSaveKeysButton();
-    setupLoadTranscriptButton();
+    loadApiKeysIntoUI(doc);
+    setupTabs(doc, tabButtons, tabContents);
+    setupPagination(prevBtn, nextBtn, segmentInfo);
+    setupProcessButton(processBtn, modelSelect);
+    setupSaveKeysButton(saveKeysBtn, openaiApiKeyInput, anthropicApiKeyInput);
+    setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput);
 
     // Load existing transcripts if available
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
@@ -112,14 +118,16 @@ async function initializePopup() {
 }
 
 // Load API keys from storage and populate the UI
-function loadApiKeysIntoUI() {
+function loadApiKeysIntoUI(doc) {
   console.log('loadApiKeysIntoUI called.');
+  const openaiApiKeyInput = doc.getElementById('openai-api-key');
+  const anthropicApiKeyInput = doc.getElementById('anthropic-api-key');
   openaiApiKeyInput.value = llmUtils.openai_api_key || '';
   anthropicApiKeyInput.value = llmUtils.anthropic_api_key || '';
 }
 
 // Save API keys to storage
-function setupSaveKeysButton() {
+function setupSaveKeysButton(saveKeysBtn, openaiApiKeyInput, anthropicApiKeyInput) {
   console.log('setupSaveKeysButton called.');
   saveKeysBtn.addEventListener('click', async () => {
     console.log('Save Keys button clicked.');
@@ -138,7 +146,7 @@ function setupSaveKeysButton() {
 }
 
 // Setup load transcript button event
-function setupLoadTranscriptButton() {
+function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput) {
   console.log('setupLoadTranscriptButton called.');
   loadTranscriptBtn.addEventListener('click', async () => {
     console.log('Load Transcript button clicked.');
@@ -306,7 +314,7 @@ function getCurrentDisplaySegments() {
 }
 
 // Setup pagination button events
-function setupPagination() {
+function setupPagination(prevBtn, nextBtn) {
   prevBtn.addEventListener('click', () => {
     if (currentSegmentIndex > 0) {
       currentSegmentIndex--;
@@ -334,7 +342,7 @@ function updateSegmentInfo() {
 }
 
 // Setup tab switching
-function setupTabs() {
+function setupTabs(doc, tabButtons, tabContents) {
   tabButtons.forEach(button => {
     button.addEventListener('click', () => {
       // Remove active class from all buttons
@@ -345,7 +353,7 @@ function setupTabs() {
       button.classList.add('active');
       // Show corresponding tab content
       const tab = button.getAttribute('data-tab');
-      const tabContent = document.getElementById(tab);
+      const tabContent = doc.getElementById(tab);
       if (tabContent) {
         tabContent.classList.remove('hidden');
       }
@@ -357,7 +365,7 @@ function setupTabs() {
 }
 
 // Setup process button event
-function setupProcessButton() {
+function setupProcessButton(processBtn, modelSelect) {
   processBtn.addEventListener('click', async () => {
     const selectedModel = modelSelect.value;
 
@@ -385,6 +393,7 @@ function setupProcessButton() {
         }
       }
 
+      const loader = document.getElementById('loader');
       loader.classList.remove('hidden');
 
       let processedTranscript = transcripts.processedTranscript || '';
@@ -408,6 +417,7 @@ function setupProcessButton() {
       console.error('Error processing transcript:', error);
       alert('Failed to process the transcript.');
     } finally {
+      const loader = document.getElementById('loader');
       loader.classList.add('hidden');
     }
   });

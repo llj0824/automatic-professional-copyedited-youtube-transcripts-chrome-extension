@@ -5,5 +5,5 @@ module.exports = {
   transform: {
     '^.+\\.jsx?$': 'babel-jest'
   },
-  setupFiles: ['<rootDir>/tests/setupJestMocks.js'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setupJestMocks.js'],
 };

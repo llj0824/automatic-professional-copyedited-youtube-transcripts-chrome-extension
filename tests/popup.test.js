@@ -1,19 +1,13 @@
 /**
- * Note: Integration tests for popup.js would typically require a testing environment that can handle DOM manipulations and simulate user interactions.
- * Tools like Jest with jsdom or Puppeteer can be used for such purposes.
- * Below is a simplified example using Jest and jsdom.
+ * @file tests/popup.test.js
+ * @description Updated integration tests for popup.js utilizing domMockSetup from setupJestMocks.js
  */
 
-import { domMockSetup } from './domMockSetup';
-// Set up the DOM before importing the module
-beforeAll(() => {
-  console.log('beforeAll')
-  domMockSetup();
-});
-// import './setupJestMocks'; // Ensure this path is correct
 import StorageUtils from '../popup/storage_utils.js';
 import { initializePopup, parseTranscript, paginateTranscript } from '../popup/popup.js';
-import LLM_API_Utils from '../popup/llm_api_utils.js';
+
+// Import the setup for Jest mocks, including DOM setup
+import './setupJestMocks.js';
 
 // Mock LLM_API_Utils
 jest.mock('../popup/llm_api_utils.js', () => {
@@ -26,35 +20,30 @@ jest.mock('../popup/llm_api_utils.js', () => {
   });
 });
 
-
-beforeEach(() => {
-  jest.clearAllMocks();
-
-  // Reset any global variables if used
-  global.segments = [];
-  global.processedSegments = [];
-  global.currentSegmentIndex = 0;
-});
-
 // Mock dependencies
 jest.mock('../popup/storage_utils.js');
 
-describe('Popup Integration Tests', () => {
+describe('Popup Integration Tests with domMockSetup', () => {
   let storageUtils;
 
   beforeEach(() => {
     // Reset modules and mocks before each test
     jest.resetModules();
+    jest.clearAllMocks();
+
+    // Initialize StorageUtils mock
     storageUtils = new StorageUtils();
+
+    // Reset any global variables if used
+    global.segments = [];
+    global.processedSegments = [];
+    global.currentSegmentIndex = 0;
+    debugger;
+    // Initialize the popup with the mocked DOM
+    initializePopup();
   });
 
   it.only('should initialize popup and load existing transcripts', async () => {
-    // Set up DOM elements
-    document.body.innerHTML = `
-      <input id="transcript-input" />
-      <textarea id="processed-display"></textarea>
-    `;
-
     // Mock storageUtils methods
     storageUtils.getCurrentYouTubeVideoId = jest.fn().mockResolvedValue('abcdefghijk');
     storageUtils.loadTranscriptsById = jest.fn().mockResolvedValue({
@@ -65,8 +54,8 @@ describe('Popup Integration Tests', () => {
     // Mock alert
     global.alert = jest.fn();
 
-    // Initialize popup
-    await initializePopup();
+    // Wait for initializePopup to complete
+    await Promise.resolve(); // Ensure all async operations are resolved
 
     // Assertions
     expect(storageUtils.getCurrentYouTubeVideoId).toHaveBeenCalled();
@@ -107,22 +96,13 @@ describe('Popup Integration Tests', () => {
   });
 
   it('should display loaded transcript in the transcript area', async () => {
-    // Set up DOM elements
-    document.body.innerHTML = `
-      <textarea id="transcript-input"></textarea>
-      <pre id="transcript-display"></pre>
-    `;
-
-    const rawTranscript = '[00:00] Hello\n[00:05] World';
-    document.getElementById('transcript-input').value = rawTranscript;
-
     // Mock storageUtils methods
     storageUtils.getCurrentYouTubeVideoId = jest.fn().mockResolvedValue('abcdefghijk');
-    storageUtils.loadTranscriptsById = jest.fn().mockResolvedValue({ rawTranscript });
+    storageUtils.loadTranscriptsById = jest.fn().mockResolvedValue({ rawTranscript: '[00:00] Hello\n[00:05] World' });
 
     await initializePopup();
 
-    expect(document.getElementById('transcript-display').textContent).toBe(rawTranscript);
+    expect(document.getElementById('transcript-display').textContent).toBe('[00:00] Hello\n[00:05] World');
   });
 
   it('should store processed responses correctly', async () => {
