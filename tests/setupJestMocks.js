@@ -1,9 +1,8 @@
 // tests/setupJest.js
+import fetch from 'node-fetch';
 
-
-
-import { domMockSetup } from './domMockSetup';
-domMockSetup();
+// Assign fetch to the global object
+global.fetch = fetch;
 
 
 global.chrome = {
