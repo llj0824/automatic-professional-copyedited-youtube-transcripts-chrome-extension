@@ -50,16 +50,20 @@ Today we are going to be talking about mental health and ideas of self with Dr. 
 - Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.`;
 
 const llmUtils = new LLM_API_Utils();
-const storageUtils = new StorageUtils();
 
-// Initialize the popup with dependency injection
-document.addEventListener('DOMContentLoaded', () => initializePopup(document));
+/**
+ * Initialize the popup with dependency injection
+ * @param {Document} doc - The Document object to interact with the DOM.
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ */
+document.addEventListener('DOMContentLoaded', () => initializePopup(document, new StorageUtils()));
 
 /**
  * Initialize the popup by loading API keys and any existing transcripts.
  * @param {Document} doc - The Document object to interact with the DOM.
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
  */
-async function initializePopup(doc = document) {
+async function initializePopup(doc = document, storageUtils = new StorageUtils()) {
   try {
     // Initialize the variables within the function using dependency injection
     // this is allow for jest testing...lol
@@ -80,20 +84,18 @@ async function initializePopup(doc = document) {
     loadTranscriptBtn = doc.getElementById('load-transcript-btn');
 
     await llmUtils.loadApiKeys();
-    console.log('about to loadApiKeysIntoUI');
     loadApiKeysIntoUI(doc);
     setupTabs(doc, tabButtons, tabContents);
     setupPagination(prevBtn, nextBtn, segmentInfo);
-    setupProcessButton(processBtn, modelSelect);
+    setupProcessButton(processBtn, modelSelect, storageUtils);
     setupSaveKeysButton(saveKeysBtn, openaiApiKeyInput, anthropicApiKeyInput);
-    setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput);
+    setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
 
     // Load existing transcripts if available
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
     console.log(`Current YouTube Video ID: ${videoId}`);
     if (videoId) {
       const transcripts = await storageUtils.loadTranscriptsById(videoId);
-      console.log('Loaded Transcripts:', transcripts);
       if (transcripts.rawTranscript) {
         transcriptInput.value = transcripts.rawTranscript;
         parseTranscript(transcripts.rawTranscript);
@@ -119,7 +121,6 @@ async function initializePopup(doc = document) {
 
 // Load API keys from storage and populate the UI
 function loadApiKeysIntoUI(doc) {
-  console.log('loadApiKeysIntoUI called.');
   const openaiApiKeyInput = doc.getElementById('openai-api-key');
   const anthropicApiKeyInput = doc.getElementById('anthropic-api-key');
   openaiApiKeyInput.value = llmUtils.openai_api_key || '';
@@ -128,9 +129,7 @@ function loadApiKeysIntoUI(doc) {
 
 // Save API keys to storage
 function setupSaveKeysButton(saveKeysBtn, openaiApiKeyInput, anthropicApiKeyInput) {
-  console.log('setupSaveKeysButton called.');
   saveKeysBtn.addEventListener('click', async () => {
-    console.log('Save Keys button clicked.');
     const openaiKey = openaiApiKeyInput.value.trim();
     const anthropicKey = anthropicApiKeyInput.value.trim();
 
@@ -146,10 +145,8 @@ function setupSaveKeysButton(saveKeysBtn, openaiApiKeyInput, anthropicApiKeyInpu
 }
 
 // Setup load transcript button event
-function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput) {
-  console.log('setupLoadTranscriptButton called.');
+function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils) {
   loadTranscriptBtn.addEventListener('click', async () => {
-    console.log('Load Transcript button clicked.');
     const rawTranscript = transcriptInput.value.trim();
     if (!rawTranscript) {
       console.warn('No transcript entered.');
@@ -166,7 +163,6 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput) {
     if (videoId) {
       try {
         await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
-        console.log('Transcript saved successfully.');
         alert('Transcript loaded and saved successfully!');
       } catch (error) {
         console.error('Error saving raw transcript:', error);
@@ -181,7 +177,6 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput) {
  * @param {string} rawTranscript 
  */
 function parseTranscript(rawTranscript) {
-  console.log('parseTranscript called.');
   transcript = rawTranscript.split('\n').map(line => {
     const match = line.match(/\[(\d+):(\d+)\]\s*(.*)/);
     if (match) {
@@ -195,13 +190,11 @@ function parseTranscript(rawTranscript) {
     }
     return null;
   }).filter(item => item !== null);
-  console.log('Parsed Transcript:', transcript);
-  return transcript
+  return transcript;
 }
 
 // Paginate the transcript into segments based on SEGMENT_DURATION
 function paginateTranscript() {
-  console.log('paginateTranscript called.');
   segments = [];
   let segmentStartTime = 0;
   let segmentEndTime = SEGMENT_DURATION;
@@ -225,7 +218,6 @@ function paginateTranscript() {
 
   currentSegmentIndex = 0;
   updateSegmentInfo();
-  console.log('Paginated Segments:', segments);
 }
 
 /**
@@ -234,20 +226,12 @@ function paginateTranscript() {
  * @returns {string[]}
  */
 function paginateProcessedTranscript(processedTranscript) {
-  console.log('paginateProcessedTranscript called.');
   const lines = processedTranscript.split('\n');
   const paginated = [];
   let currentPage = '';
   let currentDuration = 0;
 
   lines.forEach(line => {
-    // This regex matches time range patterns in the format [mm:ss -> mm:ss]
-    // Examples of matches:
-    // - [00:00 -> 00:05]
-    // - [12:34 -> 56:78]
-    // Examples of non-matches:
-    // - [00:00-00:05] (missing spaces around the arrow)
-    // - 00:00 -> 00:05 (missing square brackets)
     const match = line.match(/\[(\d+):(\d+) -> (\d+):(\d+)\]/);
     if (match) {
       const startMinutes = parseInt(match[1], 10);
@@ -286,10 +270,8 @@ function formatTime(seconds) {
 // Display the current segment or processed segment
 function displaySegment() {
   if (tabContents[0].classList.contains('hidden')) {
-    // If not on the processed tab
     transcriptDisplay.textContent = segments[currentSegmentIndex]  || "No transcript available.";
   } else {
-    // On the processed tab
     if (processedSegments.length > 0) {
       processedDisplay.textContent = processedSegments[currentSegmentIndex] || "Processed output will appear here.";
     } else {
@@ -365,7 +347,7 @@ function setupTabs(doc, tabButtons, tabContents) {
 }
 
 // Setup process button event
-function setupProcessButton(processBtn, modelSelect) {
+function setupProcessButton(processBtn, modelSelect, storageUtils) {
   processBtn.addEventListener('click', async () => {
     const selectedModel = modelSelect.value;
 
@@ -422,7 +404,6 @@ function setupProcessButton(processBtn, modelSelect) {
     }
   });
 }
-
 
 // Export the functions for testing purposes
 export { initializePopup, parseTranscript, paginateTranscript };
