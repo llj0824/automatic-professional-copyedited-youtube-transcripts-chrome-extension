@@ -7,8 +7,8 @@ import StorageUtils from './storage_utils.js';
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, openaiApiKeyInput, anthropicApiKeyInput, saveKeysBtn, modelSelect, transcriptInput, loadTranscriptBtn;
 
 let transcript = [];
-let segments = [];
-let processedSegments = [];
+let rawTranscriptSegments = [];
+let processedTranscriptSegments = [];
 let currentSegmentIndex = 0;
 let SEGMENT_DURATION = 15 * 60; // seconds (modifiable)
 
@@ -106,9 +106,9 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
         alert('Raw transcript loaded from storage.');
       }
       if (transcripts.processedTranscript) {
-        processedSegments = paginateProcessedTranscript(transcripts.processedTranscript);
-        if (processedSegments.length > 0) {
-          processedDisplay.textContent = processedSegments[0];
+        processedTranscriptSegments = paginateProcessedTranscript(transcripts.processedTranscript);
+        if (processedTranscriptSegments.length > 0) {
+          processedDisplay.textContent = processedTranscriptSegments[0];
         }
       }
     } else {
@@ -199,40 +199,60 @@ function parseTranscript(rawTranscript) {
   }).filter(item => item !== null);
   return transcript;
 }
-
-// Paginate the transcript into segments based on SEGMENT_DURATION
+/**
+ * Paginate the transcript into segments based on SEGMENT_DURATION.
+ * 
+ * This function divides the transcript into smaller segments based on a predefined duration. It iterates through each 
+ * transcript item, appending it to the current segment if it falls within the segment's time range. If not, it starts 
+ * a new segment. The function updates the global segments array, ensuring each segment is properly formatted with 
+ * timestamps and text. It also handles cases where no segments are created by adding a default message, and updates 
+ * the segment index, segment info, and pagination buttons.
+ * 
+ * Example:
+ * Input: [{ timestamp: 0, text: 'Hello' }, { timestamp: 900, text: 'World' }]
+ * Output: ['[00:00] Hello\n', '[15:00] World\n']
+ */
 function paginateTranscript() {
-  segments = [];
+  rawTranscriptSegments = [];
   let segmentStartTime = 0;
   let segmentEndTime = SEGMENT_DURATION;
+  let currentSegment = '';
 
   // Iterate through each item in the transcript
   transcript.forEach(item => {
     // Check if the item's timestamp is within the current segment
     if (item.timestamp >= segmentStartTime && item.timestamp < segmentEndTime) {
-      // If the current segment is not initialized, initialize it
-      if (!segments[segments.length - 1]) {
-        segments.push('');
-      }
       // Append the formatted timestamp and text to the current segment
-      segments[segments.length - 1] += `[${formatTime(item.timestamp)}] ${item.text}\n`;
-    } else if (item.timestamp >= segmentEndTime) {
+      currentSegment += `[${formatTime(item.timestamp)}] ${item.text}\n`;
+    } else {
+      // Push the current segment to segments array and start a new segment
+      if (currentSegment) {
+        rawTranscriptSegments.push(currentSegment.trim());
+      }
+      currentSegment = `[${formatTime(item.timestamp)}] ${item.text}\n`;
       // Move to the next segment
-      segmentStartTime += SEGMENT_DURATION;
+      segmentStartTime = segmentEndTime;
       segmentEndTime += SEGMENT_DURATION;
-      // Start a new segment with the formatted timestamp and text
-      segments.push(`[${formatTime(item.timestamp)}] ${item.text}\n`);
     }
   });
 
+  // Push the last segment if it exists
+  if (currentSegment) {
+    rawTranscriptSegments.push(currentSegment.trim());
+  }
+
   // If no segments were created, add a default message
-  if (segments.length === 0) {
-    segments.push("No transcript available.");
+  if (rawTranscriptSegments.length === 0) {
+    rawTranscriptSegments.push("No transcript available.");
   }
 
   // Reset the current segment index and update the segment info
   currentSegmentIndex = 0;
   updateSegmentInfo();
+  setRawAndProcessedTranscriptText();
+  updatePaginationButtons();
+
+  return rawTranscriptSegments
 }
 
 // Format time from seconds to mm:ss with two digits for minutes and seconds
@@ -287,8 +307,8 @@ function paginateProcessedTranscript(processedTranscript) {
 // Display the current segment or processed segment
 function setRawAndProcessedTranscriptText() {
   // Visibility is handled separately via CSS classes
-  transcriptDisplay.textContent = segments[currentSegmentIndex] || "No transcript available.";
-  processedDisplay.textContent = processedSegments[currentSegmentIndex] || "Processed output will appear here.";
+  transcriptDisplay.textContent = rawTranscriptSegments[currentSegmentIndex] || "No transcript available.";
+  processedDisplay.textContent = processedTranscriptSegments[currentSegmentIndex] || "Processed output will appear here.";
 }
 
 // Update pagination buttons
@@ -300,9 +320,9 @@ function updatePaginationButtons() {
 // Get current display segments based on active tab
 function getCurrentDisplaySegments() {
   if (tabContents[0].classList.contains('hidden')) {
-    return segments;
+    return rawTranscriptSegments;
   } else {
-    return processedSegments;
+    return processedTranscriptSegments;
   }
 }
 
@@ -318,6 +338,7 @@ function setupPagination(prevBtn, nextBtn) {
   });
 
   nextBtn.addEventListener('click', () => {
+    console.log('nextBtn clicked');
     const currentSegments = getCurrentDisplaySegments();
     if (currentSegmentIndex < currentSegments.length - 1) {
       currentSegmentIndex++;
@@ -396,12 +417,12 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
         const response = await llmUtils.call_llm(selectedModel, llmSystemRole, transcripts.rawTranscript);
         processedTranscript = response;
         await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
-        processedSegments = paginateProcessedTranscript(processedTranscript);
+        processedTranscriptSegments = paginateProcessedTranscript(processedTranscript);
         alert('Processed transcript updated successfully!');
       }
 
       // Update the display
-      processedSegments = paginateProcessedTranscript(processedTranscript);
+      processedTranscriptSegments = paginateProcessedTranscript(processedTranscript);
       currentSegmentIndex = 0;
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
@@ -417,4 +438,4 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
 }
 
 // Export the functions for testing purposes
-export { initializePopup, parseTranscript, paginateTranscript };
+export { initializePopup, parseTranscript, paginateTranscript};
