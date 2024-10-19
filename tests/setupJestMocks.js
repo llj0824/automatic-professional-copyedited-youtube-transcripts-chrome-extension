@@ -1,27 +1,39 @@
-   // tests/setupJestMocks.js
-   import { jest } from '@jest/globals';
-   import nodeFetch from 'node-fetch';
+// tests/jest.setup.js
+import { jest } from '@jest/globals';
+import nodeFetch from 'node-fetch';
+const { TextEncoder, TextDecoder } = require('util');
 
-   global.fetch = nodeFetch;
+// Set up TextEncoder and TextDecoder
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
 
-   global.chrome = {
-     storage: {
-       local: {
-         get: jest.fn(),
-         set: jest.fn(),
-         // Add other methods if needed
-       },
-       sync: {
-         get: jest.fn(),
-         set: jest.fn(),
-         // Add other methods like remove, clear if used
-       },
-     },
-     runtime: {
-       // Add runtime mocks if necessary
-     },
-     // Mock other chrome APIs as required
-   };
+if (typeof window !== 'undefined') {
+  window.TextEncoder = TextEncoder;
+  window.TextDecoder = TextDecoder;
+}
 
-   // Mock window.alert
-   global.alert = jest.fn();
+// Set up fetch
+global.fetch = nodeFetch;
+
+// Mock Chrome API
+global.chrome = {
+  storage: {
+    local: {
+      get: jest.fn(),
+      set: jest.fn(),
+      // Add other methods if needed
+    },
+    sync: {
+      get: jest.fn(),
+      set: jest.fn(),
+      // Add other methods like remove, clear if used
+    },
+  },
+  runtime: {
+    // Add runtime mocks if necessary
+  },
+  // Mock other chrome APIs as required
+};
+
+// Mock window.alert
+global.alert = jest.fn();

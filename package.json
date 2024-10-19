@@ -1,8 +1,7 @@
 {
   "dependencies": {
     "youtube-transcript": "^1.2.1",
-    "node-fetch": "^3.3.0",
-    "text-encoding": "^0.7.0"
+    "node-fetch": "^3.3.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.7",
@@ -14,6 +13,6 @@
   "scripts": {
     "test": "jest",
     "test:popup": "jest tests/popup.test.js",
-    "test:youtube_transcript_retrieval": "NODE_OPTIONS=--experimental-vm-modules node -r text-encoding/lib/encoding.js node_modules/.bin/jest tests/youtube_transcript_retrieval.test.js"
+    "test:youtube_transcript_retrieval": "jest tests/youtube_transcript_retrieval.test.js"
   }
 }
