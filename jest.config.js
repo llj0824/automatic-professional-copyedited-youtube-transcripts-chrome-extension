@@ -12,4 +12,6 @@ module.exports = {
   testEnvironmentOptions: {
     customExportConditions: ['node', 'node-addons'],
   },
+  extensionsToTreatAsEsm: ['.js'],
+  moduleFileExtensions: ['js', 'mjs', 'jsx', 'json'],
 };

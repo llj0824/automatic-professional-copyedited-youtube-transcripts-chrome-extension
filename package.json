@@ -14,6 +14,6 @@
   "scripts": {
     "test": "jest",
     "test:popup": "jest tests/popup.test.js",
-    "test:youtube_transcript_retrieval": "NODE_OPTIONS=--experimental-vm-modules jest tests/youtube_transcript_retrieval.test.js"
+    "test:youtube_transcript_retrieval": "NODE_OPTIONS=--experimental-vm-modules node -r text-encoding/lib/encoding.js node_modules/.bin/jest tests/youtube_transcript_retrieval.test.js"
   }
 }

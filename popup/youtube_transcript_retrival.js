@@ -1,4 +1,6 @@
 import { YoutubeTranscript } from 'youtube-transcript';
+import fetch from 'node-fetch';
+
 /**
  * Fetches the raw transcript for a given YouTube video.
  * 
