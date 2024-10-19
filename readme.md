@@ -42,6 +42,11 @@ MIT License
 
 ## TO-DO
 
+## Note to self:
+
+- when testing, run `npm run test:youtube_transcript_retrieval` to test the youtube_transcript_retrieval.js file.
+- In Cursor to run debugger, set red dot on sidebar or `debugger;` in the code. Then `Run` tab -> `Start Debugging` refer to `launch.json` for configurations.
+
 ### Features
 0. [top priority] autoparse transcript
 0. [very low priority] add slider for segment duration
