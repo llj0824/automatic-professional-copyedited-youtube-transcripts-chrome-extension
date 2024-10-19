@@ -4,10 +4,10 @@ import YoutubeTranscriptRetriever from '../popup/youtube_transcript_retrival.js'
 // // Mock the global fetch function
 // global.fetch = fetch;
 
-import { TextDecoder, TextEncoder } from 'text-encoding';
+const { TextEncoder, TextDecoder } = require('text-encoding');
 
-global.TextDecoder = TextDecoder;
 global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
 
 describe('YoutubeTranscriptRetriever', () => {
   describe('fetchRawTranscript', () => {
