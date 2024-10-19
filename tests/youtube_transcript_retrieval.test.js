@@ -1,14 +1,5 @@
 import YoutubeTranscriptRetriever from '../popup/youtube_transcript_retrival.js';
 
-// import fetch from 'node-fetch'; // Add this line
-// // Mock the global fetch function
-// global.fetch = fetch;
-
-const { TextEncoder, TextDecoder } = require('text-encoding');
-
-global.TextEncoder = TextEncoder;
-global.TextDecoder = TextDecoder;
-
 describe('YoutubeTranscriptRetriever', () => {
   describe('fetchRawTranscript', () => {
     it.only('should fetch and return the raw transcript as a string for a valid video ID', async () => {
