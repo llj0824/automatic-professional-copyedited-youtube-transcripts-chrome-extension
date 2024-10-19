@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 /**
  * Fetches the raw transcript for a given YouTube video.
  * Inspired by https://github.com/Kakulukian/youtube-transcript/blob/master/src/index.ts

@@ -2,10 +2,10 @@
 
 import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
+import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js'; // New import
 
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, openaiApiKeyInput, anthropicApiKeyInput, saveKeysBtn, modelSelect, transcriptInput, loadTranscriptBtn;
-
 
 let isRawTranscriptVisible = true; // true for 'raw transcript', false for 'processed transcript'
 let transcript = [];
@@ -13,7 +13,6 @@ let rawTranscriptSegments = [];
 let processedTranscriptSegments = [];
 let currentSegmentIndex = 0;
 let SEGMENT_DURATION = 15 * 60; // seconds (modifiable)
-
 
 const llmSystemRole = `Take a raw video transcript and copyedit it into a world-class professionally copyedited transcript.  
 Attempt to identify the speaker from the context of the conversation.
@@ -113,9 +112,32 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updateSegmentInfo();
+
+      // Status box for automatically retrieving and loading YouTube transcript
+      let youtubeTranscriptStatus = '❌';
+      let youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
+      let existingTranscriptStatus = '❌';
+      let existingTranscriptMessage = 'No existing transcript found.';
+      
+      try {
+        console.log('Automatically retrieving transcript from YouTube...');
+        const youtubeTranscript = await YoutubeTranscriptRetriever.fetchParsedTranscript(videoId);
+        transcriptInput.value = youtubeTranscript;
+        youtubeTranscriptStatus = '✅';
+        youtubeTranscriptMessage = 'Transcript automatically retrieved from YouTube and loaded into the input area.';
+      } catch (ytError) {
+        console.error('Error automatically retrieving transcript from YouTube:', ytError);
+      }
+      
+      if (transcripts.rawTranscript) {
+        existingTranscriptStatus = '✅';
+        existingTranscriptMessage = 'Existing transcript loaded.';
+      }
+      
+      alert(`${youtubeTranscriptStatus} ${youtubeTranscriptMessage}\n${existingTranscriptStatus} ${existingTranscriptMessage}`);
     } else {
       console.warn('No YouTube Video ID found.');
-    } 
+    }
   } catch (error) {
     console.error('Error initializing popup:', error);
     transcriptDisplay.textContent = 'Error initializing popup.';
