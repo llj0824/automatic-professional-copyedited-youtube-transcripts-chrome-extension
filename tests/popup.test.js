@@ -4,6 +4,8 @@
  */
 
 import StorageUtils from '../popup/storage_utils.js';
+import { domMockSetup } from './domMockSetup';
+domMockSetup();
 import { initializePopup, parseTranscript, paginateTranscript,handlePrevClick,handleNextClick } from '../popup/popup.js';
 
 // Import the setup for Jest mocks, including DOM setup

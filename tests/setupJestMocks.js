@@ -1,11 +1,21 @@
-// tests/setupJest.js
+// tests/jest.setup.js
+import { jest } from '@jest/globals';
+import nodeFetch from 'node-fetch';
+const { TextEncoder, TextDecoder } = require('util');
 
+// Set up TextEncoder and TextDecoder
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
 
+if (typeof window !== 'undefined') {
+  window.TextEncoder = TextEncoder;
+  window.TextDecoder = TextDecoder;
+}
 
-import { domMockSetup } from './domMockSetup';
-domMockSetup();
+// Set up fetch
+global.fetch = nodeFetch;
 
-
+// Mock Chrome API
 global.chrome = {
   storage: {
     local: {
