@@ -101,15 +101,11 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
       const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
       rawTranscript = savedTranscripts.rawTranscript || "";
       processedTranscript = savedTranscripts.processedTranscript || "";
-      if (rawTranscriptSegments && rawTranscriptSegments.length > 0) {
-        transcriptInput.value = rawTranscriptSegments[currentSegmentIndex];
-        transcriptDisplay.textContent = rawTranscriptSegments[currentSegmentIndex];
-        parseTranscript(rawTranscriptSegments[currentSegmentIndex]);
-        paginateTranscript(rawTranscript, processedTranscript);
-      }
-      if (processedTranscriptSegments && processedTranscriptSegments.length > 0) {
-        processedDisplay.textContent = processedTranscriptSegments[0];
-      }
+      
+      // Parse and paginate transcripts
+      parseTranscript(rawTranscript);
+      paginateTranscript(rawTranscript, processedTranscript);
+      
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updateSegmentInfo();
@@ -240,6 +236,7 @@ function parseTranscript(rawTranscript) {
   }).filter(item => item !== null);
   return transcript;
 }
+
 /**
  * Paginate the transcript into segments based on SEGMENT_DURATION.
  * 
@@ -248,80 +245,76 @@ function parseTranscript(rawTranscript) {
  * properly formatted with timestamps and text.
  * 
  * @param {Array} rawTranscript - Array of objects with timestamp and text for raw transcript
- * @param {Array} processedTranscript - Array of objects with timestamp and text for processed transcript
+ * @param {string} processedTranscript - Full processed transcript string
  * @returns {Object} An object containing rawTranscriptSegments and processedTranscriptSegments
  */
 function paginateTranscript(rawTranscript, processedTranscript) {
-	rawTranscriptSegments = paginateTranscriptHelper(rawTranscript);
-	processedTranscriptSegments = paginateTranscriptHelper(processedTranscript);
+  rawTranscriptSegments = paginateTranscriptHelper(rawTranscript);
+  processedTranscriptSegments = paginateProcessedTranscript(processedTranscript);
 
-	// If no segments were created, add a default message
-	if (rawTranscriptSegments.length === 0) {
-		rawTranscriptSegments.push("No raw transcript available.");
-	}
-	if (processedTranscriptSegments.length === 0) {
-		processedTranscriptSegments.push("No processed transcript available.");
-	}
+  // If no segments were created, add a default message
+  if (rawTranscriptSegments.length === 0) {
+    rawTranscriptSegments.push("No raw transcript available.");
+  }
+  if (processedTranscriptSegments.length === 0) {
+    processedTranscriptSegments.push("No processed transcript available.");
+  }
 
-	// Reset the current segment index and update UI
-	currentSegmentIndex = 0;
-	updateSegmentInfo();
-	setRawAndProcessedTranscriptText();
-	updatePaginationButtons();
+  // Reset the current segment index and update UI
+  currentSegmentIndex = 0;
+  updateSegmentInfo();
+  setRawAndProcessedTranscriptText();
+  updatePaginationButtons();
 
-	return { rawTranscriptSegments, processedTranscriptSegments };
+  return { rawTranscriptSegments, processedTranscriptSegments };
 }
 
 /**
- * Helper function to paginate a single transcript
+ * Helper function to paginate a raw transcript
  * 
  * @param {Array} transcript - Array of objects with timestamp and text
  * @returns {Array} Array of paginated transcript segments
  */
 function paginateTranscriptHelper(transcript) {
-	let segments = [];
-	let currentSegment = '';
-	let segmentStartTime = 0;
-	let segmentEndTime = SEGMENT_DURATION;
+  let segments = [];
+  let currentSegment = '';
+  let segmentStartTime = 0;
+  let segmentEndTime = SEGMENT_DURATION;
 
-	transcript.forEach(item => {
-		if (item.timestamp >= segmentStartTime && item.timestamp < segmentEndTime) {
-			currentSegment += `[${formatTime(item.timestamp)}] ${item.text}\n`;
-		} else {
-			if (currentSegment) {
-				segments.push(currentSegment.trim());
-			}
-			segmentStartTime = Math.floor(item.timestamp / SEGMENT_DURATION) * SEGMENT_DURATION;
-			segmentEndTime = segmentStartTime + SEGMENT_DURATION;
-			currentSegment = `[${formatTime(item.timestamp)}] ${item.text}\n`;
-		}
-	});
+  transcript.forEach(item => {
+    if (item.timestamp < segmentEndTime) {
+      currentSegment += `[${formatTime(item.timestamp)}] ${item.text}\n`;
+    } else {
+      if (currentSegment) {
+        segments.push(currentSegment.trim());
+      }
+      // Update the segment window
+      segmentStartTime = Math.floor(item.timestamp / SEGMENT_DURATION) * SEGMENT_DURATION;
+      segmentEndTime = segmentStartTime + SEGMENT_DURATION;
+      currentSegment = `[${formatTime(item.timestamp)}] ${item.text}\n`;
+    }
+  });
 
-	if (currentSegment) {
-		segments.push(currentSegment.trim());
-	}
+  if (currentSegment) {
+    segments.push(currentSegment.trim());
+  }
 
-	return segments;
-}
-
-// Format time from seconds to mm:ss with two digits for minutes and seconds
-function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const secs = (seconds % 60).toString().padStart(2, '0');
-
-  return `${mins}:${secs}`;
+  return segments;
 }
 
 /**
- * Paginate the processed transcript into segments based on SEGMENT_DURATION
- * @param {string} processedTranscript 
- * @returns {string[]}
+ * Helper function to paginate a processed transcript
+ * 
+ * @param {string} processedTranscript - Full processed transcript string
+ * @returns {Array} Array of paginated processed transcript segments
  */
 function paginateProcessedTranscript(processedTranscript) {
   const lines = processedTranscript.split('\n');
   const paginated = [];
   let currentPage = '';
   let currentDuration = 0;
+  let segmentStartTime = 0;
+  let segmentEndTime = SEGMENT_DURATION;
 
   lines.forEach(line => {
     const match = line.match(/\[(\d+):(\d+) -> (\d+):(\d+)\]/);
@@ -330,10 +323,25 @@ function paginateProcessedTranscript(processedTranscript) {
       const startSeconds = parseInt(match[2], 10);
       const endMinutes = parseInt(match[3], 10);
       const endSeconds = parseInt(match[4], 10);
-      const duration = (endMinutes * 60 + endSeconds) - (startMinutes * 60 + startSeconds);
+      const startTime = startMinutes * 60 + startSeconds;
+      const endTime = endMinutes * 60 + endSeconds;
+      const duration = endTime - startTime;
 
-      if (currentDuration + duration > SEGMENT_DURATION && currentPage.length > 0) {
-        paginated.push(currentPage.trim());
+      if (startTime >= segmentEndTime) {
+        if (currentPage) {
+          paginated.push(currentPage.trim());
+        }
+        // Update the segment window
+        segmentStartTime = Math.floor(startTime / SEGMENT_DURATION) * SEGMENT_DURATION;
+        segmentEndTime = segmentStartTime + SEGMENT_DURATION;
+        currentPage = '';
+        currentDuration = 0;
+      }
+
+      if (currentDuration + duration > SEGMENT_DURATION) {
+        if (currentPage) {
+          paginated.push(currentPage.trim());
+        }
         currentPage = '';
         currentDuration = 0;
       }
@@ -352,27 +360,41 @@ function paginateProcessedTranscript(processedTranscript) {
   return paginated;
 }
 
+// Format time from seconds to mm:ss or hh:mm:ss with two digits for each unit
+function formatTime(seconds) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
 
-// Display the current segment or processed segment
+  return hrs > 0 ? `${hrs}:${mins}:${secs}` : `${mins}:${secs}`;
+}
+
+/**
+ * Displays the current segment based on visibility state.
+ */
 function setRawAndProcessedTranscriptText() {
   // Visibility is handled separately via CSS classes
   transcriptDisplay.textContent = rawTranscriptSegments[currentSegmentIndex] || "No transcript available.";
   processedDisplay.textContent = processedTranscriptSegments[currentSegmentIndex] || "Processed output will appear here.";
 }
 
-// Update pagination buttons
+/**
+ * Updates the state of pagination buttons.
+ */
 function updatePaginationButtons() {
   prevBtn.disabled = currentSegmentIndex === 0;
   nextBtn.disabled = currentSegmentIndex === (getCurrentDisplaySegments().length - 1);
 }
 
-
-// Get current display segments based on active tab
+/**
+ * Retrieves the current set of segments based on the active tab.
+ * @returns {Array} Array of current display segments.
+ */
 function getCurrentDisplaySegments() {
   return isRawTranscriptVisible ? rawTranscriptSegments : processedTranscriptSegments;
 }
 
-// Define the event handler functions outside of setupPagination
+// Event handler for previous button click
 function handlePrevClick() {
   if (currentSegmentIndex > 0) {
     console.log('prevBtn clicked');
@@ -383,6 +405,7 @@ function handlePrevClick() {
   }
 }
 
+// Event handler for next button click
 function handleNextClick() {
   const currentSegments = getCurrentDisplaySegments();
   if (currentSegmentIndex < currentSegments.length - 1) {
@@ -394,20 +417,31 @@ function handleNextClick() {
   }
 }
 
-// Setup pagination button events
+/**
+ * Sets up pagination button event listeners.
+ * @param {HTMLElement} prevBtn - The previous button element.
+ * @param {HTMLElement} nextBtn - The next button element.
+ */
 function setupPagination(prevBtn, nextBtn) {
   // Add event listeners
   prevBtn.addEventListener('click', handlePrevClick);
   nextBtn.addEventListener('click', handleNextClick);
 }
 
-// Update segment info display
+/**
+ * Updates the segment information display.
+ */
 function updateSegmentInfo() {
   const currentSegments = getCurrentDisplaySegments();
   segmentInfo.textContent = `Segment ${currentSegmentIndex + 1} of ${currentSegments.length}`;
 }
 
-// Setup tab switching
+/**
+ * Sets up tab switching functionality.
+ * @param {Document} doc - The Document object to interact with the DOM.
+ * @param {NodeList} tabButtons - The list of tab button elements.
+ * @param {NodeList} tabContents - The list of tab content elements.
+ */
 function setupTabs(doc, tabButtons, tabContents) {
   tabButtons.forEach(button => {
     button.addEventListener('click', () => {
@@ -437,7 +471,12 @@ function setupTabs(doc, tabButtons, tabContents) {
   });
 }
 
-// Setup process button event
+/**
+ * Sets up the process button event listener.
+ * @param {HTMLElement} processBtn - The process button element.
+ * @param {HTMLElement} modelSelect - The model selection element.
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ */
 function setupProcessButton(processBtn, modelSelect, storageUtils) {
   processBtn.addEventListener('click', async () => {
     const selectedModel = modelSelect.value;
@@ -476,8 +515,11 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       // Update the display for the current segment
       processedDisplay.textContent = response;
 
-      // Combine all processed segments and save
-      await storageUtils.saveProcessedTranscriptSegmentsById(videoId, processedTranscriptSegments);
+      // Combine all processed segments into a single text block
+      processedTranscript = processedTranscriptSegments.join('\n');
+
+      // Save the full processed transcript
+      await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
 
       alert('Current segment processed successfully!');
 
@@ -505,4 +547,3 @@ export {
   setupProcessButton, 
   setupLoadTranscriptButton 
 };
-

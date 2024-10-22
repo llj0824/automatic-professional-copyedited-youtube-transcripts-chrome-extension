@@ -65,6 +65,8 @@ describe('Popup Unit Tests', () => {
   });
 
   beforeEach(() => {
+    // Reset all mocks before each test
+    jest.clearAllMocks();
     global.transcript = [];
     global.rawTranscriptSegments = [];
     global.processedTranscriptSegments = [];
@@ -92,7 +94,7 @@ describe('Popup Unit Tests', () => {
     });
   });
 
-  describe.only('paginateTranscript', () => {
+  describe('paginateTranscript', () => {
     it('should correctly paginate a transcript with 1 total page', () => {
       const mockRawTranscript = [
         { timestamp: 0, text: 'Page 1' },
@@ -144,25 +146,287 @@ describe('Popup Unit Tests', () => {
     });
   });
 
-  describe('displayRawOrProcessedSegment', () => {
-    beforeEach(() => {
-      global.segments = ['Segment 1', 'Segment 2'];
-      global.processedSegments = ['Processed 1', 'Processed 2'];
-      global.currentSegmentIndex = 0;
+
+  describe('Loading, Storing, and retrieving Transcripts', () => {
+    beforeAll(() => {
+      // Mock DOM elements - TODO: refactor all tests to use this..type of mocking
+      document.getElementById = jest.fn((id) => {
+        const elements = {
+          'transcript-input': { value: '' },
+          'transcript-display': { textContent: '' },
+          'processed-display': { textContent: '' },
+          'prev-btn': { disabled: false, addEventListener: jest.fn() },
+          'next-btn': { disabled: false, addEventListener: jest.fn() },
+          'segment-info': { textContent: '' },
+          'process-btn': { addEventListener: jest.fn() },
+          'loader': { classList: { remove: jest.fn(), add: jest.fn() } },
+          'tab-buttons': {},
+          'tab-contents': {},
+          'openai-api-key': { value: '' },
+          'anthropic-api-key': { value: '' },
+          'save-keys-btn': { addEventListener: jest.fn() },
+          'model-select': { value: 'gpt-3' },
+          'load-transcript-btn': { addEventListener: jest.fn() },
+        };
+        return elements[id] || {};
+      });
+
+      document.querySelectorAll = jest.fn((selector) => {
+        // Return an array of mock buttons or contents based on selector
+        if (selector === '.tab-button') {
+          return [{ addEventListener: jest.fn() }];
+        }
+        if (selector === '.tab-content') {
+          return [{ classList: { add: jest.fn(), remove: jest.fn() } }];
+        }
+        return [];
+      });
+      
+      // Mock global alert and console
+      global.alert = jest.fn();
+      global.console = {
+        log: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      };
+    });
+    describe.only('Displaying and Saving Transcripts', () => {
+      const mockRawTranscript = '[00:00] Hello\n[00:05] World';
+      const mockProcessedTranscript = '[00:00 -> 00:05]\nSpeaker: Hello World';
+
+      it('should load raw and processed transcripts from storage', async () => {
+        // Mock the YouTube video ID and transcripts
+        mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue(mockVideoId);
+        mockStorageUtils.loadTranscriptsById.mockResolvedValue({
+          rawTranscript: mockRawTranscript,
+          processedTranscript: mockProcessedTranscript,
+        });
+
+        const transcriptInput = { value: '' };
+        const transcriptDisplay = { textContent: '' };
+        const processedDisplay = { textContent: '' };
+        document.getElementById.mockImplementation((id) => {
+          if (id === 'transcript-input') return transcriptInput;
+          if (id === 'transcript-display') return transcriptDisplay;
+          if (id === 'processed-display') return processedDisplay;
+          return {};
+        });
+
+        await initializePopup(document, mockStorageUtils, mockYoutubeTranscriptRetriever);
+
+        // Check that the raw transcript was loaded into the input and display
+        expect(transcriptInput.value).toBe(mockRawTranscript);
+        expect(transcriptDisplay.textContent).toBe(mockRawTranscript);
+
+        // Check that the processed transcript was loaded and paginated
+        expect(processedDisplay.textContent).toBe(mockProcessedTranscript);
+      });
+
+      it('should save raw transcript to storage', async () => {
+        // Mock the YouTube video ID
+        mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue(mockVideoId);
+
+        // Mock DOM elements
+        const transcriptInput = { value: mockRawTranscript };
+        document.getElementById.mockImplementation((id) => {
+          if (id === 'transcript-input') return transcriptInput;
+          return {};
+        });
+
+        // Mock chrome storage set
+        chrome.storage = {
+          local: {
+            get: jest.fn((keys, callback) => callback({})),
+            set: jest.fn((data, callback) => callback()),
+          },
+        };
+
+        // Call the function to save the raw transcript
+        const loadTranscriptBtn = { addEventListener: jest.fn((event, callback) => callback()) };
+        await setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, mockStorageUtils);
+
+        // Check that the raw transcript was saved to storage
+        expect(mockStorageUtils.saveRawTranscriptById).toHaveBeenCalledWith(mockVideoId, mockRawTranscript);
+        expect(global.alert).toHaveBeenCalledWith('Transcript loaded and saved successfully!');
+      });
+
+      it('should save processed transcript to storage', async () => {
+        // Mock the YouTube video ID
+        mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue(mockVideoId);
+
+        // Mock processed transcript segments
+        const newProcessedSegment = '[00:05 -> 00:10]\nSpeaker: How are you?';
+        let processedTranscriptSegments = [mockProcessedTranscript, newProcessedSegment];
+        let processedTranscriptCombined = processedTranscriptSegments.join('\n');
+
+        // Mock processing response
+        llmUtils.call_llm = jest.fn().mockResolvedValue(newProcessedSegment);
+
+        // Mock chrome storage set
+        chrome.storage = {
+          local: {
+            get: jest.fn((keys, callback) => callback({})),
+            set: jest.fn((data, callback) => callback()),
+          },
+        };
+
+        // Set initial processed transcript
+        processedTranscript = mockProcessedTranscript;
+        processedTranscriptSegments = paginateTranscript(parseTranscript(mockRawTranscript), processedTranscript);
+
+        // Call the function to save the processed transcript
+        const processBtn = { addEventListener: jest.fn((event, callback) => callback()) };
+        await setupProcessButton(processBtn, { value: 'gpt-3' }, mockStorageUtils);
+
+        // Check that the processed transcript was saved to storage
+        expect(mockStorageUtils.saveProcessedTranscriptById).toHaveBeenCalledWith(mockVideoId, processedTranscriptCombined);
+        expect(global.alert).toHaveBeenCalledWith('Current segment processed successfully!');
+      });
+
+      it('should handle missing YouTube video ID when saving transcript', async () => {
+        // Mock the YouTube video ID to return null
+        mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue(null);
+
+        // Mock DOM elements
+        const transcriptInput = { value: mockRawTranscript };
+        document.getElementById.mockImplementation((id) => {
+          if (id === 'transcript-input') return transcriptInput;
+          return {};
+        });
+
+        // Call the function to save the raw transcript
+        const loadTranscriptBtn = { addEventListener: jest.fn((event, callback) => callback()) };
+        await setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, mockStorageUtils);
+
+        // Check that the alert was called with the appropriate message
+        expect(global.alert).toHaveBeenCalledWith('No transcript available to process.');
+      });
     });
 
-    it('should display raw segment when raw tab is active', () => {
-      document.getElementById.mockReturnValueOnce({ classList: { contains: () => false } });
-      displayRawOrProcessedSegment();
-      expect(document.getElementById).toHaveBeenCalledWith('transcript-display');
-      expect(document.getElementById).toHaveBeenCalledWith('segment-info');
-    });
+    describe('Pagination Logic', () => {
+      const mockRawTranscript = `
+  [00:00] Hello
+  [00:05] World
+  [00:10] How are you?
+  [00:15] I'm fine, thanks!
+  [00:20] Great to hear.
+      `;
 
-    it('should display processed segment when processed tab is active', () => {
-      document.getElementById.mockReturnValueOnce({ classList: { contains: () => true } });
-      displayRawOrProcessedSegment();
-      expect(document.getElementById).toHaveBeenCalledWith('processed-display');
-      expect(document.getElementById).toHaveBeenCalledWith('segment-info');
+      const mockProcessedTranscript = `
+  [00:00 -> 00:05]
+  Speaker: Hello
+  [00:05 -> 00:10]
+  Speaker: World
+  [00:10 -> 00:15]
+  Speaker: How are you?
+  [00:15 -> 00:20]
+  Speaker: I'm fine, thanks!
+  [00:20 -> 00:25]
+  Speaker: Great to hear.
+      `;
+
+      it('should correctly paginate raw transcript based on SEGMENT_DURATION', () => {
+        // Set SEGMENT_DURATION to 15 seconds for testing
+        SEGMENT_DURATION = 15;
+
+        parseTranscript(mockRawTranscript);
+        paginateTranscript(rawTranscript, mockProcessedTranscript);
+
+        expect(rawTranscriptSegments).toHaveLength(2);
+        expect(rawTranscriptSegments[0]).toBe(`[00:00] Hello\n[00:05] World\n[00:10] How are you?`);
+        expect(rawTranscriptSegments[1]).toBe(`[00:15] I'm fine, thanks!\n[00:20] Great to hear.`);
+      });
+
+      it('should correctly paginate processed transcript based on SEGMENT_DURATION', () => {
+        // Set SEGMENT_DURATION to 20 seconds for testing
+        SEGMENT_DURATION = 20;
+
+        parseTranscript(mockRawTranscript);
+        paginateTranscript(rawTranscript, mockProcessedTranscript);
+
+        expect(processedTranscriptSegments).toHaveLength(2);
+        expect(processedTranscriptSegments[0]).toBe(`[00:00 -> 00:05]
+  Speaker: Hello
+  [00:05 -> 00:10]
+  Speaker: World
+  [00:10 -> 00:15]
+  Speaker: How are you?`);
+        expect(processedTranscriptSegments[1]).toBe(`[00:15 -> 00:20]
+  Speaker: I'm fine, thanks!
+  [00:20 -> 00:25]
+  Speaker: Great to hear.`);
+      });
+
+      it('should handle transcripts that perfectly fit into segments', () => {
+        // Adjust mock transcripts to fit exactly into segments
+        const exactRaw = `
+  [00:00] Line 1
+  [00:10] Line 2
+  [00:20] Line 3
+  [00:30] Line 4
+        `;
+
+        const exactProcessed = `
+  [00:00 -> 00:10]
+  Speaker: Line 1
+  [00:10 -> 00:20]
+  Speaker: Line 2
+  [00:20 -> 00:30]
+  Speaker: Line 3
+  [00:30 -> 00:40]
+  Speaker: Line 4
+        `;
+
+        SEGMENT_DURATION = 20;
+
+        parseTranscript(exactRaw);
+        paginateTranscript(rawTranscript, exactProcessed);
+
+        expect(rawTranscriptSegments).toHaveLength(2);
+        expect(rawTranscriptSegments[0]).toBe(`[00:00] Line 1\n[00:10] Line 2`);
+        expect(rawTranscriptSegments[1]).toBe(`[00:20] Line 3\n[00:30] Line 4`);
+
+        expect(processedTranscriptSegments).toHaveLength(2);
+        expect(processedTranscriptSegments[0]).toBe(`[00:00 -> 00:10]
+  Speaker: Line 1
+  [00:10 -> 00:20]
+  Speaker: Line 2`);
+        expect(processedTranscriptSegments[1]).toBe(`[00:20 -> 00:30]
+  Speaker: Line 3
+  [00:30 -> 00:40]
+  Speaker: Line 4`);
+      });
+
+      it('should handle transcripts with varying segment sizes due to SEGMENT_DURATION changes', () => {
+        // Initial pagination
+        SEGMENT_DURATION = 15;
+        parseTranscript(mockRawTranscript);
+        paginateTranscript(rawTranscript, mockProcessedTranscript);
+
+        expect(rawTranscriptSegments).toHaveLength(2);
+        expect(processedTranscriptSegments).toHaveLength(2);
+
+        // Change SEGMENT_DURATION and re-paginate
+        SEGMENT_DURATION = 10;
+        paginateTranscript(rawTranscript, mockProcessedTranscript);
+
+        expect(rawTranscriptSegments).toHaveLength(3);
+        expect(rawTranscriptSegments[0]).toBe(`[00:00] Hello\n[00:05] World`);
+        expect(rawTranscriptSegments[1]).toBe(`[00:10] How are you?`);
+        expect(rawTranscriptSegments[2]).toBe(`[00:15] I'm fine, thanks!\n[00:20] Great to hear.`);
+
+        expect(processedTranscriptSegments).toHaveLength(3);
+        expect(processedTranscriptSegments[0]).toBe(`[00:00 -> 00:05]
+  Speaker: Hello
+  [00:05 -> 00:10]
+  Speaker: World`);
+        expect(processedTranscriptSegments[1]).toBe(`[00:10 -> 00:15]
+  Speaker: How are you?`);
+        expect(processedTranscriptSegments[2]).toBe(`[00:15 -> 00:20]
+  Speaker: I'm fine, thanks!
+  [00:20 -> 00:25]
+  Speaker: Great to hear.`);
+      });
     });
   });
 
@@ -189,86 +453,7 @@ describe('Popup Unit Tests', () => {
     });
   });
 
-  describe('Loading and Storing Transcripts', () => {
-    it('should load raw and processed transcripts from storage', async () => {
-      // Mock the YouTube video ID and transcripts
-      mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue('video123');
-      mockStorageUtils.loadTranscriptsById.mockResolvedValue({
-        rawTranscript: '[00:00] Hello\n[00:05] World',
-        processedTranscript: '[00:00 -> 00:05]\nSpeaker: Hello World',
-      });
-
-      // Mock DOM elements
-      const transcriptInput = { value: '' };
-      const transcriptDisplay = { textContent: '' };
-      const processedDisplay = { textContent: '' };
-      document.getElementById.mockImplementation((id) => {
-        if (id === 'transcript-input') return transcriptInput;
-        if (id === 'transcript-display') return transcriptDisplay;
-        if (id === 'processed-display') return processedDisplay;
-        return {};
-      });
-
-      // Call initializePopup
-      await initializePopup(document, mockStorageUtils);
-
-      // Check that the raw transcript was loaded into the input and display
-      expect(transcriptInput.value).toBe('[00:00] Hello\n[00:05] World');
-      expect(transcriptDisplay.textContent).toBe('[00:00] Hello\n[00:05] World');
-
-      // Check that the processed transcript was loaded into the processed display
-      expect(processedDisplay.textContent).toBe('[00:00 -> 00:05]\nSpeaker: Hello World');
-    });
-
-    it('should save raw transcript to storage', async () => {
-      // Mock the YouTube video ID
-      mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue('video123');
-
-      // Mock DOM elements
-      const transcriptInput = { value: '[00:00] Hello\n[00:05] World' };
-      document.getElementById.mockImplementation((id) => {
-        if (id === 'transcript-input') return transcriptInput;
-        return {};
-      });
-
-      // Call the function to save the raw transcript
-      const loadTranscriptBtn = { addEventListener: jest.fn((event, callback) => callback()) };
-      await setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, mockStorageUtils);
-
-      // Check that the raw transcript was saved to storage
-      expect(mockStorageUtils.saveRawTranscriptById).toHaveBeenCalledWith('video123', '[00:00] Hello\n[00:05] World');
-    });
-
-    it('should save processed transcript to storage', async () => {
-      // Mock the YouTube video ID
-      mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue('video123');
-
-      // Mock processed transcript segments
-      global.processedTranscriptSegments = ['[00:00 -> 00:05]\nSpeaker: Hello World'];
-
-      // Call the function to save the processed transcript
-      const processBtn = { addEventListener: jest.fn((event, callback) => callback()) };
-      await setupProcessButton(processBtn, { value: 'gpt-3' }, mockStorageUtils);
-
-      // Check that the processed transcript was saved to storage
-      expect(mockStorageUtils.saveProcessedTranscriptById).toHaveBeenCalledWith('video123', '[00:00 -> 00:05]\nSpeaker: Hello World');
-    });
-
-    it('should handle missing YouTube video ID when saving transcript', async () => {
-      // Mock the YouTube video ID to return null
-      mockStorageUtils.getCurrentYouTubeVideoId.mockResolvedValue(null);
-
-      // Mock alert
-      global.alert = jest.fn();
-
-      // Call the function to save the raw transcript
-      const loadTranscriptBtn = { addEventListener: jest.fn((event, callback) => callback()) };
-      await setupLoadTranscriptButton(loadTranscriptBtn, { value: '[00:00] Hello\n[00:05] World' }, mockStorageUtils);
-
-      // Check that the alert was called with the appropriate message
-      expect(global.alert).toHaveBeenCalledWith('Unable to determine YouTube Video ID.');
-    });
-  });
 
   // Add more unit tests for other functions as needed
 });
+
