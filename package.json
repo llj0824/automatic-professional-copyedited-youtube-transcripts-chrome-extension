@@ -13,6 +13,7 @@
   "scripts": {
     "test": "jest",
     "test:popup": "jest tests/popup.test.js",
+    "test:popup_unit": "jest tests/popup_unit.test.js",
     "test:youtube_transcript_retrieval": "jest tests/youtube_transcript_retrieval.test.js"
   }
 }

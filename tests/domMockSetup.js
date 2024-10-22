@@ -1,7 +1,6 @@
 // tests/domSetup.js
 
 export function domMockSetup() {
-    console.log("domMockSetup calling!")
     document.body.innerHTML = `
       <div class="container">
         <h2>YouTube Transcript Manager</h2>
@@ -54,4 +53,6 @@ export function domMockSetup() {
         </div>
       </div>
     `;
+
+    return document;
   }

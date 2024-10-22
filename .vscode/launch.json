@@ -21,9 +21,7 @@
             "program": "${workspaceFolder}/node_modules/.bin/jest",
             "args": [
                 "tests/popup_unit.test.js"
-            ],
-            "console": "integratedTerminal",
-            "internalConsoleOptions": "neverOpen"
+            ]
         }
     ]
 }

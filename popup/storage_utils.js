@@ -89,14 +89,13 @@ class StorageUtils {
   }
 
   /**
-   * Saves the processed transcript for a specific YouTube video and page index.
+   * Saves the processed transcript for a specific YouTube video.
    * @param {string} videoId - The YouTube video ID.
    * @param {string} processedTranscript - The processed transcript text to save.
-   * @param {number} pageIndex - The index of the page being saved.
    * @returns {Promise<void>}
    */
-  saveProcessedTranscriptById(videoId, processedTranscript, pageIndex) {
-    console.log(`saveProcessedTranscriptById called for Video ID: ${videoId}, Page: ${pageIndex}`);
+  saveProcessedTranscriptById(videoId, processedTranscript) {
+    console.log(`saveProcessedTranscriptById called for Video ID: ${videoId}`);
     if (!videoId) {
       console.error('Invalid video ID. Cannot save processed transcript.');
       return Promise.reject('Invalid video ID.');
@@ -111,17 +110,16 @@ class StorageUtils {
           reject(chrome.runtime.lastError);
           return;
         }
+
         const existingData = result[storageKey] || {};
-        const processedTranscripts = existingData.processedTranscripts || [];
-        processedTranscripts[pageIndex] = processedTranscript;
-        const updatedData = { ...existingData, processedTranscripts };
+        const updatedData = { ...existingData, processedTranscript };
 
         chrome.storage.local.set({ [storageKey]: updatedData }, () => {
           if (chrome.runtime.lastError) {
             console.error('Error saving processed transcript:', chrome.runtime.lastError);
             reject(chrome.runtime.lastError);
           } else {
-            console.log(`Processed transcript saved successfully for Video ID: ${videoId}, Page: ${pageIndex}`);
+            console.log(`Processed transcript saved successfully for Video ID: ${videoId}`);
             resolve();
           }
         });
@@ -132,7 +130,7 @@ class StorageUtils {
   /**
    * Loads both the raw and processed transcripts for a specific YouTube video by video ID.
    * @param {string} videoId - The YouTube video ID.
-   * @returns {Promise<{ rawTranscript: string|null, processedTranscripts: string[] }>} 
+   * @returns {Promise<{ rawTranscript: string|null, processedTranscript: string|null }>} 
    *          - The retrieved transcripts or null if not found.
    */
   loadTranscriptsById(videoId) {
@@ -154,7 +152,7 @@ class StorageUtils {
           console.log(`Transcripts loaded for Storage Key ${storageKey}:`, data);
           resolve({
             rawTranscript: data.rawTranscript || null,
-            processedTranscripts: data.processedTranscripts || [],
+            processedTranscript: data.processedTranscript || null,
           });
         }
       });
