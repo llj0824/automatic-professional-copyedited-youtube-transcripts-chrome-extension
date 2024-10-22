@@ -93,7 +93,7 @@ describe('Popup Unit Tests', () => {
   });
 
   describe.only('paginateTranscript', () => {
-    it.only('should correctly paginate a transcript with 1 total page', () => {
+    it('should correctly paginate a transcript with 1 total page', () => {
       const mockRawTranscript = [
         { timestamp: 0, text: 'Page 1' },
         { timestamp: 5, text: 'Page 1 continued' }
@@ -114,22 +114,33 @@ describe('Popup Unit Tests', () => {
     });
 
     it('should correctly paginate a transcript with 3 total pages', () => {
-      const mockTranscript = [
+      global.SEGMENT_DURATION = 900;
+      const mockRawTranscript = [
         { timestamp: 0, text: 'Page 1' },
         { timestamp: 5, text: 'Page 1 continued' },
         { timestamp: 900, text: 'Page 2' },
         { timestamp: 1800, text: 'Page 3' }
       ];
-      mockStorageUtils.loadTranscriptsById.mockResolvedValue({ rawTranscript: mockTranscript});
-      global.SEGMENT_DURATION = 900;
-      const expected = [
-        '[00:00] Page 1\n[00:05] Page 1 continued\n',
-        '[15:00] Page 2\n',
-        '[30:00] Page 3\n'
+      const mockProcessedTranscript = [
+        { timestamp: 0, text: 'Page 1' },
+        { timestamp: 5, text: 'Page 1 continued' },
+        { timestamp: 900, text: 'Page 2' },
+        { timestamp: 1800, text: 'Page 3' }
       ];
-      const result = paginateTranscript();
-      expect(result).toHaveLength(3);
-      expect(result).toEqual(expected);
+      mockStorageUtils.loadTranscriptsById.mockResolvedValue({
+         rawTranscript: mockRawTranscript,
+         processedTranscript: mockProcessedTranscript});
+      const expected = [
+        '[00:00] Page 1\n[00:05] Page 1 continued',
+        '[15:00] Page 2',
+        '[30:00] Page 3'
+      ];
+      const paginatedResult = paginateTranscript(mockRawTranscript, mockProcessedTranscript);
+      expect(paginatedResult.rawTranscriptSegments).toEqual(expected);
+      expect(paginatedResult.rawTranscriptSegments).toHaveLength(3);
+      expect(paginatedResult.processedTranscriptSegments).toEqual(expected);
+      expect(paginatedResult.processedTranscriptSegments).toHaveLength(3);
+
     });
   });
 
