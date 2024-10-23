@@ -4,3 +4,4 @@ node_modules/
 git
 sample_youtube_transcript.txt
 package-lock.json
+.env
