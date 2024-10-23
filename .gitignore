@@ -1,7 +1,19 @@
+# Build output
+dist/
+dist/*
+
+# Environment variables and secrets
+.env
+.env.*
+
+# Dependencies
 node_modules/
+
+# IDE files
+.idea/
+
+# OS files
 .DS_Store
 .cursor-tutor.code-workspace
 git
 sample_youtube_transcript.txt
-package-lock.json
-.env

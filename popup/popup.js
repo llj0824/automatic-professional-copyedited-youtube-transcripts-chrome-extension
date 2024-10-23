@@ -52,14 +52,6 @@ Today we are going to be talking about mental health and ideas of self with Dr. 
 - Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.`;
 
 const llmUtils = new LLM_API_Utils();
-
-/**
- * Initialize the popup with dependency injection
- * @param {Document} doc - The Document object to interact with the DOM.
- * @param {StorageUtils} storageUtils - The StorageUtils instance.
- */
-document.addEventListener('DOMContentLoaded', () => initializePopup(document, new StorageUtils()));
-
 /**
  * Initialize the popup by loading API keys and any existing transcripts.
  * @param {Document} doc - The Document object to interact with the DOM.
@@ -427,6 +419,14 @@ function updateSegmentInfo() {
 }
 
 /**
+ * Sets up the event listener for initializing the popup when the DOM content is loaded.
+ * This function is exported to allow external modules  (popup.html) to initialize the popup functionality.
+ */
+function setupEventListeners() {
+  document.addEventListener('DOMContentLoaded', () => initializePopup(document, new StorageUtils()));
+}
+
+/**
  * Sets up tab switching functionality.
  * @param {Document} doc - The Document object to interact with the DOM.
  * @param {NodeList} tabButtons - The list of tab button elements.
@@ -534,6 +534,7 @@ export {
   handlePrevClick,
   handleNextClick,
   setupProcessButton,
-  setupLoadTranscriptButton
+  setupLoadTranscriptButton,
+  setupEventListeners
 };
 
