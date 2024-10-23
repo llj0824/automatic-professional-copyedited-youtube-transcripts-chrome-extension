@@ -10,8 +10,11 @@
   <div class="container">
     <h2>YouTube Transcript Manager</h2>
     
+    <!-- Status Indicator -->
+    <div id="status-indicator">Attempting to load transcript from YouTube...</div>
+    
     <!-- Transcript Navigation -->
-    <div id="transcript-section">
+    <div id="transcript-section" class="hidden">
       <button id="prev-btn" disabled>&larr; Previous</button>
       <span id="segment-info">Segment 1</span>
       <button id="next-btn" disabled>Next &rarr;</button>
@@ -38,7 +41,7 @@
     </div>
     
     <!-- API Key and Model Selection -->
-    <div id="api-section">
+    <div id="api-section" class="hidden">
       <h3>LLM Configuration</h3>
       
       <!-- API Key Inputs -->
@@ -66,8 +69,8 @@
     </div>
     
     <!-- Transcript Input Section -->
-    <div id="transcript-input-section">
-      <h3>Load Transcript</h3>
+    <div id="transcript-input-section" class="hidden">
+      <h3>Load Transcript Manually</h3>
       <textarea id="transcript-input" placeholder="Paste your transcript here..." rows="5" cols="50"></textarea>
       <button id="load-transcript-btn">Load Transcript</button>
     </div>
