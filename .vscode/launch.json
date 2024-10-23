@@ -20,7 +20,7 @@
             "name": "Run Jest Tests",
             "program": "${workspaceFolder}/node_modules/.bin/jest",
             "args": [
-                "tests/popup_unit.test.js"
+                "tests/integration.test.js"
             ]
         }
     ]

@@ -34,4 +34,22 @@ module.exports = {
   // Specify file extensions Jest should look for when resolving modules
   // This list covers most common JavaScript-related extensions
   moduleFileExtensions: ['js', 'mjs', 'jsx', 'json'],
+
+
+  // Add Puppeteer-specific configurations
+  projects: [
+    {
+      // Default configuration for unit tests
+      displayName: 'unit',
+      testMatch: ['<rootDir>/tests/**/*.test.js'],
+      testPathIgnorePatterns: ['<rootDir>/tests/integration.test.js'],
+    },
+    {
+      // Puppeteer configuration for integration tests
+      displayName: 'integration',
+      preset: 'jest-puppeteer',
+      testMatch: ['<rootDir>/tests/integration.test.js'],
+      testEnvironment: 'jest-environment-puppeteer',
+    },
+  ],
 };

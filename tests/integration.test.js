@@ -1,3 +1,24 @@
+/**
+ * Integration Tests for YouTube Transcript Extension
+ * 
+ * Purpose:
+ * These tests are designed to mimic real user interactions as closely as possible.
+ * Rather than mocking APIs and responses, we make actual calls to YouTube and storage
+ * to verify the full workflow functions correctly.
+ * 
+ * Testing Philosophy:
+ * - Avoid mocks/stubs where possible
+ * - Use real YouTube videos with known transcripts
+ * - Make actual API calls
+ * - Test complete user workflows
+ * - Allow for realistic timing/delays
+ *
+ * Note: These tests require:
+ * - Active internet connection
+ * - Valid API keys in storage
+ * - Access to test YouTube videos
+ */
+
 import { initializePopup } from '../popup/popup.js';
 import StorageUtils from '../popup/storage_utils.js';
 import YoutubeTranscriptRetriever from '../popup/youtube_transcript_retrival.js';
@@ -138,4 +159,3 @@ describe('YouTube Transcript Extension Integration Tests', () => {
     expect(document.getElementById('segment-info').textContent).toContain('2 of');
   });
 });
-

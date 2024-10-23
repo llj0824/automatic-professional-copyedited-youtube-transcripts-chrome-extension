@@ -3,3 +3,4 @@ node_modules/
 .cursor-tutor.code-workspace
 git
 sample_youtube_transcript.txt
+package-lock.json
