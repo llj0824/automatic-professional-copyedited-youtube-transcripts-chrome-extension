@@ -45,16 +45,31 @@ describe('YouTube Transcript Extension Integration Tests', () => {
 
     try {
       browser = await puppeteer.launch({
-        headless: false, // Need headed mode for extension testing
+        headless: false,     // Run browser with GUI visible instead of headless mode - needed for extension testing
         args: [
-          `--disable-extensions-except=${extensionPath}`,
-          `--load-extension=${extensionPath}`,
-          '--no-sandbox',
-          '--disable-setuid-sandbox'
+          `--disable-extensions-except=${extensionPath}`,  // Disable all Chrome extensions except our test extension
+          `--load-extension=${extensionPath}`,            // Load our extension from the specified path
+          '--no-sandbox',                                 // Disable Chrome sandbox for testing environment
+          '--disable-setuid-sandbox'                      // Disable setuid sandbox for additional testing compatibility
         ],
-        ignoreDefaultArgs: ['--enable-automation']
+        ignoreDefaultArgs: [
+            '--enable-automation',                        // Remove automation flag to prevent detection as automated browser
+            '--enable-external-memory-accounted-in-global-limit'  // Remove problematic memory accounting flag that can cause issues
+          ]
       });
 
+
+      // Wait for extension to load in the default context
+      // Extensions can only run in the default browser context, not in other contexts like incognito
+      // See browser context hierarchy:
+      // Chrome Browser (browser)
+      // └── Default Context (browser.defaultBrowserContext()) 
+      //     ├── Tab 1
+      //     ├── Tab 2  
+      //     └── Our Extension
+      // └── Other Contexts (like incognito windows)
+      //     └── Tab 1 (no extension here)
+      const defaultBrowserContext = browser.defaultBrowserContext();
       // Wait and verify extension loading
       let extensionTarget = null;
       let attempts = 0;
@@ -62,9 +77,9 @@ describe('YouTube Transcript Extension Integration Tests', () => {
 
       while (!extensionTarget && attempts < maxAttempts) {
         console.log(`Attempt ${attempts + 1} to find extension...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
-        const targets = await browser.targets();
+        const targets = await defaultBrowserContext.targets();
         console.log('Current targets:', targets.map(t => ({
           type: t.type(),
           url: t.url()
@@ -94,8 +109,12 @@ describe('YouTube Transcript Extension Integration Tests', () => {
 
   beforeEach(async () => {
     try {
-      page = await browser.newPage();
+      // Browser contexts are isolated browser instances with separate cookies, storage and cache
+      const defaultContext = browser.defaultBrowserContext();
       
+      // Create new page in the default context (which has the extension loaded)
+      page = await defaultContext.newPage();
+
       // Get the extension ID - Updated method to find any extension target
       const targets = await browser.targets();
       const extensionTarget = targets.find(target => 
