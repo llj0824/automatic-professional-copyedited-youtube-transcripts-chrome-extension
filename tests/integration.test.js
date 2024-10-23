@@ -30,133 +30,129 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 
+// Add new helper function at the top level
+async function setupTestEnvironment(extensionPath) {
+    const browser = await puppeteer.launch({
+        headless: false,
+        args: [
+            `--disable-extensions-except=${extensionPath}`,
+            `--load-extension=${extensionPath}`,
+            '--no-sandbox',
+            '--disable-setuid-sandbox'
+        ],
+        ignoreDefaultArgs: [
+            '--enable-automation',
+            '--enable-external-memory-accounted-in-global-limit'
+        ]
+    });
+
+
+    // Wait for extension to load in the default context
+    // Extensions can only run in the default browser context, not in other contexts like incognito
+    // See browser context hierarchy:
+    // Chrome Window (OS-level process)
+    // ├── Browser Instance (Puppeteer browser object)
+    // │   ├── Window 1 (Chrome window)
+    // │   │   ├── Tab 1 (Page object)
+    // │   │   └── Tab 2 (Page object)
+    // │   └── Window 2
+    // │       ├── Tab 3
+    // │       └── Tab 4
+    // └── DevTools Window (separate process)
+    // Create a new page first
+    const page = await browser.newPage();
+
+    // Navigate to chrome://extensions to force extension registration
+    await page.goto('chrome://extensions/');
+
+
+    // Wait for extension target
+    // i.e. target = {
+    //     type: 'service_worker',
+    //     url: 'chrome-extension://cdfkcbohnhhhjobmijmcnnlidhklfomc/background/service_worker.js'
+    // }
+    console.log('Waiting for extension target...to load');
+    const maxTries = 10
+    // This will wait for a service worker target that matches our criteria
+    // Try up to 10 times to find the extension target
+    for (let i = 0; i < maxTries; i++) {
+        const targets = await browser.targets();
+
+        console.log(`[${Date.now()}] Currently Available targets:`, 
+            targets.map(t => ({
+                type: t.type(),
+                url: t.url()
+            }))
+        );
+
+        // Find target that matches our criteria
+        const target = targets.find(target => 
+            target.type() === 'service_worker' && 
+            target.url().includes('chrome-extension://')
+        );
+        
+        if (target) {
+            // Return true when we find what we're looking for
+            const extensionId = target.url().split('/')[2];
+            return { browser, extensionId, page };
+        }
+
+        await page.reload()
+                // Try to find and click the reload button on the extension's page. 
+        // I notice the helps it register it, thru manual testing...
+        // This is just a frustating race condition, not sure why it's not detecting it.
+        console.log(`[${Date.now()}] Extension target not found, attempt ${i + 1}/10`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    if (!extensionTarget) {
+        throw new Error('Extension failed to load');
+    }
+
+    // Extract extension ID from URL
+    const extensionId = extensionTarget.url().split('/')[2];
+    console.log('Found extension with ID:', extensionId);
+
+    return { browser, extensionId, page };
+}
 
 describe('YouTube Transcript Extension Integration Tests', () => {
     // Test constants
     const SHORT_VIDEO_ID = 'jNQXAC9IVRw'; // "Me at the zoo" - First YouTube video (0:18)
     const LONG_VIDEO_ID = 'SzCpCbQ27Kk';   // IA Summit 2024 Fireside Chat
     let browser;
-    let defaultBrowserContext;
     let page;
     let extensionPopup;
     const extensionPath = path.join(__dirname, '../dist');
 
     beforeAll(async () => {
-        // Increase timeout for browser launch
-        jest.setTimeout(30000); // 30 seconds timeout
+        // Close the default browser instance
+        // await global.browser.close();
+        jest.setTimeout(30000);
 
         try {
-            browser = await puppeteer.launch({
-                headless: false,     // Run browser with GUI visible instead of headless mode - needed for extension testing
-                args: [
-                    `--disable-extensions-except=${extensionPath}`,  // Disable all Chrome extensions except our test extension
-                    `--load-extension=${extensionPath}`,            // Load our extension from the specified path
-                    '--no-sandbox',                                 // Disable Chrome sandbox for testing environment
-                    '--disable-setuid-sandbox'                      // Disable setuid sandbox for additional testing compatibility
-                ],
-                ignoreDefaultArgs: [
-                    '--enable-automation',                        // Remove automation flag to prevent detection as automated browser
-                    '--enable-external-memory-accounted-in-global-limit'  // Remove problematic memory accounting flag that can cause issues
-                ]
-            });
+            // Replace the entire browser launch and extension detection logic
+            const { browser: testBrowser, extensionId: extensionId, page: testPage } =
+                await setupTestEnvironment(extensionPath);
 
+            browser = testBrowser;
+            page = testPage;
 
-            // Wait for extension to load in the default context
-            // Extensions can only run in the default browser context, not in other contexts like incognito
-            // See browser context hierarchy:
-            // Chrome Browser (browser)
-            // └── Default Context (browser.defaultBrowserContext()) 
-            //     ├── Tab 1
-            //     ├── Tab 2  
-            //     └── Our Extension
-            // └── Other Contexts (like incognito windows)
-            //     └── Tab 1 (no extension here)
-            defaultBrowserContext = browser.defaultBrowserContext();
-            // Wait and verify extension loading
-            let extensionTarget = null;
-            let attempts = 0;
-            const maxAttempts = 5;
+            // Open extension popup
+            extensionPopup = await browser.newPage();
+            await extensionPopup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
 
-            while (!extensionTarget && attempts < maxAttempts) {
-                console.log(`Attempt ${attempts + 1} to find extension...`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
-                const targets = await defaultBrowserContext.targets();
-                console.log('Current targets:', targets.map(t => ({
-                    type: t.type(),
-                    url: t.url()
-                })));
-
-                extensionTarget = targets.find(target =>
-                    target.url().startsWith('chrome-extension://')
-                );
-
-                attempts++;
-            }
-
-            if (!extensionTarget) {
-                console.error('Failed to load extension after', maxAttempts, 'attempts');
-                console.error('Extension path:', extensionPath);
-                console.error('Available targets:', await browser.targets());
-                throw new Error('Extension failed to load');
-            }
-
-            // Close any remaining pages except the extension
-            const remainingPages = await browser.pages();
-            await Promise.all(
-                remainingPages
-                    .filter(page => !page.url().startsWith('chrome-extension://'))
-                    .map(page => page.close())
-            );
-
-            console.log('Extension loaded successfully:', extensionTarget.url());
-
+            console.log('Extension loaded successfully with ID:', extensionId);
         } catch (error) {
             console.error('Failed to launch browser:', error);
             throw error;
         }
-    }, 30000); // Explicit timeout for beforeAll
+    }, 30000);
 
     // Replace all waitForTimeout calls with waitForTimeout helper function
     const waitForTimeout = async (page, ms) => {
         await new Promise(resolve => setTimeout(resolve, ms));
     };
-
-    beforeEach(async () => {
-        try {
-            // Browser contexts are isolated browser instances with separate cookies, storage and cache
-            defaultBrowserContext = browser.defaultBrowserContext();
-
-            // Create new page in the default context (which has the extension loaded)
-            page = await defaultBrowserContext.newPage();
-
-            // Get the extension ID - Updated method to find any extension target
-            const targets = await browser.targets();
-            const extensionTarget = targets.find(target =>
-                target.url().startsWith('chrome-extension://')
-            );
-
-            if (!extensionTarget) {
-                console.error('Available targets:', targets.map(t => ({
-                    type: t.type(),
-                    url: t.url()
-                })));
-                throw new Error('Extension target not found');
-            }
-
-            const extensionUrl = extensionTarget.url();
-            const extensionId = extensionUrl.split('/')[2];
-
-            console.log('Found extension ID:', extensionId);
-
-            // Open extension popup
-            extensionPopup = await browser.newPage();
-            await extensionPopup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
-        } catch (error) {
-            console.error('Failed in beforeEach:', error);
-            throw error;
-        }
-    }, 10000); // Explicit timeout for beforeEach
 
     afterEach(async () => {
         try {
