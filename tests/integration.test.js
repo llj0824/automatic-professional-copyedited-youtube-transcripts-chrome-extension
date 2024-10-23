@@ -50,15 +50,16 @@ async function setupTestEnvironment(extensionPath) {
     // Wait for extension to load in the default context
     // Extensions can only run in the default browser context, not in other contexts like incognito
     // See browser context hierarchy:
-    // Chrome Window (OS-level process)
-    // ├── Browser Instance (Puppeteer browser object)
-    // │   ├── Window 1 (Chrome window)
-    // │   │   ├── Tab 1 (Page object)
-    // │   │   └── Tab 2 (Page object)
-    // │   └── Window 2
-    // │       ├── Tab 3
-    // │       └── Tab 4
-    // └── DevTools Window (separate process)
+    // Chrome Process (OS Level)
+    // └── DevTools Protocol (CDP)
+    //     └── Browser Instance (Puppeteer browser object)
+    //         └── Targets (Pages, Workers, Extensions)
+    //             ├── Window 1 (Chrome window) 
+    //             │   ├── Tab 1 (Page object)
+    //             │   └── Tab 2 (Page object) 
+    //             └── Window 2
+    //                 ├── Tab 3
+    //                 └── Tab 4
     // Create a new page first
     const page = await browser.newPage();
 
@@ -78,7 +79,7 @@ async function setupTestEnvironment(extensionPath) {
     for (let i = 0; i < maxTries; i++) {
         const targets = await browser.targets();
 
-        console.log(`[${Date.now()}] Currently Available targets:`, 
+        console.log(`[${Date.now()}] Currently Available targets:`,
             targets.map(t => ({
                 type: t.type(),
                 url: t.url()
@@ -86,19 +87,26 @@ async function setupTestEnvironment(extensionPath) {
         );
 
         // Find target that matches our criteria
-        const target = targets.find(target => 
-            target.type() === 'service_worker' && 
+        const target = targets.find(target =>
+            target.type() === 'service_worker' &&
             target.url().includes('chrome-extension://')
         );
-        
+
         if (target) {
             // Return true when we find what we're looking for
             const extensionId = target.url().split('/')[2];
             return { browser, extensionId, page };
+        } else {
+            // If browser target not found, most of item the extension html element is loaded. Try clicking the extension's reload button
+            const reloadButton = await page.$('>>> cr-icon-button[title="Reload"]');
+            if (reloadButton) {
+                await reloadButton.click();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
         }
 
         await page.reload()
-                // Try to find and click the reload button on the extension's page. 
+        // Try to find and click the reload button on the extension's page. 
         // I notice the helps it register it, thru manual testing...
         // This is just a frustating race condition, not sure why it's not detecting it.
         console.log(`[${Date.now()}] Extension target not found, attempt ${i + 1}/10`);
