@@ -101,6 +101,14 @@ describe('YouTube Transcript Extension Integration Tests', () => {
                 throw new Error('Extension failed to load');
             }
 
+            // Close any remaining pages except the extension
+            const remainingPages = await browser.pages();
+            await Promise.all(
+                remainingPages
+                    .filter(page => !page.url().startsWith('chrome-extension://'))
+                    .map(page => page.close())
+            );
+
             console.log('Extension loaded successfully:', extensionTarget.url());
 
         } catch (error) {
@@ -108,6 +116,11 @@ describe('YouTube Transcript Extension Integration Tests', () => {
             throw error;
         }
     }, 30000); // Explicit timeout for beforeAll
+
+    // Replace all waitForTimeout calls with waitForTimeout helper function
+    const waitForTimeout = async (page, ms) => {
+        await new Promise(resolve => setTimeout(resolve, ms));
+    };
 
     beforeEach(async () => {
         try {
@@ -166,7 +179,8 @@ describe('YouTube Transcript Extension Integration Tests', () => {
         try {
             // Navigate to YouTube video
             await page.goto(`https://www.youtube.com/watch?v=${SHORT_VIDEO_ID}`);
-            await page.waitForTimeout(5000); // Wait for video to load
+            await waitForTimeout(page, 5000);
+
 
             // The extension's popup.html already includes all necessary scripts
             // We just need to verify the initialization worked
@@ -244,7 +258,7 @@ describe('YouTube Transcript Extension Integration Tests', () => {
     test('should handle pagination for long video', async () => {
         // Navigate to long video
         await page.goto(`https://www.youtube.com/watch?v=${LONG_VIDEO_ID}`);
-        await page.waitForTimeout(2000);
+        await waitForTimeout(page, 5000);
 
         // Load transcript
         await extensionPopup.click('#load-transcript-btn');

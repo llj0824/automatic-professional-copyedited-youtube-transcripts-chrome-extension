@@ -18,10 +18,12 @@
             "type": "node",
             "request": "launch",
             "name": "Run Jest Tests",
-            "program": "${workspaceFolder}/node_modules/.bin/jest",
-            "args": [
-                "tests/integration.test.js"
-            ]
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run-script",
+                "test:integration"
+            ],
+            "console": "integratedTerminal"
         }
     ]
 }
