@@ -9,7 +9,6 @@ let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processB
 
 let isRawTranscriptVisible = true; // true for 'raw transcript', false for 'processed transcript'
 let rawTranscript = ""; // loaded from youtube automatically 
-let formattedTranscript = ""; // formatted from raw transcript via @parseTranscript 
 let processedTranscript = ""; // loaded from storage
 let rawTranscriptSegments = []; // paginated from raw transcript
 let processedTranscriptSegments = []; // paginated from processed transcript
@@ -95,75 +94,77 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
     setupPagination(prevBtn, nextBtn, segmentInfo);
 
-    // Load existing transcripts if available
-    const videoId = await storageUtils.getCurrentYouTubeVideoId();
-    console.log(`Current YouTube Video ID: ${videoId}`);
-    if (videoId) {
-      const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
-      rawTranscript = savedTranscripts.rawTranscript || "";
-      processedTranscript = savedTranscripts.processedTranscript || "";
-      
-      // Parse and paginate transcripts
-      formattedTranscript = parseTranscript(rawTranscript);
-      paginateTranscript(rawTranscript, processedTranscript);
-      
-      setRawAndProcessedTranscriptText();
-      updatePaginationButtons();
-      updateSegmentInfo();
-    } else {
-      console.warn('No YouTube Video ID found.');
-    }
+     // Load existing transcripts if available
+     const videoId = await storageUtils.getCurrentYouTubeVideoId();
+     console.log(`Current YouTube Video ID: ${videoId}`);
+     
+     // First try to load from storage
+     const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
+     
+     // Then try to load from YouTube if needed
+     const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = 
+       await handleTranscriptRetrieval(videoId, savedTranscripts, youtubeTranscriptRetriever, storageUtils);
+ 
+     // Update status indicator
+     const statusIndicator = doc.getElementById('status-indicator');
+     statusIndicator.textContent = `${youtubeTranscriptStatus} ${youtubeTranscriptMessage}\n${existingTranscriptStatus} ${existingTranscriptMessage}`;
+ 
+     if (youtubeTranscriptStatus === '✅' || existingTranscriptStatus === '✅') {
+       // Hide manual load transcript section
+       doc.getElementById('transcript-input-section').classList.add('hidden');
+       doc.getElementById('api-section').classList.add('hidden');
+       
+       // Show other sections
+       doc.getElementById('transcript-section').classList.remove('hidden');
+       doc.getElementById('content-section').classList.remove('hidden');
+       doc.getElementById('actions').classList.remove('hidden');
+ 
+       // Paginate transcripts and update UI
+       paginateTranscript(rawTranscript, processedTranscript);
+       setRawAndProcessedTranscriptText();
+       updatePaginationButtons();
+       updateSegmentInfo();
+     } else {
+       // Show manual load transcript section only if both auto-load methods failed
+       doc.getElementById('transcript-input-section').classList.remove('hidden');
+       statusIndicator.textContent += "\nUnable to auto-load transcript. Please load manually.";
+     }
+ 
+   } catch (error) {
+     console.error('Error initializing popup:', error);
+     transcriptDisplay.textContent = 'Error initializing popup.';
+   }
+ }
 
-    // Load raw transcripts from YouTube if existing storage
-    const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = 
-    await handleTranscriptRetrieval(videoId, savedTranscripts, youtubeTranscriptRetriever, transcriptInput);
-
-    // Update status indicator
-    const statusIndicator = doc.getElementById('status-indicator');
-    statusIndicator.textContent = `${youtubeTranscriptStatus} ${youtubeTranscriptMessage}\n${existingTranscriptStatus} ${existingTranscriptMessage}`;
-
-    if (youtubeTranscriptStatus === '✅' || existingTranscriptStatus === '✅') {
-      // Hide manual load transcript section
-      doc.getElementById('transcript-input-section').classList.add('hidden');
-      
-      // Show other sections
-      doc.getElementById('transcript-section').classList.remove('hidden');
-      doc.getElementById('content-section').classList.remove('hidden');
-      doc.getElementById('actions').classList.remove('hidden');
-      doc.getElementById('api-section').classList.remove('hidden');
-    } else {
-      // Show manual load transcript section
-      doc.getElementById('transcript-input-section').classList.remove('hidden');
-      
-      // Update status indicator to inform user
-      statusIndicator.textContent += "\nUnable to auto-load transcript. Please load manually.";
-    }
-
-  } catch (error) {
-    console.error('Error initializing popup:', error);
-    transcriptDisplay.textContent = 'Error initializing popup.';
-  }
-}
-
-async function handleTranscriptRetrieval(videoId, transcripts, youtubeTranscriptRetriever, transcriptInput) {
-  let youtubeTranscriptStatus = '❌';
-  let youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
+ async function handleTranscriptRetrieval(videoId, savedTranscripts, youtubeTranscriptRetriever, storageUtils) {
+  let youtubeTranscriptStatus = '⏭️';  // Changed to skip emoji
+  let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
   let existingTranscriptStatus = '❌';
   let existingTranscriptMessage = 'No existing transcript found.';
   
-  try {
-    console.log('Automatically retrieving transcript from YouTube...');
-    const youtubeTranscript = await youtubeTranscriptRetriever.fetchParsedTranscript(videoId);
-    transcriptInput.value = youtubeTranscript;
-    youtubeTranscriptStatus = '✅';
-    youtubeTranscriptMessage = 'Transcript automatically retrieved from YouTube and loaded into the input area.';
-  } catch (ytError) {
-    console.error('Error automatically retrieving transcript from YouTube:', ytError);
+  // First check if we have saved transcripts
+  if (savedTranscripts.rawTranscript) {
+    rawTranscript = savedTranscripts.rawTranscript;
+    processedTranscript = savedTranscripts.processedTranscript || "";
+    existingTranscriptStatus = '✅';
+    existingTranscriptMessage = 'Existing transcript loaded from storage.';
+    return { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage };
   }
   
-  if (transcripts.rawTranscript) {
-    existingTranscriptStatus = '✅';
-    existingTranscriptMessage = 'Existing transcript loaded.';
+  // If no saved transcript, try to fetch from YouTube
+  youtubeTranscriptStatus = '❌';  // Reset to failure state before attempting
+  youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
+  
+  try {
+    rawTranscript = await youtubeTranscriptRetriever.fetchParsedTranscript(videoId);
+    if (rawTranscript) {
+      // Save the newly fetched transcript
+      await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
+      youtubeTranscriptStatus = '✅';
+      youtubeTranscriptMessage = 'Transcript automatically retrieved from YouTube.';
+    }
+  } catch (ytError) {
+    console.error('Error automatically retrieving transcript from YouTube:', ytError);
   }
 
   return { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage };
@@ -199,32 +200,7 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUt
   loadTranscriptBtn.addEventListener('click', handleLoadTranscriptClick.bind(null, transcriptInput, storageUtils));
 }
 
-/**
- * Parse the raw transcript into an array of objects with timestamp and text
- * @param {string} rawTranscript 
- * @returns {Array} Array of parsed transcript objects with timestamp and text
- * 
- * This function expects the timestamp in the format [mm:ss] or [hh:mm:ss]
- * It handles both formats and converts them to seconds.
- */
-function parseTranscript(rawTranscript) {
-  const parsedResult = rawTranscript.split('\n').map(line => {
-    // This regex expects timestamps in the format [mm:ss] or [hh:mm:ss]
-    const match = line.match(/\[(?:(\d+):)?(\d+):(\d+)\]\s*(.*)/);
-    if (match) {
-      const hours = parseInt(match[1] || '0', 10); // If hours are not provided, default to 0
-      const minutes = parseInt(match[2], 10);
-      const seconds = parseInt(match[3], 10);
-      const timeInSeconds = hours * 3600 + minutes * 60 + seconds;
-      return {
-        timestamp: timeInSeconds,
-        text: match[4]
-      };
-    }
-    return null;
-  }).filter(item => item !== null);
-  return parsedResult;
-}
+
 
 /**
  * Paginate the transcript into segments based on SEGMENT_DURATION.
@@ -383,21 +359,20 @@ function getCurrentDisplaySegments() {
   return isRawTranscriptVisible ? rawTranscriptSegments : processedTranscriptSegments;
 }
 
-
+// Update handleLoadTranscriptClick to remove formatting step
 async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
-  const rawTranscript = transcriptInput.value.trim();
+  rawTranscript = transcriptInput.value.trim();
   if (!rawTranscript) {
     console.warn('No transcript entered.');
     alert('Please enter a transcript.');
     return;
   }
-  formattedTranscript = parseTranscript(rawTranscript);
+
   paginateTranscript(rawTranscript, processedTranscript);
   setRawAndProcessedTranscriptText();
   updatePaginationButtons();
 
   const videoId = await storageUtils.getCurrentYouTubeVideoId();
-  console.log(`Saving transcript for Video ID: ${videoId}`);
   if (videoId) {
     try {
       await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
@@ -467,7 +442,7 @@ function setupTabs(doc, tabButtons, tabContents) {
 
       // Hide all tab contents
       tabContents.forEach(content => content.classList.add('hidden'));
-      
+
       // Show corresponding tab content
       const tab = button.getAttribute('data-tab');
       const tabContent = doc.getElementById(tab);
@@ -514,16 +489,16 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
 
       // Process only the current segment
       const currentRawSegment = rawTranscriptSegments[currentSegmentIndex];
-      
+
       // Check if the current segment is already processed sufficiently
-      if (processedTranscriptSegments[currentSegmentIndex] && 
-          processedTranscriptSegments[currentSegmentIndex].split(/\s+/).length >= 100) {
+      if (processedTranscriptSegments[currentSegmentIndex] &&
+        processedTranscriptSegments[currentSegmentIndex].split(/\s+/).length >= 100) {
         alert('Current segment is already processed sufficiently.');
         return;
       }
 
       const response = await llmUtils.call_llm(selectedModel, llmSystemRole, currentRawSegment);
-      
+
       // Update the processed segment
       processedTranscriptSegments[currentSegmentIndex] = response;
 
@@ -553,13 +528,12 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
 }
 
 // Export the functions for testing purposes
-export { 
-  initializePopup, 
-  parseTranscript, 
-  paginateTranscript, 
-  handlePrevClick, 
-  handleNextClick, 
-  setupProcessButton, 
-  setupLoadTranscriptButton 
+export {
+  initializePopup,
+  paginateTranscript,
+  handlePrevClick,
+  handleNextClick,
+  setupProcessButton,
+  setupLoadTranscriptButton
 };
 

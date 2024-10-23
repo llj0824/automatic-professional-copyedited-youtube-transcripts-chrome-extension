@@ -1,5 +1,25 @@
 // popup/storage_utils.js
 
+/**
+ * StorageUtils - Manages YouTube video transcript storage in Chrome's local storage.
+ * 
+ * Storage Format:
+ * {
+ *   "youtube_video:${videoId}": {
+ *     rawTranscript: string | null,      // Original transcript with timestamps [MM:SS] or [HH:MM:SS]
+ *     processedTranscript: string | null  // AI-processed transcript with time ranges and speakers
+ *   }
+ * }
+ * 
+ * Example Raw Transcript:
+ * [0:01] hello world
+ * [0:05] this is a test
+ * 
+ * Example Processed Transcript:
+ * [0:01 -> 0:05]
+ * Speaker:
+ * Hello world. This is a test.
+ */
 class StorageUtils {
   constructor() {
     if (!chrome || !chrome.storage) {
