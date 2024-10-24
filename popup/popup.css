@@ -76,7 +76,7 @@ h2, h3 {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 #actions {
@@ -146,4 +146,9 @@ h2, h3 {
 #model-select {
   width: 100%;
   padding: 5px;
+}
+
+#status-indicator {
+  margin-bottom: 10px;
+  font-weight: bold;
 }

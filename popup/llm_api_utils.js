@@ -31,7 +31,7 @@ class LLM_API_Utils {
     });
   }
 
-  async call_gpt4(system_role, prompt, model = "chatgpt-4o-latest", max_tokens = 1000, temperature = 0.7) {
+  async call_gpt4(system_role, prompt, model = "chatgpt-4o-latest", max_tokens = 10000, temperature = 0.1) {
     if (!this.openai_api_key) {
       throw new Error("OpenAI API key is not set.");
     }
@@ -64,7 +64,7 @@ class LLM_API_Utils {
     return data.choices[0].message.content.trim();
   }
 
-  async call_claude(system_role, prompt, model = "claude-3-5-sonnet-20240620", max_tokens = 4000, temperature = 0.5) {
+  async call_claude(system_role, prompt, model = "claude-3-5-sonnet-latest", max_tokens = 8192, temperature = 0.1) {
     if (!this.anthropic_api_key) {
       throw new Error("Anthropic API key is not set.");
     }
@@ -72,17 +72,24 @@ class LLM_API_Utils {
     const headers = {
       "x-api-key": this.anthropic_api_key,
       "Content-Type": "application/json",
-      "Anthropic-Version": "2023-06-01"
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"  // Add this header
     };
 
     const payload = {
       model: model,
-      prompt: `${system_role}\n\n${prompt}`,
-      max_tokens_to_sample: max_tokens,
-      temperature: temperature
+      max_tokens: max_tokens,
+      temperature: temperature,
+      system: system_role,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
     };
 
-    const response = await fetch(this.anthropic_endpoint, {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: headers,
       body: JSON.stringify(payload)
@@ -94,10 +101,10 @@ class LLM_API_Utils {
     }
 
     const data = await response.json();
-    return data.completion.trim();
+    return data.content[0].text;
   }
 
-  async call_llm(model_name, system_role, prompt, max_tokens = 4000, temperature = 0.5) {
+  async call_llm(model_name, system_role, prompt, max_tokens, temperature) {
     try {
       if (model_name.toLowerCase().startsWith("claude")) {
         return await this.call_claude(system_role, prompt, model_name, max_tokens, temperature);

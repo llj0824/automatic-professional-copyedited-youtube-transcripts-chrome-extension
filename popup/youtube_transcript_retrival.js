@@ -66,10 +66,21 @@ class YoutubeTranscriptRetriever {
    * @returns {Promise<string>} - HTML content of the video page.
    */
   static async fetchVideoPage(videoId) {
-    const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`);
-    return await response.text();
+    return new Promise((resolve, reject) => {
+      chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+        try {
+          const [tab] = tabs;
+          const results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => document.documentElement.outerHTML
+          });
+          resolve(results[0].result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
   }
-
   /**
    * Extracts the initial JSON data from the YouTube video page HTML.
    * 
