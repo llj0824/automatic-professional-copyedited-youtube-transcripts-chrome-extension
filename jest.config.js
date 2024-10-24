@@ -34,8 +34,6 @@ module.exports = {
   // Specify file extensions Jest should look for when resolving modules
   // This list covers most common JavaScript-related extensions
   moduleFileExtensions: ['js', 'mjs', 'jsx', 'json'],
-
-
   // Add Puppeteer-specific configurations
   projects: [
     {

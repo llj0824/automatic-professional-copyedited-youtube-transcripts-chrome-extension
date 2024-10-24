@@ -562,4 +562,3 @@ export {
   setupProcessButton,
   setupLoadTranscriptButton
 };
-

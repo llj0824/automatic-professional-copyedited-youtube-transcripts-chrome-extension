@@ -1,8 +1,7 @@
-    // Start of Selection
     {
       "manifest_version": 3,
       "name": "Readable Transcript Chrome Extension",
-      "version": "1.0",
+      "version": "1.0", 
       "description": "A Chrome extension to enhance YouTube transcripts with professional clarity.",
       "icons": {
         "16": "icons/icon16.png",
@@ -13,22 +12,27 @@
         "default_icon": {
           "48": "icons/redHeadIcon.png"
         }
-        // Removed "default_popup" to use side panel instead
       },
       "background": {
         "service_worker": "background/service_worker.js"
       },
+      "content_scripts": [
+        {
+          "matches": ["https://www.youtube.com/watch*"],
+          "js": ["popup/popup.js"]
+        }
+      ],
       "permissions": [
         "activeTab",
-        "scripting",
+        "scripting", 
         "storage",
         "tabs",
         "activeTab",
-        "sidePanel" // Added sidePanel permission
+        "sidePanel"
       ],
       "host_permissions": [
         "https://*.youtube.com/*",
-        "https://api.openai.com/*",
+        "https://api.openai.com/*", 
         "https://api.anthropic.com/*"
       ],
       "side_panel": {
@@ -42,9 +46,7 @@
             "popup/storage_utils.js",
             "popup/llm_api_utils.js"
           ],
-          "matches": [
-            "<all_urls>"
-          ]
+          "matches": ["<all_urls>"]
         }
       ]
     }

@@ -396,4 +396,3 @@ describe('Popup Integration Tests with DI', () => {
     expect(document.getElementById('transcript-display').textContent).toBe('Segment 1');
   });
 });
-
