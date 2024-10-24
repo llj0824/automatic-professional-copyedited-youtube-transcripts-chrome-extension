@@ -42,10 +42,39 @@ MIT License
 
 ## TO-DO
 
-## Note to self:
+## Note to self: Debugging 
 
-- when testing, run `npm run test:youtube_transcript_retrieval` to test the youtube_transcript_retrieval.js file.
-- In Cursor to run debugger, set red dot on sidebar or `debugger;` in the code. Then `Run` tab -> `Start Debugging` refer to `launch.json` for configurations.
+I. Manual testing with chrome devtools
+    1. Open Chrome and navigate to `chrome://extensions/`
+    2. Enable "Developer mode" in the top right
+    3. Click "Load unpacked" and select your project
+
+    ### Debugging Different Components
+    1. Popup/Side Panel
+    - Files: `popup/popup.js`, `popup/popup.html`, `popup/popup.css`, `popup/storage_utils.js`, `popup/llm_api_utils.js`
+    - To debug:
+    1. Click the extension icon to open side panel
+    2. Right-click and select "Inspect"
+    3. In DevTools, find source files under Sources > dist folder
+
+    2. Service Worker (`background/service_worker.js`)
+    - Files: Handles extension installation, side panel behavior, and YouTube tab monitoring
+    - To debug:
+    1. Go to `chrome://extensions`
+    2. Find your extension
+    3. Click "Service Worker" under "Inspect views"
+    4. View code under Sources > service_worker.js
+
+    3. Content Scripts (`content.js`)
+    - Files: Handles YouTube page interactions and transcript extraction
+    - To debug:
+    1. Open DevTools on any YouTube page with active extension
+    2. Go to Sources tab
+    3. Find code under "Content scripts" section
+
+II. Debugging unit and integration tests on Cursor
+ 1. when testing, run `npm run test:youtube_transcript_retrieval` to test the youtube_transcript_retrieval.js file.
+ 2. In Cursor to run debugger, set red dot on sidebar or `debugger;` in the code. Then `Run` tab -> `Start Debugging` refer to `launch.json` for configurations.
 
 ### Features
 0. [top priority] autoparse transcript
