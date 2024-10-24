@@ -4,6 +4,8 @@ import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js'; // New import
 
+
+console.log('popup.js loaded');
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, openaiApiKeyInput, anthropicApiKeyInput, saveKeysBtn, modelSelect, transcriptInput, loadTranscriptBtn;
 
@@ -60,6 +62,7 @@ const llmUtils = new LLM_API_Utils();
  */
 async function initializePopup(doc = document, storageUtils = new StorageUtils(), youtubeTranscriptRetriever = new YoutubeTranscriptRetriever()) {
   try {
+    console.log("initializePopup");
     // Initialize the variables within the function using dependency injection
     // this is allow for jest testing...lol
     transcriptDisplay = doc.getElementById('transcript-display');
@@ -86,54 +89,61 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
     setupPagination(prevBtn, nextBtn, segmentInfo);
 
-     // Load existing transcripts if available
-     const videoId = await storageUtils.getCurrentYouTubeVideoId();
-     console.log(`Current YouTube Video ID: ${videoId}`);
-     
-     // First try to load from storage
-     const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
-     
-     // Then try to load from YouTube if needed
-     const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = 
-       await handleTranscriptRetrieval(videoId, savedTranscripts, youtubeTranscriptRetriever, storageUtils);
- 
-     // Update status indicator
-     const statusIndicator = doc.getElementById('status-indicator');
-     statusIndicator.textContent = `${youtubeTranscriptStatus} ${youtubeTranscriptMessage}\n${existingTranscriptStatus} ${existingTranscriptMessage}`;
- 
-     if (youtubeTranscriptStatus === '✅' || existingTranscriptStatus === '✅') {
-       // Hide manual load transcript section
-       doc.getElementById('transcript-input-section').classList.add('hidden');
-       doc.getElementById('api-section').classList.add('hidden');
-       
-       // Show other sections
-       doc.getElementById('transcript-section').classList.remove('hidden');
-       doc.getElementById('content-section').classList.remove('hidden');
-       doc.getElementById('actions').classList.remove('hidden');
- 
-       // Paginate transcripts and update UI
-       paginateTranscript(rawTranscript, processedTranscript);
-       setRawAndProcessedTranscriptText();
-       updatePaginationButtons();
-       updateSegmentInfo();
-     } else {
-       // Show manual load transcript section only if both auto-load methods failed
-       doc.getElementById('transcript-input-section').classList.remove('hidden');
-       statusIndicator.textContent += "\nUnable to auto-load transcript. Please load manually.";
-     }
- 
-   } catch (error) {
-     console.error('Error initializing popup:', error);
-     transcriptDisplay.textContent = 'Error initializing popup.';
-   }
- }
+    // Load existing transcripts if available
+    const videoId = await storageUtils.getCurrentYouTubeVideoId();
+    console.log(`Current YouTube Video ID: ${videoId}`);
 
- async function handleTranscriptRetrieval(videoId, savedTranscripts, youtubeTranscriptRetriever, storageUtils) {
+    // First try to load from storage
+    const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
+
+    // Then try to load from YouTube if needed
+    const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } =
+      await handleTranscriptRetrieval(videoId, savedTranscripts, youtubeTranscriptRetriever, storageUtils);
+
+    // handle showing UI elements based on auto-load transcript success status
+    handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
+
+  } catch (error) {
+    console.error('Error initializing popup:', error);
+    transcriptDisplay.textContent = 'Error initializing popup.';
+  }
+}
+
+function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingStatus, existingMessage) {
+  const statusMessage = `YouTube Transcript: ${youtubeStatus} ${youtubeMessage}\nExisting Transcript: ${existingStatus} ${existingMessage}`;
+  window.alert(statusMessage);
+
+  if (youtubeStatus === '✅' || existingStatus === '✅') {
+    // Hide manual load transcript section
+    document.getElementById('transcript-input-section').classList.add('hidden');
+    document.getElementById('api-section').classList.add('hidden');
+    
+    // Show other sections
+    document.getElementById('transcript-section').classList.remove('hidden');
+    document.getElementById('content-section').classList.remove('hidden');
+    document.getElementById('actions').classList.remove('hidden');
+
+    // Paginate transcripts and update UI
+    paginateTranscript(rawTranscript, processedTranscript);
+    setRawAndProcessedTranscriptText();
+    updatePaginationButtons();
+    updateSegmentInfo();
+  } else {
+    // Show manual load transcript section only if both auto-load methods failed
+    document.getElementById('transcript-input-section').classList.remove('hidden');
+    window.alert("Unable to auto-load transcript. Please load manually.");
+  }
+}
+
+
+async function handleTranscriptRetrieval(videoId, savedTranscripts, youtubeTranscriptRetriever, storageUtils) {
   let youtubeTranscriptStatus = '⏭️';  // Changed to skip emoji
   let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
   let existingTranscriptStatus = '❌';
   let existingTranscriptMessage = 'No existing transcript found.';
-  
+  console.log("handleTranscriptRetrieval");
+  debugger;
+
   // First check if we have saved transcripts
   if (savedTranscripts.rawTranscript) {
     rawTranscript = savedTranscripts.rawTranscript;
@@ -142,11 +152,11 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     existingTranscriptMessage = 'Existing transcript loaded from storage.';
     return { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage };
   }
-  
+
   // If no saved transcript, try to fetch from YouTube
   youtubeTranscriptStatus = '❌';  // Reset to failure state before attempting
   youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
-  
+
   try {
     rawTranscript = await youtubeTranscriptRetriever.fetchParsedTranscript(videoId);
     if (rawTranscript) {
@@ -419,14 +429,6 @@ function updateSegmentInfo() {
 }
 
 /**
- * Sets up the event listener for initializing the popup when the DOM content is loaded.
- * This function is exported to allow external modules  (popup.html) to initialize the popup functionality.
- */
-function setupEventListeners() {
-  document.addEventListener('DOMContentLoaded', () => initializePopup(document, new StorageUtils()));
-}
-
-/**
  * Sets up tab switching functionality.
  * @param {Document} doc - The Document object to interact with the DOM.
  * @param {NodeList} tabButtons - The list of tab button elements.
@@ -534,7 +536,6 @@ export {
   handlePrevClick,
   handleNextClick,
   setupProcessButton,
-  setupLoadTranscriptButton,
-  setupEventListeners
+  setupLoadTranscriptButton
 };
 

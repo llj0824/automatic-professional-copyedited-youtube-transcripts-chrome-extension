@@ -1,25 +1,27 @@
 <!-- popup/popup.html -->
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>YouTube Transcript Manager</title>
   <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
   <div class="container">
     <h2>YouTube Transcript Manager</h2>
-    
+
     <!-- Status Indicator -->
     <div id="status-indicator">Attempting to load transcript from YouTube...</div>
-    
+
     <!-- Transcript Navigation -->
     <div id="transcript-section" class="hidden">
       <button id="prev-btn" disabled>&larr; Previous</button>
       <span id="segment-info">Segment 1</span>
       <button id="next-btn" disabled>Next &rarr;</button>
     </div>
-    
+
     <!-- Content Display with Tabs -->
     <div id="content-section">
       <div class="tabs">
@@ -33,17 +35,17 @@
         <pre id="processed-display">Processed output will appear here.</pre>
       </div>
     </div>
-    
+
     <!-- Actions -->
     <div id="actions">
       <button id="process-btn">Process with LLM</button>
       <div id="loader" class="hidden"></div>
     </div>
-    
+
     <!-- API Key and Model Selection -->
     <div id="api-section" class="hidden">
       <h3>LLM Configuration</h3>
-      
+
       <!-- API Key Inputs -->
       <div id="api-key-inputs">
         <div class="api-key-group">
@@ -56,7 +58,7 @@
         </div>
         <button id="save-keys-btn">Save API Keys</button>
       </div>
-      
+
       <!-- Model Selection -->
       <div id="model-selection">
         <label for="model-select">Select LLM Model:</label>
@@ -67,7 +69,7 @@
         </select>
       </div>
     </div>
-    
+
     <!-- Transcript Input Section -->
     <div id="transcript-input-section" class="hidden">
       <h3>Load Transcript Manually</h3>
@@ -75,17 +77,21 @@
       <button id="load-transcript-btn">Load Transcript</button>
     </div>
     <!-- **End of Added Section** -->
-    
+
   </div>
-  
+
   <!-- Include JavaScript files as modules -->
   <script type="module" src="llm_api_utils.js"></script>
   <script type="module" src="storage_utils.js"></script>
   <script type="module" src="popup.js"></script>
   <script type="module" src="youtube_transcript_retrival.js"></script>
   <script type="module">
-    import { setupEventListeners } from './popup.js';
-    setupEventListeners();
+    import { initializePopup } from './popup.js';
+    import StorageUtils from './storage_utils.js';
+
+    // Direct initialization
+    initializePopup(document, new StorageUtils());
   </script>
 </body>
+
 </html>
