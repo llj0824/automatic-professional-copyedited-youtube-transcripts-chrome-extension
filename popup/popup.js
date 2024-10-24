@@ -50,7 +50,9 @@ Today we are going to be talking about mental health and ideas of self with Dr. 
 
 # Notes
 - If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc. 
-- Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.`;
+- Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.
+- Only return the copyedited transcript, no foreword or introduction.
+`
 
 const llmUtils = new LLM_API_Utils();
 
@@ -517,10 +519,10 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       // Check if the current segment is already processed sufficiently
       if (processedTranscriptSegments[currentSegmentIndex] &&
         processedTranscriptSegments[currentSegmentIndex].split(/\s+/).length >= 100) {
-        alert('Current segment is already processed sufficiently.');
-        return;
+        alert('Current segment is already processed, but we will reprocess it because you clicked the button.');
       }
 
+      // TODO: Add prefix to the call -> youtube video title & description & Date.
       const response = await llmUtils.call_llm(selectedModel, llmSystemRole, currentRawSegment);
 
       // Update the processed segment
