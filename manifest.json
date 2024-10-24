@@ -26,6 +26,9 @@
         "activeTab",
         "sidePanel" // Added sidePanel permission
       ],
+      "host_permissions": [
+        "https://*.youtube.com/*"
+      ],
       "side_panel": {
         "default_path": "popup/popup.html"
       },
@@ -37,7 +40,9 @@
             "popup/storage_utils.js",
             "popup/llm_api_utils.js"
           ],
-          "matches": ["<all_urls>"]
+          "matches": [
+            "<all_urls>"
+          ]
         }
       ]
     }

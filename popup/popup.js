@@ -5,7 +5,6 @@ import StorageUtils from './storage_utils.js';
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js'; // New import
 
 
-console.log('popup.js loaded');
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, openaiApiKeyInput, anthropicApiKeyInput, saveKeysBtn, modelSelect, transcriptInput, loadTranscriptBtn;
 
@@ -54,15 +53,24 @@ Today we are going to be talking about mental health and ideas of self with Dr. 
 - Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.`;
 
 const llmUtils = new LLM_API_Utils();
+
+/**
+ * Initialize the popup with dependency injection
+ * @param {Document} doc - The Document object to interact with the DOM.
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ */
+document.addEventListener('DOMContentLoaded', () => initializePopup());
+
 /**
  * Initialize the popup by loading API keys and any existing transcripts.
  * @param {Document} doc - The Document object to interact with the DOM.
  * @param {StorageUtils} storageUtils - The StorageUtils instance.
  * @param {YoutubeTranscriptRetriever} youtubeTranscriptRetriever - The YoutubeTranscriptRetriever instance.
  */
-async function initializePopup(doc = document, storageUtils = new StorageUtils(), youtubeTranscriptRetriever = new YoutubeTranscriptRetriever()) {
+async function initializePopup(doc = document, storageUtils = new StorageUtils()) {
   try {
     console.log("initializePopup");
+    
     // Initialize the variables within the function using dependency injection
     // this is allow for jest testing...lol
     transcriptDisplay = doc.getElementById('transcript-display');
@@ -98,7 +106,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     // Then try to load from YouTube if needed
     const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } =
-      await handleTranscriptRetrieval(videoId, savedTranscripts, youtubeTranscriptRetriever, storageUtils);
+      await handleTranscriptRetrieval(videoId, savedTranscripts, storageUtils);
 
     // handle showing UI elements based on auto-load transcript success status
     handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
@@ -136,13 +144,12 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
 }
 
 
-async function handleTranscriptRetrieval(videoId, savedTranscripts, youtubeTranscriptRetriever, storageUtils) {
+async function handleTranscriptRetrieval(videoId, savedTranscripts, storageUtils) {
   let youtubeTranscriptStatus = '⏭️';  // Changed to skip emoji
   let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
   let existingTranscriptStatus = '❌';
   let existingTranscriptMessage = 'No existing transcript found.';
   console.log("handleTranscriptRetrieval");
-  debugger;
 
   // First check if we have saved transcripts
   if (savedTranscripts.rawTranscript) {
@@ -158,7 +165,7 @@ async function handleTranscriptRetrieval(videoId, savedTranscripts, youtubeTrans
   youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
 
   try {
-    rawTranscript = await youtubeTranscriptRetriever.fetchParsedTranscript(videoId);
+    rawTranscript = await YoutubeTranscriptRetriever.fetchParsedTranscript(videoId);
     if (rawTranscript) {
       // Save the newly fetched transcript
       await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
@@ -202,8 +209,6 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUt
   loadTranscriptBtn.addEventListener('click', handleLoadTranscriptClick.bind(null, transcriptInput, storageUtils));
 }
 
-
-
 /**
  * Paginate the transcript into segments based on SEGMENT_DURATION.
  * 
@@ -239,23 +244,41 @@ function paginateTranscript(rawTranscript, processedTranscript) {
 /**
  * Helper function to paginate a raw transcript
  * 
- * @param {Array} transcript - Array of objects with timestamp and text
+ * @param {string} transcript - String transcript with timestamps [MM:SS]
  * @returns {Array} Array of paginated transcript segments
  */
 function paginateTranscriptHelper(transcript) {
-  let segments = [];
+  // Parse the raw transcript into an array of objects with timestamp and text
+  const parsedTranscript = (function parseTranscript(rawTranscript) {
+    return rawTranscript.split('\n').map(line => {
+      // Handle timestamps in format [mm:ss] or [hh:mm:ss]
+      const match = line.match(/\[(?:(\d+):)?(\d+):(\d+)\]\s*(.*)/);
+      if (match) {
+        const hours = parseInt(match[1] || '0', 10);
+        const minutes = parseInt(match[2], 10);
+        const seconds = parseInt(match[3], 10);
+        return {
+          timestamp: hours * 3600 + minutes * 60 + seconds,
+          text: match[4]
+        };
+      }
+      return null;
+    }).filter(item => item !== null);
+  })(transcript);
+
+  // Paginate into segments based on SEGMENT_DURATION
+  const segments = [];
   let currentSegment = '';
   let segmentStartTime = 0;
   let segmentEndTime = SEGMENT_DURATION;
 
-  transcript.forEach(item => {
+  parsedTranscript.forEach(item => {
     if (item.timestamp < segmentEndTime) {
       currentSegment += `[${formatTime(item.timestamp)}] ${item.text}\n`;
     } else {
       if (currentSegment) {
         segments.push(currentSegment.trim());
       }
-      // Update the segment window
       segmentStartTime = Math.floor(item.timestamp / SEGMENT_DURATION) * SEGMENT_DURATION;
       segmentEndTime = segmentStartTime + SEGMENT_DURATION;
       currentSegment = `[${formatTime(item.timestamp)}] ${item.text}\n`;

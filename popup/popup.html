@@ -43,11 +43,20 @@
     </div>
 
     <!-- API Key and Model Selection -->
-    <div id="api-section" class="hidden">
+    <div id="api-section">
       <h3>LLM Configuration</h3>
+      <!-- Model Selection -->
+      <div id="model-selection">
+        <label for="model-select">Select LLM Model:</label>
+        <select id="model-select">
+          <option value="gpt-4o">OpenAI GPT-4o</option>
+          <option value="claude-3-5-sonnet-20240620">Anthropic Claude 3.5 Sonnet</option>
+          <!-- Add more models as needed -->
+        </select>
+      </div>
 
       <!-- API Key Inputs -->
-      <div id="api-key-inputs">
+      <div id="api-key-inputs" class="hidden">
         <div class="api-key-group">
           <label for="openai-api-key">OpenAI API Key:</label>
           <input type="password" id="openai-api-key" placeholder="Enter your OpenAI API key">
@@ -57,16 +66,6 @@
           <input type="password" id="anthropic-api-key" placeholder="Enter your Anthropic API key">
         </div>
         <button id="save-keys-btn">Save API Keys</button>
-      </div>
-
-      <!-- Model Selection -->
-      <div id="model-selection">
-        <label for="model-select">Select LLM Model:</label>
-        <select id="model-select">
-          <option value="gpt-4o">OpenAI GPT-4o</option>
-          <option value="claude-3-5-sonnet-20240620">Anthropic Claude 3.5 Sonnet</option>
-          <!-- Add more models as needed -->
-        </select>
       </div>
     </div>
 
@@ -85,13 +84,6 @@
   <script type="module" src="storage_utils.js"></script>
   <script type="module" src="popup.js"></script>
   <script type="module" src="youtube_transcript_retrival.js"></script>
-  <script type="module">
-    import { initializePopup } from './popup.js';
-    import StorageUtils from './storage_utils.js';
-
-    // Direct initialization
-    initializePopup(document, new StorageUtils());
-  </script>
 </body>
 
 </html>

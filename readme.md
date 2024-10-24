@@ -54,8 +54,7 @@ I. Manual testing with chrome devtools
     - Files: `popup/popup.js`, `popup/popup.html`, `popup/popup.css`, `popup/storage_utils.js`, `popup/llm_api_utils.js`
     - To debug:
     1. Click the extension icon to open side panel
-    2. Right-click and select "Inspect"
-    3. In DevTools, find source files under Sources > dist folder
+    2. Right-click and select "Inspect", set breakpoints
 
     2. Service Worker (`background/service_worker.js`)
     - Files: Handles extension installation, side panel behavior, and YouTube tab monitoring
