@@ -27,7 +27,9 @@
         "sidePanel" // Added sidePanel permission
       ],
       "host_permissions": [
-        "https://*.youtube.com/*"
+        "https://*.youtube.com/*",
+        "https://api.openai.com/*",
+        "https://api.anthropic.com/*"
       ],
       "side_panel": {
         "default_path": "popup/popup.html"

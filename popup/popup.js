@@ -124,12 +124,11 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
   if (youtubeStatus === '✅' || existingStatus === '✅') {
     // Hide manual load transcript section
     document.getElementById('transcript-input-section').classList.add('hidden');
-    document.getElementById('api-section').classList.add('hidden');
     
     // Show other sections
     document.getElementById('transcript-section').classList.remove('hidden');
     document.getElementById('content-section').classList.remove('hidden');
-    document.getElementById('actions').classList.remove('hidden');
+    document.getElementById('actions').classList.remove('hidden'); // TODO: if processed transcripts is avaliable, hide process button
 
     // Paginate transcripts and update UI
     paginateTranscript(rawTranscript, processedTranscript);
