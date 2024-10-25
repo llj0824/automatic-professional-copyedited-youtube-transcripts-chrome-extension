@@ -42,6 +42,8 @@ MIT License
 
 ## TO-DO
 
+1) unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
+
 ## Note to self: Debugging 
 
 I. Manual testing with chrome devtools

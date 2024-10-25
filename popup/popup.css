@@ -104,36 +104,6 @@ h2, h3 {
   to { transform: rotate(360deg); }
 }
 
-#api-section {
-  margin-top: 15px;
-  border-top: 1px solid #ddd;
-  padding-top: 10px;
-}
-
-#api-key-inputs {
-  display: flex;
-  flex-direction: column;
-}
-
-.api-key-group {
-  margin-bottom: 10px;
-}
-
-.api-key-group label {
-  display: block;
-  margin-bottom: 5px;
-}
-
-.api-key-group input {
-  width: 100%;
-  padding: 5px;
-}
-
-#save-keys-btn {
-  padding: 5px;
-  cursor: pointer;
-}
-
 #model-selection {
   margin-top: 10px;
 }
