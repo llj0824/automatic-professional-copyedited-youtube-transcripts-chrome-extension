@@ -2,15 +2,18 @@
 
 body {
   font-family: Arial, sans-serif;
-  width: 400px;
+  width: 100%; /* Change from fixed 400px to 100% */
   margin: 0;
   padding: 10px;
   background-color: #f9f9f9;
+  height: 100vh;
 }
 
 .container {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  width: 100%; /* Add this to ensure container takes full width */
 }
 
 h2, h3 {
@@ -34,11 +37,14 @@ h2, h3 {
   border: 1px solid #ddd;
   border-radius: 5px;
   overflow: hidden;
+  flex: 1; /* Allow content section to grow and fill available space */
+  display: flex;
+  flex-direction: column;
+  width: 100%; /* Add this to ensure content takes full width */
 }
 
 .tabs {
-  display: flex;
-  border-bottom: 1px solid #ddd;
+  flex-shrink: 0; /* Prevent tabs from shrinking */
 }
 
 .tab-button {
@@ -60,9 +66,12 @@ h2, h3 {
 }
 
 .tab-content {
+  flex: 1; /* Allow tab content to grow and fill available space */
+  height: auto; /* Override previous fixed height */
+  max-height: none; /* Remove max-height restriction */
   padding: 10px;
-  max-height: 300px;
   overflow-y: auto;
+  width: 100%; /* Add this to ensure tab content takes full width */
 }
 
 #transcript-display,
@@ -73,6 +82,7 @@ h2, h3 {
   line-height: 1.5em;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: #333;
+  width: 100%; /* Add this to ensure displays take full width */
 }
 
 .hidden {
