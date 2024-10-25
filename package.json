@@ -21,6 +21,7 @@
     "test:youtube_transcript_retrieval": "jest tests/youtube_transcript_retrieval.test.js",
     "build:extension": "mkdir -p dist && cp manifest.json dist/ && cp -r popup background icons dist/",
     "pretest:integration": "npm run build:extension",
-    "test:integration": "jest tests/integration.test.js --runInBand --detectOpenHandles"
+    "test:integration": "jest tests/integration.test.js --runInBand --detectOpenHandles",
+    "build:prod": "NODE_ENV=production npm run build:extension && zip -r extension.zip dist/"
   }
 }

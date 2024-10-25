@@ -71,8 +71,6 @@ document.addEventListener('DOMContentLoaded', () => initializePopup());
  */
 async function initializePopup(doc = document, storageUtils = new StorageUtils()) {
   try {
-    console.log("initializePopup");
-    
     // Initialize the variables within the function using dependency injection
     // this is allow for jest testing...lol
     transcriptDisplay = doc.getElementById('transcript-display');
@@ -144,7 +142,6 @@ async function handleTranscriptRetrieval(videoId, savedTranscripts, storageUtils
   let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
   let existingTranscriptStatus = '❌';
   let existingTranscriptMessage = 'No existing transcript found.';
-  console.log("handleTranscriptRetrieval");
 
   // First check if we have saved transcripts
   if (savedTranscripts.rawTranscript) {
@@ -382,7 +379,6 @@ async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
 // Event handler for previous button click
 function handlePrevClick() {
   if (currentSegmentIndex > 0) {
-    console.log('prevBtn clicked');
     currentSegmentIndex--;
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
@@ -394,7 +390,6 @@ function handlePrevClick() {
 function handleNextClick() {
   const currentSegments = getCurrentDisplaySegments();
   if (currentSegmentIndex < currentSegments.length - 1) {
-    console.log('nextBtn clicked');
     currentSegmentIndex++;
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();

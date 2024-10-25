@@ -1,2 +1,0 @@
-chrome.runtime.onMessage.addListener((function(e,t,r){var n,c;"getTranscript"===e.action&&r({transcript:(n=document.querySelectorAll("ytd-transcript-segment-renderer"),c=[],n.forEach((function(e){var t=e.querySelector(".segment-timestamp"),r=e.querySelector(".segment-text"),n=t?t.innerText.trim():"",i=r?r.innerText.trim():"";n&&i&&c.push("[".concat(n,"] ").concat(i))})),c.join("\n"))})}));
-//# sourceMappingURL=content.bundle.js.map

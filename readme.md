@@ -7,9 +7,7 @@ This Chrome extension automatically retrieves and provides high-quality, profess
 - **Automatic Transcript Retrieval:** Automatically fetch transcripts from YouTube videos without manual intervention.
 - **Manual Transcript Upload:** Option to manually upload your own transcripts if preferred.
 - **Professional Copyediting:** Provides high-quality, professionally edited transcripts for clarity and accuracy.
-- **Segmented Display:** Transcripts are divided into manageable segments (e.g., 20-minute intervals) for easy navigation.
-- **API Key Management:** Securely save and manage API keys for OpenAI and Anthropic.
-
+- **Segmented Display:** Transcripts are divided into pages (e.g., 15-minute intervals) for easy navigation.
 
 
 ## Installation
@@ -29,7 +27,6 @@ This Chrome extension automatically retrieves and provides high-quality, profess
 
 ## Configuration
 
-- **API Keys:** Enter your OpenAI and Anthropic API keys in the designated fields and save them.
 - **Model Selection:** Choose from available LLM models to enhance or analyze your transcripts.
 
 ## Contributing
