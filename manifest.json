@@ -1,8 +1,8 @@
     {
       "manifest_version": 3,
-      "name": "Readable Transcript Chrome Extension",
-      "version": "1.0", 
-      "description": "A Chrome extension to enhance YouTube transcripts with professional clarity.",
+      "name": "Automatic YouTube Transcript Professional Editor",
+      "version": "1.0.0",
+      "description": "A Chrome extension for Automatic YouTube Professional Caliber Transcripts",
       "icons": {
         "16": "icons/icon16.png",
         "48": "icons/icon48.png",

@@ -4,16 +4,13 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>YouTube Transcript Manager</title>
+  <title>Automatic YouTube Transcript Professional Editor</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 
 <body>
   <div class="container">
-    <h2>YouTube Transcript Manager</h2>
-
-    <!-- Status Indicator -->
-    <div id="status-indicator">Attempting to load transcript from YouTube...</div>
+    <h2>Automatic YouTube Transcript Professional Editor</h2>
 
     <!-- Transcript Navigation -->
     <div id="transcript-section" class="hidden">
@@ -50,23 +47,11 @@
       <div id="model-selection">
         <label for="model-select">Select LLM Model:</label>
         <select id="model-select">
-          <option value="gpt-4o">OpenAI GPT-4o</option>
-          <option value="claude-3-5-sonnet-20241022" selected>Anthropic Claude 3.5 Sonnet</option>
+          <option value="gpt-4o" hidden>OpenAI GPT-4o</option>
+          <option value="gpt-4o-mini" selected>OpenAI GPT-4o-mini</option>
+          <option value="claude-3-5-sonnet-20241022" hidden>Anthropic Claude 3.5 Sonnet</option>
           <!-- Add more models as needed -->
         </select>
-      </div>
-
-      <!-- API Key Inputs -->
-      <div id="api-key-inputs" class="hidden">
-        <div class="api-key-group">
-          <label for="openai-api-key">OpenAI API Key:</label>
-          <input type="password" id="openai-api-key" placeholder="Enter your OpenAI API key">
-        </div>
-        <div class="api-key-group">
-          <label for="anthropic-api-key">Anthropic Claude API Key:</label>
-          <input type="password" id="anthropic-api-key" placeholder="Enter your Anthropic API key">
-        </div>
-        <button id="save-keys-btn">Save API Keys</button>
       </div>
     </div>
 

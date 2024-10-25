@@ -6,7 +6,7 @@ import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js'; // Ne
 
 
 // Declare the variables in a higher scope
-let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, openaiApiKeyInput, anthropicApiKeyInput, saveKeysBtn, modelSelect, transcriptInput, loadTranscriptBtn;
+let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
 
 let isRawTranscriptVisible = true; // true for 'raw transcript', false for 'processed transcript'
 let rawTranscript = ""; // loaded from youtube automatically 
@@ -51,7 +51,7 @@ Today we are going to be talking about mental health and ideas of self with Dr. 
 # Notes
 - If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc. 
 - Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.
-- Only return the copyedited transcript, no foreword or introduction.
+- Only return the copyedited transcript, no foreword or introduction. Process the entire transcript, do not ask for confirmation.
 `
 
 const llmUtils = new LLM_API_Utils();
@@ -71,8 +71,6 @@ document.addEventListener('DOMContentLoaded', () => initializePopup());
  */
 async function initializePopup(doc = document, storageUtils = new StorageUtils()) {
   try {
-    console.log("initializePopup");
-    
     // Initialize the variables within the function using dependency injection
     // this is allow for jest testing...lol
     transcriptDisplay = doc.getElementById('transcript-display');
@@ -84,18 +82,12 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     loader = doc.getElementById('loader');
     tabButtons = doc.querySelectorAll('.tab-button');
     tabContents = doc.querySelectorAll('.tab-content');
-    openaiApiKeyInput = doc.getElementById('openai-api-key');
-    anthropicApiKeyInput = doc.getElementById('anthropic-api-key');
-    saveKeysBtn = doc.getElementById('save-keys-btn');
     modelSelect = doc.getElementById('model-select');
     transcriptInput = doc.getElementById('transcript-input');
     loadTranscriptBtn = doc.getElementById('load-transcript-btn');
 
-    await llmUtils.loadApiKeys();
-    loadApiKeysIntoUI(doc);
     setupTabs(doc, tabButtons, tabContents);
     setupProcessButton(processBtn, modelSelect, storageUtils);
-    setupSaveKeysButton(saveKeysBtn, openaiApiKeyInput, anthropicApiKeyInput);
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
     setupPagination(prevBtn, nextBtn, segmentInfo);
 
@@ -150,7 +142,6 @@ async function handleTranscriptRetrieval(videoId, savedTranscripts, storageUtils
   let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
   let existingTranscriptStatus = '❌';
   let existingTranscriptMessage = 'No existing transcript found.';
-  console.log("handleTranscriptRetrieval");
 
   // First check if we have saved transcripts
   if (savedTranscripts.rawTranscript) {
@@ -178,31 +169,6 @@ async function handleTranscriptRetrieval(videoId, savedTranscripts, storageUtils
   }
 
   return { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage };
-}
-
-// Load API keys from storage and populate the UI
-function loadApiKeysIntoUI(doc) {
-  const openaiApiKeyInput = doc.getElementById('openai-api-key');
-  const anthropicApiKeyInput = doc.getElementById('anthropic-api-key');
-  openaiApiKeyInput.value = llmUtils.openai_api_key || '';
-  anthropicApiKeyInput.value = llmUtils.anthropic_api_key || '';
-}
-
-// Save API keys to storage
-function setupSaveKeysButton(saveKeysBtn, openaiApiKeyInput, anthropicApiKeyInput) {
-  saveKeysBtn.addEventListener('click', async () => {
-    const openaiKey = openaiApiKeyInput.value.trim();
-    const anthropicKey = anthropicApiKeyInput.value.trim();
-
-    try {
-      await LLM_API_Utils.saveApiKeys(openaiKey, anthropicKey);
-      await llmUtils.loadApiKeys(); // Reload the keys into the instance
-      alert('API Keys saved successfully!');
-    } catch (error) {
-      console.error('Error saving API keys:', error);
-      alert('Failed to save API Keys.');
-    }
-  });
 }
 
 // Setup load transcript button event
@@ -413,7 +379,6 @@ async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
 // Event handler for previous button click
 function handlePrevClick() {
   if (currentSegmentIndex > 0) {
-    console.log('prevBtn clicked');
     currentSegmentIndex--;
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
@@ -425,7 +390,6 @@ function handlePrevClick() {
 function handleNextClick() {
   const currentSegments = getCurrentDisplaySegments();
   if (currentSegmentIndex < currentSegments.length - 1) {
-    console.log('nextBtn clicked');
     currentSegmentIndex++;
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
