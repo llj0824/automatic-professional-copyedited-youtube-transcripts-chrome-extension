@@ -79,7 +79,7 @@ II. Debugging unit and integration tests on Cursor
 0. [very low priority] add slider for segment duration
 
 ### Bugs
-0. [top] processed transcript not being saved, or atleast it's not being saved. Even switching toggling b/w raw and processed will erase processed transcripts.
+0. [high] occasionally unable to automatically retrieve transcript -> initial data unavailable. Refresh page resolves. Replicate and implement a fix (possibly a retry mechanism).
 1. if no processed transcripts sets segments to 0, even when there is a raw transcript for that page.
 2. loading saved processed transcripts still not working
 

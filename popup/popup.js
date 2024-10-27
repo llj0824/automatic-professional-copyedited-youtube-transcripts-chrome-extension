@@ -105,6 +105,9 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     // handle showing UI elements based on auto-load transcript success status
     handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
 
+    // Add copy button functionality
+    setupCopyButtons(doc);
+
   } catch (error) {
     console.error('Error initializing popup:', error);
     transcriptDisplay.textContent = 'Error initializing popup.';
@@ -514,6 +517,33 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       const loader = document.getElementById('loader');
       loader.classList.add('hidden');
     }
+  });
+}
+
+// Add this new function
+function setupCopyButtons(doc) {
+  const copyButtons = doc.querySelectorAll('.copy-btn');
+  copyButtons.forEach(button => {
+    button.addEventListener('click', async () => {
+      const targetId = button.getAttribute('data-target');
+      const targetElement = doc.getElementById(targetId);
+      const textToCopy = targetElement.textContent;
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        const originalText = button.textContent;
+        button.textContent = '✅ Copied!';
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy text:', err);
+        button.textContent = '❌ Failed';
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 2000);
+      }
+    });
   });
 }
 
