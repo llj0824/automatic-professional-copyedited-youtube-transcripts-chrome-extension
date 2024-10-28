@@ -37,15 +37,6 @@ Contributions are welcome! Please open an issue or submit a pull request for any
 
 MIT License
 
-## TO-DO
-
-1a) add unit and LLM-as-judge to automaticaly test responses from LLM.
-    - helps track regression in model performance
-    - helps tracks effect of changes to prompt/system role.
-1b) unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
-2) change to use gpt-4o as default model, maybe even hide the model being used from the UI.
-    - change to gpt-4o-mini only if usage is getting too expensive.
-
 ## Note to self: Debugging 
 
 I. Manual testing with chrome devtools
@@ -79,8 +70,19 @@ II. Debugging unit and integration tests on Cursor
  1. when testing, run `npm run test:youtube_transcript_retrieval` to test the youtube_transcript_retrieval.js file.
  2. In Cursor to run debugger, set red dot on sidebar or `debugger;` in the code. Then `Run` tab -> `Start Debugging` refer to `launch.json` for configurations.
 
+## TO-DO
+
+1a) add unit and LLM-as-judge to automaticaly test responses from LLM.
+    - helps track regression in model performance
+    - helps tracks effect of changes to prompt/system role.
+1b) unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
+2) change to use gpt-4o as default model, maybe even hide the model being used from the UI.
+    - change to gpt-4o-mini only if usage is getting too expensive.
+
 ### Features
 1. autotrack transcript to where the video is at.
+2. store processed transcript in server, everyone can load it.
+3. [low priority, but should be easy] add some functionality to change font size of transcript.
 
 ### Bugs
 0. [high] occasionally unable to automatically retrieve transcript -> initial data unavailable. Refresh page resolves. Replicate and implement a fix (possibly a retry mechanism).

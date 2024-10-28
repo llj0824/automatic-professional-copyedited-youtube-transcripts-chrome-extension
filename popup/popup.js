@@ -16,47 +16,6 @@ let processedTranscriptSegments = []; // paginated from processed transcript
 let currentSegmentIndex = 0;
 let SEGMENT_DURATION = 15 * 60; // seconds (modifiable)
 
-const llmSystemRole = `Take a raw video transcript and copyedit it into a world-class professionally copyedited transcript.  
-Attempt to identify the speaker from the context of the conversation.
-
-IMPORTANT: Process and return the ENTIRE transcript segment. Do not truncate or ask for confirmation to continue.
-
-# Steps
-1. **Speaker Identification**: Identify who is speaking at each segment based on context clues within the transcript.
-2. **Copyediting**:
-   - Correct any grammatical or typographical errors.
-   - Ensure coherence and flow of conversation.
-   - Maintain the original meaning while enhancing clarity.
-3. **Structure**: Format the transcript with each speaker's name followed by their dialogue.
-
-# Output Format
-[Time Range]
-[Speaker Name]:
-[Dialogue]
-
-**Requirements:**
-- **Time Range:** Combine the start and end timestamps in the format [Start Time -> End Time].
-- **Speaker Name:** Followed by a colon (:) and a newline.
-- **Dialogue:** Starts on a new line beneath the speaker's name. Ensure the dialogue is free of filler words and is professionally phrased.
-- **Completeness:** Process and return the entire transcript segment without truncation.
-
-# Example Input/Output Format
-Input:  
-[00:06] uh so um today were going to be talking about, uh, 
-[00:12] mental health and, um, ideas of, uh, self with, um, 
-[00:15] Dr. Paul Conti. uh welcome."
-
-Output:  
-[00:06 -> 00:15]
-Andrew Huberman:
-Today we are going to be talking about mental health and ideas of self with Dr. Paul Conti. Welcome.
-
-# Notes
-- If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc. 
-- Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.
-- Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations.
-- Never truncate the output or ask for permission to continue - process the entire input segment.`
-
 const llmUtils = new LLM_API_Utils();
 
 /**
@@ -493,7 +452,11 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       }
 
       // TODO: Add prefix to the call -> youtube video title & description & Date.
-      const response = await llmUtils.call_llm(selectedModel, llmSystemRole, currentRawSegment);
+      const response = await llmUtils.call_llm({
+        model_name: selectedModel,
+        system_role: llmSystemRole,
+        prompt: currentRawSegment
+      });
 
       // Update the processed segment
       processedTranscriptSegments[currentSegmentIndex] = response;
