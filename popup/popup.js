@@ -18,6 +18,10 @@ let SEGMENT_DURATION = 15 * 60; // seconds (modifiable)
 
 const llmUtils = new LLM_API_Utils();
 
+// Add these variables to the top-level declarations
+let fontSizeDecrease, fontSizeIncrease;
+let currentFontSize = 12; // Default font size in px
+
 /**
  * Initialize the popup with dependency injection
  * @param {Document} doc - The Document object to interact with the DOM.
@@ -48,6 +52,10 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     transcriptInput = doc.getElementById('transcript-input');
     loadTranscriptBtn = doc.getElementById('load-transcript-btn');
 
+    // Add new element declarations
+    fontSizeDecrease = doc.getElementById('font-size-decrease');
+    fontSizeIncrease = doc.getElementById('font-size-increase');
+
     setupTabs(doc, tabButtons, tabContents);
     setupProcessButton(processBtn, modelSelect, storageUtils);
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
@@ -69,6 +77,9 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     // Add copy button functionality
     setupCopyButtons(doc);
+
+    // Add new setup call
+    setupFontSizeControls(fontSizeDecrease, fontSizeIncrease);
 
   } catch (error) {
     console.error('Error initializing popup:', error);
@@ -511,6 +522,42 @@ function setupCopyButtons(doc) {
       }
     });
   });
+}
+
+// Add this new function
+function setupFontSizeControls(decreaseBtn, increaseBtn) {
+  // Load saved font size when initializing
+  storageUtils.loadFontSize().then(savedFontSize => {
+    currentFontSize = savedFontSize;
+    updateFontSize();
+  }).catch(error => {
+    console.error('Error loading font size:', error);
+  });
+
+  decreaseBtn.addEventListener('click', () => {
+    if (currentFontSize > 8) { // Minimum font size
+      currentFontSize -= 2;
+      updateFontSize();
+      storageUtils.saveFontSize(currentFontSize).catch(error => {
+        console.error('Error saving font size:', error);
+      });
+    }
+  });
+
+  increaseBtn.addEventListener('click', () => {
+    if (currentFontSize < 24) { // Maximum font size
+      currentFontSize += 2;
+      updateFontSize();
+      storageUtils.saveFontSize(currentFontSize).catch(error => {
+        console.error('Error saving font size:', error);
+      });
+    }
+  });
+}
+
+function updateFontSize() {
+  transcriptDisplay.style.fontSize = `${currentFontSize}px`;
+  processedDisplay.style.fontSize = `${currentFontSize}px`;
 }
 
 // Export the functions for testing purposes
