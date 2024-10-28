@@ -39,7 +39,12 @@ MIT License
 
 ## TO-DO
 
-1) unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
+1a) add unit and LLM-as-judge to automaticaly test responses from LLM.
+    - helps track regression in model performance
+    - helps tracks effect of changes to prompt/system role.
+1b) unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
+2) change to use gpt-4o as default model, maybe even hide the model being used from the UI.
+    - change to gpt-4o-mini only if usage is getting too expensive.
 
 ## Note to self: Debugging 
 
@@ -75,8 +80,7 @@ II. Debugging unit and integration tests on Cursor
  2. In Cursor to run debugger, set red dot on sidebar or `debugger;` in the code. Then `Run` tab -> `Start Debugging` refer to `launch.json` for configurations.
 
 ### Features
-0. [top priority] autoparse transcript
-0. [very low priority] add slider for segment duration
+1. autotrack transcript to where the video is at.
 
 ### Bugs
 0. [high] occasionally unable to automatically retrieve transcript -> initial data unavailable. Refresh page resolves. Replicate and implement a fix (possibly a retry mechanism).
