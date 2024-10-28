@@ -70,14 +70,15 @@ II. Debugging unit and integration tests on Cursor
  1. when testing, run `npm run test:youtube_transcript_retrieval` to test the youtube_transcript_retrieval.js file.
  2. In Cursor to run debugger, set red dot on sidebar or `debugger;` in the code. Then `Run` tab -> `Start Debugging` refer to `launch.json` for configurations.
 
-## TO-DO
-
+### backend system changes
 1a) add unit and LLM-as-judge to automaticaly test responses from LLM.
     - helps track regression in model performance
     - helps tracks effect of changes to prompt/system role.
 1b) unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
 2) change to use gpt-4o as default model, maybe even hide the model being used from the UI.
     - change to gpt-4o-mini only if usage is getting too expensive.
+3) add the title and description of the video to each pagination of transcript (so it knows speakers)
+4) [refactoring] rename segments to "pages" or "pagination" it's much more intuitive.
 
 ### Features
 1. autotrack transcript to where the video is at.
