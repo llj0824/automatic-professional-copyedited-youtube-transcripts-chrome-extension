@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "dependencies": {
     "node-fetch": "^3.3.0",
     "youtube-transcript": "^1.2.1"
@@ -22,6 +23,7 @@
     "build:extension": "mkdir -p dist && cp manifest.json dist/ && cp -r popup background icons dist/",
     "pretest:integration": "npm run build:extension",
     "test:integration": "jest tests/integration.test.js --runInBand --detectOpenHandles",
+    "test:llm": "jest tests/llm_response.test.js --runInBand",
     "build:prod": "NODE_ENV=production npm run build:extension && zip -r extension.zip dist/"
   }
 }

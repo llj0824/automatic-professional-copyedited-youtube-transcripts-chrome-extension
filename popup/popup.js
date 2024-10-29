@@ -79,7 +79,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     setupCopyButtons(doc);
 
     // Add new setup call
-    setupFontSizeControls(fontSizeDecrease, fontSizeIncrease);
+    setupFontSizeControls(fontSizeDecrease, fontSizeIncrease, storageUtils);
 
   } catch (error) {
     console.error('Error initializing popup:', error);
@@ -465,7 +465,6 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       // TODO: Add prefix to the call -> youtube video title & description & Date.
       const response = await llmUtils.call_llm({
         model_name: selectedModel,
-        system_role: llmSystemRole,
         prompt: currentRawSegment
       });
 
@@ -525,32 +524,38 @@ function setupCopyButtons(doc) {
 }
 
 // Add this new function
-function setupFontSizeControls(decreaseBtn, increaseBtn) {
+function setupFontSizeControls(decreaseBtn, increaseBtn, storageUtils) {
   // Load saved font size when initializing
-  storageUtils.loadFontSize().then(savedFontSize => {
-    currentFontSize = savedFontSize;
-    updateFontSize();
-  }).catch(error => {
-    console.error('Error loading font size:', error);
-  });
+  (async () => {
+    try {
+      currentFontSize = await storageUtils.loadFontSize();
+      updateFontSize();
+    } catch (error) {
+      console.error('Error loading font size:', error);
+    }
+  })();
 
-  decreaseBtn.addEventListener('click', () => {
+  decreaseBtn.addEventListener('click', async () => {
     if (currentFontSize > 8) { // Minimum font size
       currentFontSize -= 2;
       updateFontSize();
-      storageUtils.saveFontSize(currentFontSize).catch(error => {
+      try {
+        await storageUtils.saveFontSize(currentFontSize);
+      } catch (error) {
         console.error('Error saving font size:', error);
-      });
+      }
     }
   });
 
-  increaseBtn.addEventListener('click', () => {
+  increaseBtn.addEventListener('click', async () => {
     if (currentFontSize < 24) { // Maximum font size
       currentFontSize += 2;
       updateFontSize();
-      storageUtils.saveFontSize(currentFontSize).catch(error => {
+      try {
+        await storageUtils.saveFontSize(currentFontSize);
+      } catch (error) {
         console.error('Error saving font size:', error);
-      });
+      }
     }
   });
 }

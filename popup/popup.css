@@ -40,7 +40,7 @@ h2, h3 {
   flex: 1; /* Allow content section to grow and fill available space */
   display: flex;
   flex-direction: column;
-  width: 100%; /* Add this to ensure content takes full width */
+  width: 95%; /* Add this to ensure content takes full width */
 }
 
 .tabs {
@@ -84,6 +84,8 @@ h2, h3 {
   color: #333;
   width: 100%; /* Add this to ensure displays take full width */
   transition: font-size 0.2s ease; /* Smooth transition for font size changes */
+  padding: 15px; /* Add padding around the text */
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .hidden {

@@ -77,16 +77,25 @@ II. Debugging unit and integration tests on Cursor
 1b) unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
 2) change to use gpt-4o as default model, maybe even hide the model being used from the UI.
     - change to gpt-4o-mini only if usage is getting too expensive.
-3) add the title and description of the video to each pagination of transcript (so it knows speakers)
+3) [top priority] add the title and description of the video to each pagination of transcript (so it knows speakers)
 4) [refactoring] rename segments to "pages" or "pagination" it's much more intuitive.
+5）[UI change][important and quick] make tab selection (raw vs processed) visually more obvious.
+5b) [quick] add gif tutorial of extension in action to readme/chrome extension (check ReadingAssist for example).  
+6) [website & database] make transcripts knowledge searchable
+7) [show remaining balance] show remaining balance in the popup, atleast some visual indicator why no longer able to process new segmnets.
+    -> note: chrome extension description should have section explaining this.
+8) [prevent abuse] disable reprocessing if transcript alrdy exists
 
 ### Features
+0. [high priority] timestamps ~atleast 1 per 15 minutes, maybe 2-3 per page
 1. autotrack transcript to where the video is at.
+    -> note: actually what if i made the video skip towards where the transcript is at?
 2. store processed transcript in server, everyone can load it.
-3. [low priority, but should be easy] add some functionality to change font size of transcript.
 
 ### Bugs
 0. [high] occasionally unable to automatically retrieve transcript -> initial data unavailable. Refresh page resolves. Replicate and implement a fix (possibly a retry mechanism).
 1. if no processed transcripts sets segments to 0, even when there is a raw transcript for that page.
 2. loading saved processed transcripts still not working
 
+[Resolved]
+* [low priority, but should be easy] add some functionality to change font size of transcript.
