@@ -2,6 +2,11 @@ import LLM_API_Utils from '../popup/llm_api_utils.js';
 
 const llmUtils = new LLM_API_Utils();
 
+
+// Note to self: thought -> can use claude 3.5 to generate prompt. Give it feedback w/ 3 good and 3 bad examples. 
+// run it with generating 10 prompts and this tests. get results. 
+
+
 // Sample test transcript segment
 const testTranscript = `
 Joe Rogan Experience #2219 - Donald Trump
@@ -387,137 +392,223 @@ Joe Rogan Experience #2219 - Donald Trump
 `;
 
 describe.only('LLM Response Unit Tests', () => {
-  let response;
+  let llmResponseTranscript;
 
   beforeAll(async () => {
-    response = await llmUtils.call_llm({ model_name: 'gpt-4o-mini', prompt: testTranscript });
+    llmResponseTranscript = await llmUtils.call_llm({ model_name: 'gpt-4o-mini', prompt: testTranscript });
   }, 180000); // 3 minutes = 180,000 milliseconds
 
-  test('Response preserves key technical terms', () => {
-    const technicalTerms = [
-      'Apprentice', // [02:02]
-      'president', // [02:12] 
-      'contract', // [02:26]
-      'military', // [06:09]
-      'surreal', // [05:06]
-      'melancolia', // [09:16]
-      'strategy', // [11:51]
-      'appointments', // [13:54]
-      'treasury', // [14:15]
-      'Washington' // [14:49]
-    ];
+  describe.only('LLM Response Unit Tests', () => {
 
-    const lowerResponse = response.toLowerCase();
-    const foundTerms = technicalTerms.filter(term => lowerResponse.includes(term.toLowerCase()));
-    
-    // Should preserve at least 80% of technical terms
-    expect(foundTerms.length).toBeGreaterThanOrEqual(Math.ceil(technicalTerms.length * 0.8));
-  });
+    test('Response preserves key technical terms', () => {
+      const technicalTerms = [
+        'Apprentice', // [02:02]
+        'president', // [02:12] 
+        'contract', // [02:26]
+        'military', // [06:09]
+        'surreal', // [05:06]
+        'melancolia', // [09:16]
+        'strategy', // [11:51]
+        'appointments', // [13:54]
+        'treasury', // [14:15]
+        'Washington' // [14:49]
+      ];
+      const foundTerms = technicalTerms.filter(term =>
+        llmResponseTranscript.toLowerCase().includes(term)
+      );
 
-  test('Response contains timestamps', () => {
-    // Example format: [13:31 -> 13:35]
-    expect(response).toMatch(/\[\d{2}:\d{2}\s*->\s*\d{2}:\d{2}\]/);
-  });
+      console.log('\nTechnical Terms Check:');
+      console.log('Expected terms:', technicalTerms);
+      console.log('Found terms:', foundTerms);
+      console.log('Coverage:', `${foundTerms.length}/${technicalTerms.length} (${(foundTerms.length / technicalTerms.length * 100).toFixed(1)}%)`);
 
-  test('Response contains multiple timestamp ranges', () => {
-    // Example of correct response:
-    // [13:40 -> 13:42]
-    // [13:42 -> 13:46] 
-    // [13:46 -> 13:48]
+      let failures = [];
+      technicalTerms.forEach(term => {
+        if (!llmResponseTranscript.toLowerCase().includes(term)) {
+          failures.push(`Missing term: "${term}"`);
+        }
+      });
 
-    // Examples of incorrect responses:
-    // [13:40] (missing end time)
-    // [13:42->13:40] (end time before start time)
-    // [13:48 -> 13:46] (timestamps out of order)
-
-    const timeRanges = response.match(/\[\d{2}:\d{2}\s*->\s*\d{2}:\d{2}\]/g);
-    expect(timeRanges).toBeTruthy();
-    expect(timeRanges.length).toBeGreaterThan(1);
-
-    // Check timestamps are sequential
-    const timestamps = timeRanges.map(range => {
-      const [start, end] = range.match(/\d{2}:\d{2}/g);
-      return {
-        start: convertToSeconds(start),
-        end: convertToSeconds(end)
-      };
+      if (failures.length > 0) {
+        console.log('Failures:', failures.join('\n'));
+        expect(failures).toHaveLength(0, `Technical terms preservation test failed:\n${failures.join('\n')}`);
+      }
     });
 
-    for (let i = 1; i < timestamps.length; i++) {
-      expect(timestamps[i].start).toBeGreaterThanOrEqual(timestamps[i - 1].end);
+    test('Response contains timestamps', () => {
+      // Example format: [13:31 -> 13:35]
+      expect(llmResponseTranscript).toMatch(/\[\d{2}:\d{2}\s*->\s*\d{2}:\d{2}\]/);
+    });
+
+    test('Response contains multiple timestamp ranges', () => {
+      // Example of correct response:
+      // [13:40 -> 13:42]
+      // [13:42 -> 13:46] 
+      // [13:46 -> 13:48]
+
+      // Examples of incorrect responses:
+      // [13:40] (missing end time)
+      // [13:42->13:40] (end time before start time)
+      // [13:48 -> 13:46] (timestamps out of order)
+      const timeRanges = llmResponseTranscript.match(/\[\d{2}:\d{2}\s*->\s*\d{2}:\d{2}\]/g);
+
+      console.log('\nTimestamp Ranges Check:');
+      console.log('Found ranges:', timeRanges);
+      console.log('Number of ranges:', timeRanges?.length || 0);
+      console.log('Expected minimum:', 2);
+
+      let failures = [];
+      if (!timeRanges) {
+        failures.push('No timestamp ranges found');
+      } else if (timeRanges.length <= 1) {
+        failures.push(`Only ${timeRanges.length} timestamp range found, expected at least 2`);
+      }
+
+      // Check timestamps are sequential
+      if (timeRanges) {
+        const timestamps = timeRanges.map(range => {
+          const [start, end] = range.match(/\d{2}:\d{2}/g);
+          return { start, end };
+        });
+
+        for (let i = 1; i < timestamps.length; i++) {
+          if (timestamps[i].start < timestamps[i - 1].end) {
+            failures.push(`Non-sequential timestamps: ${timestamps[i - 1].end} -> ${timestamps[i].start}`);
+          }
+        }
+      }
+
+      if (failures.length > 0) {
+        console.log('Failures:', failures.join('\n'));
+        expect(failures).toHaveLength(0, `Timestamp ranges test failed:\n${failures.join('\n')}`);
+      }
+    });
+
+    test('Response identifies speakers', () => {
+      expect(llmResponseTranscript).toMatch(/[A-Za-z\s]+:/);
+    });
+
+    test('Response has consistent speaker attribution', () => {
+      const speakerLines = llmResponseTranscript.match(/^[^[\n]+:/gm);
+      expect(speakerLines).toBeTruthy();
+      expect(speakerLines.length).toBeGreaterThan(1);
+
+      // Get unique speakers
+      const speakers = new Set(speakerLines.map(line => line.trim()));
+
+      // Should have at least 2 speakers (host and guest)
+      expect(speakers.size).toBeGreaterThanOrEqual(2);
+
+      // Check for consistent naming (no "Speaker 1" mixing with actual names)
+      const hasGenericSpeakers = Array.from(speakers).some(speaker =>
+        speaker.includes('Speaker') || speaker.includes('Host') || speaker.includes('Guest')
+      );
+      const hasNamedSpeakers = Array.from(speakers).some(speaker =>
+        !speaker.includes('Speaker') && !speaker.includes('Host') && !speaker.includes('Guest')
+      );
+
+      // Should not mix generic and named speakers
+      expect(hasGenericSpeakers && hasNamedSpeakers).toBeFalsy();
+    });
+
+    test('Response covers entire time range', () => {
+      const firstMatch = llmResponseTranscript.match(/\[(\d{2}:\d{2})/);
+      const lastMatch = llmResponseTranscript.match(/->\\s*(\\d{2}:\\d{2})\]/);
+
+      console.log('\nTime Range Coverage Check:');
+      console.log('First timestamp:', firstMatch?.[1]);
+      console.log('Last timestamp:', lastMatch?.[1]);
+
+      let failures = [];
+      if (!firstMatch) failures.push('No starting timestamp found');
+      if (!lastMatch) failures.push('No ending timestamp found');
+
+      if (firstMatch && lastMatch) {
+        const firstTimestamp = firstMatch[1];
+        const lastTimestamp = lastMatch[1];
+
+        const getSeconds = (timestamp) => {
+          const [mins, secs] = timestamp.split(':').map(Number);
+          return mins * 60 + secs;
+        };
+
+        const startSeconds = getSeconds(firstTimestamp);
+        const endSeconds = getSeconds(lastTimestamp);
+        const totalDuration = endSeconds - startSeconds;
+
+        console.log('Duration (seconds):', totalDuration);
+        console.log('Expected minimum duration:', 60);
+
+        if (totalDuration < 60) {
+          failures.push(`Duration too short: ${totalDuration}s (expected >= 60s)`);
+        }
+      }
+
+      if (failures.length > 0) {
+        console.log('Failures:', failures.join('\n'));
+        expect(failures).toHaveLength(0, `Time range coverage test failed:\n${failures.join('\n')}`);
+      }
+    });
+
+    test('Response covers entire time range', () => {
+      // Extract first and last timestamps
+      const allTimestamps = llmResponseTranscript.match(/\d{2}:\d{2}/g);
+      const firstTimestamp = convertToSeconds(allTimestamps[0]);
+      const lastTimestamp = convertToSeconds(allTimestamps[allTimestamps.length - 1]);
+
+      // Check if it covers the full range from input
+      const inputFirstTime = convertToSeconds('00:00');
+      const inputLastTime = convertToSeconds('00:40');
+
+      expect(firstTimestamp).toBeLessThanOrEqual(inputFirstTime + 5); // Allow 5 seconds flexibility
+      expect(lastTimestamp).toBeGreaterThanOrEqual(inputLastTime - 5); // Allow 5 seconds flexibility
+    });
+
+    test('Response maintains key information', () => {
+      const keyTerms = ['machine learning', 'neural networks', 'deep learning'];
+      const keyPhrases = ['important concept', 'critical point'];
+
+      console.log('\nKey Information Check:');
+      console.log('Checking terms:', keyTerms);
+      console.log('Checking phrases:', keyPhrases);
+
+      let failures = [];
+
+      // Check terms
+      const missingTerms = keyTerms.filter(term =>
+        !llmResponseTranscript.toLowerCase().includes(term)
+      );
+      if (missingTerms.length > 0) {
+        failures.push(`Missing terms: ${missingTerms.join(', ')}`);
+      }
+
+      // Check phrases
+      const missingPhrases = keyPhrases.filter(phrase =>
+        !llmResponseTranscript.toLowerCase().includes(phrase)
+      );
+      if (missingPhrases.length > 0) {
+        failures.push(`Missing phrases: ${missingPhrases.join(', ')}`);
+      }
+
+      console.log('Missing terms:', missingTerms);
+      console.log('Missing phrases:', missingPhrases);
+
+      if (failures.length > 0) {
+        console.log('Failures:', failures.join('\n'));
+        expect(failures).toHaveLength(0, `Key information test failed:\n${failures.join('\n')}`);
+      }
+    });
+
+    // Helper function to convert timestamp to seconds
+    function convertToSeconds(timestamp) {
+      const [minutes, seconds] = timestamp.split(':').map(Number);
+      return minutes * 60 + seconds;
     }
   });
 
-  test('Response identifies speakers', () => {
-    expect(response).toMatch(/[A-Za-z\s]+:/);
-  });
 
-  test('Response has consistent speaker attribution', () => {
-    const speakerLines = response.match(/^[^[\n]+:/gm);
-    expect(speakerLines).toBeTruthy();
-    expect(speakerLines.length).toBeGreaterThan(1);
-
-    // Get unique speakers
-    const speakers = new Set(speakerLines.map(line => line.trim()));
-
-    // Should have at least 2 speakers (host and guest)
-    expect(speakers.size).toBeGreaterThanOrEqual(2);
-
-    // Check for consistent naming (no "Speaker 1" mixing with actual names)
-    const hasGenericSpeakers = Array.from(speakers).some(speaker =>
-      speaker.includes('Speaker') || speaker.includes('Host') || speaker.includes('Guest')
-    );
-    const hasNamedSpeakers = Array.from(speakers).some(speaker =>
-      !speaker.includes('Speaker') && !speaker.includes('Host') && !speaker.includes('Guest')
-    );
-
-    // Should not mix generic and named speakers
-    expect(hasGenericSpeakers && hasNamedSpeakers).toBeFalsy();
-  });
-
-  test('Response covers entire time range', () => {
-    const firstTimestamp = response.match(/\[(\d{2}:\d{2})/)[1];
-    const lastTimestamp = response.match(/->\\s*(\\d{2}:\\d{2})\]/)[1];
-
-    const getSeconds = (timestamp) => {
-      const [mins, secs] = timestamp.split(':').map(Number);
-      return mins * 60 + secs;
-    };
-
-    expect(getSeconds(firstTimestamp)).toBeLessThanOrEqual(5);
-    expect(getSeconds(lastTimestamp)).toBeGreaterThanOrEqual(15);
-  });
-
-  test('Response covers entire time range', () => {
-    // Extract first and last timestamps
-    const allTimestamps = response.match(/\d{2}:\d{2}/g);
-    const firstTimestamp = convertToSeconds(allTimestamps[0]);
-    const lastTimestamp = convertToSeconds(allTimestamps[allTimestamps.length - 1]);
-
-    // Check if it covers the full range from input
-    const inputFirstTime = convertToSeconds('00:00');
-    const inputLastTime = convertToSeconds('00:40');
-
-    expect(firstTimestamp).toBeLessThanOrEqual(inputFirstTime + 5); // Allow 5 seconds flexibility
-    expect(lastTimestamp).toBeGreaterThanOrEqual(inputLastTime - 5); // Allow 5 seconds flexibility
-  });
-
-  test('Response maintains key information', () => {
-    const keyTerms = ['machine learning', 'neural networks', 'deep learning'];
-    keyTerms.forEach(term => {
-      expect(response.toLowerCase()).toContain(term);
-    });
-  });
-
-  // Helper function to convert timestamp to seconds
-  function convertToSeconds(timestamp) {
-    const [minutes, seconds] = timestamp.split(':').map(Number);
-    return minutes * 60 + seconds;
-  }
-});
-
-describe('LLM Quality Assessment Tests', () => {
-  const evaluationPrompt = `
+  describe('LLM Quality Assessment Tests', () => {
+    const evaluationPrompt = `
   You are a professional transcript quality assessor. Evaluate the following transcript based on these criteria:
   1. Clarity (1-10): How clear and readable is the text?
   2. Speaker Attribution (1-10): How well are speakers identified and distinguished?
@@ -543,65 +634,64 @@ describe('LLM Quality Assessment Tests', () => {
   }
   `;
 
-  test('Quality assessment meets minimum standards', async () => {
-    const processedTranscript = await llmUtils.call_llm('claude-3-sonnet', systemRole, testTranscript);
-    const evaluation = await llmUtils.call_llm(
-      'claude-3-sonnet',
-      'You are a transcript quality assessor.',
-      evaluationPrompt.replace('{{PROCESSED_TRANSCRIPT}}', processedTranscript)
-    );
+    test('Quality assessment meets minimum standards', async () => {
+      const evaluation = await llmUtils.call_llm(
+        'You are a transcript quality assessor.',
+        evaluationPrompt.replace('{{PROCESSED_TRANSCRIPT}}', llmResponseTranscript)
+      );
 
-    const scores = JSON.parse(evaluation);
+      const scores = JSON.parse(evaluation);
 
-    // Define minimum acceptable scores
-    const MINIMUM_SCORES = {
-      clarity: 7,
-      speaker_attribution: 7,
-      professional_polish: 7,
-      content_preservation: 8,
-      overall_score: 7.5
-    };
+      // Define minimum acceptable scores
+      const MINIMUM_SCORES = {
+        clarity: 7,
+        speaker_attribution: 7,
+        professional_polish: 7,
+        content_preservation: 8,
+        overall_score: 7.5
+      };
 
-    // Check each criterion meets minimum standards
-    Object.entries(MINIMUM_SCORES).forEach(([criterion, minScore]) => {
-      const actualScore = scores[criterion].score || scores[criterion];
-      expect(actualScore).toBeGreaterThanOrEqual(minScore);
+      // Check each criterion meets minimum standards
+      Object.entries(MINIMUM_SCORES).forEach(([criterion, minScore]) => {
+        const actualScore = scores[criterion].score || scores[criterion];
+        expect(actualScore).toBeGreaterThanOrEqual(minScore);
+      });
+
+      // Ensure suggestions are provided
+      expect(scores.suggestions).toBeTruthy();
+      expect(scores.suggestions.length).toBeGreaterThan(20);
     });
-
-    // Ensure suggestions are provided
-    expect(scores.suggestions).toBeTruthy();
-    expect(scores.suggestions.length).toBeGreaterThan(20);
   });
-});
 
-// Helper function to compare different prompt versions
-async function comparePrompts(originalPrompt, newPrompt, testCases) {
-  const results = [];
+  // Helper function to compare different prompt versions
+  async function comparePrompts(originalPrompt, newPrompt, testCases) {
+    const results = [];
 
-  for (const testCase of testCases) {
-    const originalResponse = await llmUtils.call_llm('claude-3-sonnet', originalPrompt, testCase);
-    const newResponse = await llmUtils.call_llm('claude-3-sonnet', newPrompt, testCase);
+    for (const testCase of testCases) {
+      const originalResponse = await llmUtils.call_llm('claude-3-sonnet', originalPrompt, testCase);
+      const newResponse = await llmUtils.call_llm('claude-3-sonnet', newPrompt, testCase);
 
-    // Get quality assessments for both responses
-    const originalAssessment = await llmUtils.call_llm(
-      'claude-3-sonnet',
-      'You are a transcript quality assessor.',
-      evaluationPrompt.replace('{{PROCESSED_TRANSCRIPT}}', originalResponse)
-    );
+      // Get quality assessments for both responses
+      const originalAssessment = await llmUtils.call_llm(
+        'claude-3-sonnet',
+        'You are a transcript quality assessor.',
+        evaluationPrompt.replace('{{PROCESSED_TRANSCRIPT}}', originalResponse)
+      );
 
-    const newAssessment = await llmUtils.call_llm(
-      'claude-3-sonnet',
-      'You are a transcript quality assessor.',
-      evaluationPrompt.replace('{{PROCESSED_TRANSCRIPT}}', newResponse)
-    );
+      const newAssessment = await llmUtils.call_llm(
+        'claude-3-sonnet',
+        'You are a transcript quality assessor.',
+        evaluationPrompt.replace('{{PROCESSED_TRANSCRIPT}}', newResponse)
+      );
 
-    results.push({
-      testCase,
-      originalScore: JSON.parse(originalAssessment).overall_score,
-      newScore: JSON.parse(newAssessment).overall_score,
-      improvement: JSON.parse(newAssessment).overall_score - JSON.parse(originalAssessment).overall_score
-    });
+      results.push({
+        testCase,
+        originalScore: JSON.parse(originalAssessment).overall_score,
+        newScore: JSON.parse(newAssessment).overall_score,
+        improvement: JSON.parse(newAssessment).overall_score - JSON.parse(originalAssessment).overall_score
+      });
+    }
+
+    return results;
   }
-
-  return results;
-}
+});
