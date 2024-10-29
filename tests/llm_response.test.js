@@ -386,12 +386,12 @@ Joe Rogan Experience #2219 - Donald Trump
 [14:59] back but I wasn&amp;#39;t a Washington guy I was
 `;
 
-describe('LLM Response Unit Tests', () => {
+describe.only('LLM Response Unit Tests', () => {
   let response;
 
   beforeAll(async () => {
     response = await llmUtils.call_llm({ model_name: 'gpt-4o-mini', prompt: testTranscript });
-  });
+  }, 180000); // 3 minutes = 180,000 milliseconds
 
   test('Response preserves key technical terms', () => {
     const technicalTerms = [

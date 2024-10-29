@@ -1,29 +1,49 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
-            "skipFiles": [
-                "<node_internals>/**"
+            "name": "Debug LLM Tests",
+            "program": "${workspaceFolder}/node_modules/jest/bin/jest",
+            "args": [
+                "--runInBand",
+                "--no-cache",
+                "--testTimeout=180000",
+                "tests/llm_response.test.js"
             ],
-            "program": "${workspaceFolder}/popup/popup.js",
-            "runtimeArgs": ["--experimental-modules"]
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "env": {
+                "NODE_OPTIONS": "--experimental-vm-modules"
+            }
         },
+        // {
+        //     "type": "node",
+        //     "request": "launch",
+        //     "name": "Debug Integration Tests",
+        //     "runtimeExecutable": "npm",
+        //     "runtimeArgs": [
+        //         "run-script",
+        //         "test:integration"
+        //     ],
+        //     "console": "integratedTerminal"
+        // },
         {
             "type": "node",
             "request": "launch",
-            "name": "Run Jest Tests",
-            "runtimeExecutable": "npm",
-            "runtimeArgs": [
-                "run-script",
-                "test:integration"
+            "name": "Debug Current Test File",
+            "program": "${workspaceFolder}/node_modules/jest/bin/jest",
+            "args": [
+                "--runInBand",
+                "--no-cache",
+                "${relativeFile}"
             ],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "env": {
+                "NODE_OPTIONS": "--experimental-vm-modules"
+            }
         }
     ]
 }
