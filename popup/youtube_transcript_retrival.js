@@ -6,6 +6,13 @@
  */
 class YoutubeTranscriptRetriever {
   /**
+   * Delimiter indicating the beginning of the transcript section.
+   * Example: "=== TRANSCRIPT ==="
+   */
+  static TRANSCRIPT_BEGINS_DELIMITER = "*** Transcript ***";
+  static CONTEXT_BEGINS_DELIMITER = "*** Background Context ***";
+
+  /**
    * Fetches the transcript for the specified YouTube video.
    * Transforms to desired format.
    * 
@@ -57,11 +64,11 @@ class YoutubeTranscriptRetriever {
       const videoDetails = initialData.videoDetails || {};
       
       // Create context block with clear delimiters
-      const contextBlock = `
+      // Note: Extracting just the first paragraph of the description. Moving forward may do RAG search w/ perplexity to hydrate with speaker background.
+      const contextBlock = `${this.CONTEXT_BEGINS_DELIMITER}
 Title: ${videoDetails.title || 'Unknown'}
-Description: ${videoDetails.shortDescription || 'No description available'}
-
-=== TRANSCRIPT ===
+Description: ${(videoDetails.shortDescription && videoDetails.shortDescription.split('\n')[0]) || 'No description available'}
+${this.TRANSCRIPT_BEGINS_DELIMITER}
 `;
 
       // Combine context and transcript
