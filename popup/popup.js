@@ -4,7 +4,6 @@ import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js'; // New import
 
-
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
 
@@ -191,7 +190,14 @@ function paginateTranscript(rawTranscript, processedTranscript) {
  * @returns {Array} Array of paginated transcript segments
  */
 function paginateTranscriptHelper(transcript) {
-  // Parse the raw transcript into an array of objects with timestamp and text
+  // Split context and transcript content
+  const [contextBlock, transcriptContent] = transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
+  if (!transcriptContent) {
+    // If no transcript content found, return context as first segment
+    return [transcript.trim()];
+  }
+
+  // Parse the transcript content into array of objects with timestamp and text
   const parsedTranscript = (function parseTranscript(rawTranscript) {
     return rawTranscript.split('\n').map(line => {
       // Handle timestamps in format [mm:ss] or [hh:mm:ss]
@@ -207,7 +213,7 @@ function paginateTranscriptHelper(transcript) {
       }
       return null;
     }).filter(item => item !== null);
-  })(transcript);
+  })(transcriptContent);
 
   // Paginate into segments based on SEGMENT_DURATION
   const segments = [];
@@ -220,7 +226,8 @@ function paginateTranscriptHelper(transcript) {
       currentSegment += `[${formatTime(item.timestamp)}] ${item.text}\n`;
     } else {
       if (currentSegment) {
-        segments.push(currentSegment.trim());
+        // Add context block to each segment
+        segments.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentSegment.trim()}`);
       }
       segmentStartTime = Math.floor(item.timestamp / SEGMENT_DURATION) * SEGMENT_DURATION;
       segmentEndTime = segmentStartTime + SEGMENT_DURATION;
@@ -229,7 +236,8 @@ function paginateTranscriptHelper(transcript) {
   });
 
   if (currentSegment) {
-    segments.push(currentSegment.trim());
+    // Add context block to final segment
+    segments.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentSegment.trim()}`);
   }
 
   return segments;
