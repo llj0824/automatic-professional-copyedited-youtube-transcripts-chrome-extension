@@ -78,11 +78,12 @@ h2, h3 {
 #processed-display {
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-size: 12px;
+  font-size: 12px; /* This will now be controlled dynamically */
   line-height: 1.5em;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: #333;
   width: 100%; /* Add this to ensure displays take full width */
+  transition: font-size 0.2s ease; /* Smooth transition for font size changes */
 }
 
 .hidden {
@@ -131,4 +132,46 @@ h2, h3 {
 #status-indicator {
   margin-bottom: 10px;
   font-weight: bold;
+}
+
+.content-header {
+  display: flex;
+  justify-content: flex-start;
+  padding: 5px;
+}
+
+.copy-btn {
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.copy-btn:hover {
+  background-color: #e0e0e0;
+}
+
+/* Add these new styles */
+.font-controls {
+  display: flex;
+  justify-content: flex-end;
+  padding: 5px;
+  gap: 5px;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+}
+
+.font-controls button {
+  padding: 4px 8px;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.font-controls button:hover {
+  background-color: #e0e0e0;
 }

@@ -16,45 +16,11 @@ let processedTranscriptSegments = []; // paginated from processed transcript
 let currentSegmentIndex = 0;
 let SEGMENT_DURATION = 15 * 60; // seconds (modifiable)
 
-const llmSystemRole = `Take a raw video transcript and copyedit it into a world-class professionally copyedited transcript.  
-Attempt to identify the speaker from the context of the conversation.
-
-# Steps
-1. **Speaker Identification**: Identify who is speaking at each segment based on context clues within the transcript.
-2. **Copyediting**:
-   - Correct any grammatical or typographical errors.
-   - Ensure coherence and flow of conversation.
-   - Maintain the original meaning while enhancing clarity.
-3. **Structure**: Format the transcript with each speaker's name followed by their dialogue.
-
-# Output Format
-[Time Range]
-[Speaker Name]:
-[Dialogue]
-
-**Requirements:**
-- **Time Range:** Combine the start and end timestamps in the format [Start Time -> End Time].
-- **Speaker Name:** Followed by a colon (:) and a newline.
-- **Dialogue:** Starts on a new line beneath the speaker's name. Ensure the dialogue is free of filler words and is professionally phrased.
-
-# Examples
-**Example Input:**  
-[00:06] uh so um today were going to be talking about, uh, 
-[00:12] mental health and, um, ideas of, uh, self with, um, 
-[00:15] Dr. Paul Conti. uh welcome."
-
-**Example Output:**  
-[00:06 -> 00:15]
-Andrew Huberman:
-Today we are going to be talking about mental health and ideas of self with Dr. Paul Conti. Welcome.
-
-# Notes
-- If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc. 
-- Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.
-- Only return the copyedited transcript, no foreword or introduction. Process the entire transcript, do not ask for confirmation.
-`
-
 const llmUtils = new LLM_API_Utils();
+
+// Add these variables to the top-level declarations
+let fontSizeDecrease, fontSizeIncrease;
+let currentFontSize = 12; // Default font size in px
 
 /**
  * Initialize the popup with dependency injection
@@ -86,6 +52,10 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     transcriptInput = doc.getElementById('transcript-input');
     loadTranscriptBtn = doc.getElementById('load-transcript-btn');
 
+    // Add new element declarations
+    fontSizeDecrease = doc.getElementById('font-size-decrease');
+    fontSizeIncrease = doc.getElementById('font-size-increase');
+
     setupTabs(doc, tabButtons, tabContents);
     setupProcessButton(processBtn, modelSelect, storageUtils);
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
@@ -104,6 +74,12 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     // handle showing UI elements based on auto-load transcript success status
     handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
+
+    // Add copy button functionality
+    setupCopyButtons(doc);
+
+    // Add new setup call
+    setupFontSizeControls(fontSizeDecrease, fontSizeIncrease);
 
   } catch (error) {
     console.error('Error initializing popup:', error);
@@ -487,7 +463,11 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       }
 
       // TODO: Add prefix to the call -> youtube video title & description & Date.
-      const response = await llmUtils.call_llm(selectedModel, llmSystemRole, currentRawSegment);
+      const response = await llmUtils.call_llm({
+        model_name: selectedModel,
+        system_role: llmSystemRole,
+        prompt: currentRawSegment
+      });
 
       // Update the processed segment
       processedTranscriptSegments[currentSegmentIndex] = response;
@@ -517,6 +497,69 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
   });
 }
 
+// Add this new function
+function setupCopyButtons(doc) {
+  const copyButtons = doc.querySelectorAll('.copy-btn');
+  copyButtons.forEach(button => {
+    button.addEventListener('click', async () => {
+      const targetId = button.getAttribute('data-target');
+      const targetElement = doc.getElementById(targetId);
+      const textToCopy = targetElement.textContent;
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        const originalText = button.textContent;
+        button.textContent = '✅ Copied!';
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy text:', err);
+        button.textContent = '❌ Failed';
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 2000);
+      }
+    });
+  });
+}
+
+// Add this new function
+function setupFontSizeControls(decreaseBtn, increaseBtn) {
+  // Load saved font size when initializing
+  storageUtils.loadFontSize().then(savedFontSize => {
+    currentFontSize = savedFontSize;
+    updateFontSize();
+  }).catch(error => {
+    console.error('Error loading font size:', error);
+  });
+
+  decreaseBtn.addEventListener('click', () => {
+    if (currentFontSize > 8) { // Minimum font size
+      currentFontSize -= 2;
+      updateFontSize();
+      storageUtils.saveFontSize(currentFontSize).catch(error => {
+        console.error('Error saving font size:', error);
+      });
+    }
+  });
+
+  increaseBtn.addEventListener('click', () => {
+    if (currentFontSize < 24) { // Maximum font size
+      currentFontSize += 2;
+      updateFontSize();
+      storageUtils.saveFontSize(currentFontSize).catch(error => {
+        console.error('Error saving font size:', error);
+      });
+    }
+  });
+}
+
+function updateFontSize() {
+  transcriptDisplay.style.fontSize = `${currentFontSize}px`;
+  processedDisplay.style.fontSize = `${currentFontSize}px`;
+}
+
 // Export the functions for testing purposes
 export {
   initializePopup,
@@ -526,3 +569,4 @@ export {
   setupProcessButton,
   setupLoadTranscriptButton
 };
+

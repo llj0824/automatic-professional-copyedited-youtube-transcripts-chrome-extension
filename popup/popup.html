@@ -20,16 +20,25 @@
     </div>
 
     <!-- Content Display with Tabs -->
-     <!-- TODO: make it content-section when sidepanel window expands -->
     <div id="content-section">
       <div class="tabs">
         <button class="tab-button active" data-tab="raw">Raw Transcript</button>
         <button class="tab-button" data-tab="processed">Processed Output</button>
       </div>
+      <div class="font-controls">
+        <button id="font-size-decrease" title="Decrease font size">A-</button>
+        <button id="font-size-increase" title="Increase font size">A+</button>
+      </div>
       <div class="tab-content" id="raw">
+        <div class="content-header">
+          <button class="copy-btn" data-target="transcript-display">📋 Copy Transcript</button>
+        </div>
         <pre id="transcript-display">Loading transcript...</pre>
       </div>
       <div class="tab-content hidden" id="processed">
+        <div class="content-header">
+          <button class="copy-btn" data-target="processed-display">📋 Copy Transcript</button>
+        </div>
         <pre id="processed-display">Processed output will appear here.</pre>
       </div>
     </div>
@@ -47,9 +56,9 @@
       <div id="model-selection">
         <label for="model-select">Select LLM Model:</label>
         <select id="model-select">
-          <option value="gpt-4o" hidden>OpenAI GPT-4o</option>
-          <option value="gpt-4o-mini" selected>OpenAI GPT-4o-mini</option>
-          <option value="claude-3-5-sonnet-20241022" hidden>Anthropic Claude 3.5 Sonnet</option>
+          <option value="chatgpt-4o-latest" selected>OpenAI GPT-4o</option>
+          <option value="gpt-4o-mini">OpenAI GPT-4o-mini</option>
+          <option value="claude-3-5-sonnet-20241022">Anthropic Claude 3.5 Sonnet</option>
           <!-- Add more models as needed -->
         </select>
       </div>

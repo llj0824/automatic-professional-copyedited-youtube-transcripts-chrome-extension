@@ -205,6 +205,44 @@ class StorageUtils {
       });
     });
   }
+
+  /**
+   * Saves the font size setting to local storage
+   * @param {number} fontSize - The font size in pixels
+   * @returns {Promise<void>}
+   */
+  saveFontSize(fontSize) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set({ 'font_size': fontSize }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error saving font size:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log('Font size saved successfully:', fontSize);
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Loads the saved font size setting from local storage
+   * @returns {Promise<number>} - The saved font size or default value (12)
+   */
+  loadFontSize() {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(['font_size'], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error loading font size:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          const fontSize = result.font_size || 12; // Default to 12px if not set
+          console.log('Font size loaded:', fontSize);
+          resolve(fontSize);
+        }
+      });
+    });
+  }
 }
 
 export default StorageUtils;
