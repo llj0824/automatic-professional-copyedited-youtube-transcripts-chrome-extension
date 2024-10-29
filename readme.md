@@ -37,6 +37,26 @@ Contributions are welcome! Please open an issue or submit a pull request for any
 
 MIT License
 
+## Note to self: updating version to submit upgrade to chrome extension store.
+
+### Preparing a New Version
+1. Update version number in `manifest.json`
+2. Make sure all changes are committed and tested
+3. Run the build script:
+   ```bash
+   ./build_chrome_publication.sh
+   ```
+   This will create `youtube_professional_transcript_chrome_extension.zip`
+
+### Submitting to Chrome Web Store
+1. Go to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
+2. Find your existing extension
+3. Click "Package" tab
+4. Upload the new zip file
+5. Update release notes with changes
+6. Submit for review
+
+
 ## Note to self: Debugging 
 
 I. Manual testing with chrome devtools
@@ -77,7 +97,6 @@ II. Debugging unit and integration tests on Cursor
 1b) unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
 2) change to use gpt-4o as default model, maybe even hide the model being used from the UI.
     - change to gpt-4o-mini only if usage is getting too expensive.
-3) [top priority] add the title and description of the video to each pagination of transcript (so it knows speakers)
 4) [refactoring] rename segments to "pages" or "pagination" it's much more intuitive.
 5）[UI change][important and quick] make tab selection (raw vs processed) visually more obvious.
 5b) [quick] add gif tutorial of extension in action to readme/chrome extension (check ReadingAssist for example).  
@@ -99,3 +118,4 @@ II. Debugging unit and integration tests on Cursor
 
 [Resolved]
 * [low priority, but should be easy] add some functionality to change font size of transcript.
+* [top priority] add the title and description of the video to each pagination of transcript (so it knows speakers)

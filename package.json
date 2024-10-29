@@ -24,6 +24,6 @@
     "pretest:integration": "npm run build:extension",
     "test:integration": "jest tests/integration.test.js --runInBand --detectOpenHandles",
     "test:llm": "jest tests/llm_response.test.js --runInBand",
-    "build:prod": "NODE_ENV=production npm run build:extension && zip -r extension.zip dist/"
+    "build:prod": "NODE_ENV=production npm run build:extension && zip -r professional_transcripts_youtube.zip dist/"
   }
 }
