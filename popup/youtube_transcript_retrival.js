@@ -52,7 +52,19 @@ class YoutubeTranscriptRetriever {
       ...
       */
 
-      return parsedTranscript;
+      // Extract video details for context
+      const videoDetails = initialData.videoDetails || {};
+      
+      // Create context block with clear delimiters
+      const contextBlock = `
+Title: ${videoDetails.title || 'Unknown'}
+Description: ${videoDetails.shortDescription || 'No description available'}
+
+=== TRANSCRIPT ===
+`;
+
+      // Combine context and transcript
+      return contextBlock + parsedTranscript;
     } catch (error) {
       console.error('Error fetching transcript:', error);
       throw error;
