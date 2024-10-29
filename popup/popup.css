@@ -40,7 +40,7 @@ h2, h3 {
   flex: 1; /* Allow content section to grow and fill available space */
   display: flex;
   flex-direction: column;
-  width: 100%; /* Add this to ensure content takes full width */
+  width: 95%; /* Add this to ensure content takes full width */
 }
 
 .tabs {

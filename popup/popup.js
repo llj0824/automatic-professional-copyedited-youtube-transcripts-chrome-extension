@@ -465,7 +465,6 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       // TODO: Add prefix to the call -> youtube video title & description & Date.
       const response = await llmUtils.call_llm({
         model_name: selectedModel,
-        system_role: llmSystemRole,
         prompt: currentRawSegment
       });
 

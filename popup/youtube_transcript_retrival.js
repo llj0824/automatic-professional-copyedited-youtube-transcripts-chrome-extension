@@ -26,7 +26,8 @@ class YoutubeTranscriptRetriever {
       const captionTracks = this.extractCaptionTracks(initialData);
       
       if (captionTracks.length === 0) {
-        throw new Error('No captions available for this video.');
+        // TODO: change this to make the placeholder in transcript-display show this message
+        window.alert('No captions available for this video. Unable to automatically retrieve transcript.');
       }
 
       const transcriptUrl = captionTracks[0].baseUrl;
