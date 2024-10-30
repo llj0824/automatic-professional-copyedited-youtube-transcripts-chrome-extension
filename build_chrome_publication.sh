@@ -25,6 +25,7 @@ echo "📋 Copying essential files..."
 cp manifest.json dist/
 cp -r background dist/
 cp -r popup dist/
+cp -r content.js dist/
 cp -r icons dist/
 
 # Remove any development/test files from dist
