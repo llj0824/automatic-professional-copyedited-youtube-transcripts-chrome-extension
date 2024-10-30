@@ -91,22 +91,21 @@ II. Debugging unit and integration tests on Cursor
  2. In Cursor to run debugger, set red dot on sidebar or `debugger;` in the code. Then `Run` tab -> `Start Debugging` refer to `launch.json` for configurations.
 
 ### backend system changes
-1a) add unit and LLM-as-judge to automaticaly test responses from LLM.
+1a. add unit and LLM-as-judge to automaticaly test responses from LLM.
     - helps track regression in model performance
     - helps tracks effect of changes to prompt/system role.
-1b) unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
-2) change to use gpt-4o as default model, maybe even hide the model being used from the UI.
+1b. unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
+2. change to use gpt-4o as default model, maybe even hide the model being used from the UI.
     - change to gpt-4o-mini only if usage is getting too expensive.
-4) [refactoring] rename segments to "pages" or "pagination" it's much more intuitive.
-5）[UI change][important and quick] make tab selection (raw vs processed) visually more obvious.
-5b) [quick] add gif tutorial of extension in action to readme/chrome extension (check ReadingAssist for example).  
-6) [website & database] make transcripts knowledge searchable
-7) [show remaining balance] show remaining balance in the popup, atleast some visual indicator why no longer able to process new segmnets.
+4. [refactoring] rename segments to "pages" or "pagination" it's much more intuitive.
+5. [UI change][important and quick] make tab selection (raw vs processed) visually more obvious.
+5b. [quick] add gif tutorial of extension in action to readme/chrome extension (check ReadingAssist for example).  
+6. [website & database] make transcripts knowledge searchable
+7. [show remaining balance] show remaining balance in the popup, atleast some visual indicator why no longer able to process new segmnets.
     -> note: chrome extension description should have section explaining this.
-8) [prevent abuse] disable reprocessing if transcript alrdy exists
-9) [feedback form] add @llj0824 twitter [x] handle for users to tweet me their feedback lol.
-10) [remote server] use google drive/substack post the processed transcripts there and retrieve from there.
-11) [top priority] remove permission to read browsing history...
+8. [prevent abuse] disable reprocessing if transcript alrdy exists
+9. [feedback form] add @llj0824 twitter [x] handle for users to tweet me their feedback lol.
+10. [remote server] use google drive/substack post the processed transcripts there and retrieve from there.
 
 ### Features
 0. [high priority] timestamps ~atleast 1 per 15 minutes, maybe 2-3 per page
@@ -122,3 +121,4 @@ II. Debugging unit and integration tests on Cursor
 [Resolved]
 * [low priority, but should be easy] add some functionality to change font size of transcript.
 * [top priority] add the title and description of the video to each pagination of transcript (so it knows speakers)
+* [top priority] remove permission to read browsing history...
