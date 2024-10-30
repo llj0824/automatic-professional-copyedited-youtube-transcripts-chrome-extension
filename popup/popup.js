@@ -2,7 +2,8 @@
 
 import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
-import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js'; // New import
+import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js'; 
+
 
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
