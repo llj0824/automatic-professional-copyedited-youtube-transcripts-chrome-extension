@@ -9,7 +9,11 @@ const llmUtils = new LLM_API_Utils();
 
 // Sample test transcript segment
 const testTranscript = `
-Joe Rogan Experience #2219 - Donald Trump
+*** Background Context ***
+Title: Joe Rogan Experience #2219 - Donald Trump
+Description: Donald Trump is currently the 2024 Presidential Candidate of the Republican Party. He previously served as America’s 45th president, and is also a businessman and media personality.
+
+*** Transcript ***
 [00:01] Joe Rogan podcast check it out The Joe
 [00:04] Rogan Experience Train by day Joe Rogan
 [00:07] podcast by night all
@@ -395,7 +399,7 @@ describe.only('LLM Response Unit Tests', () => {
   let llmResponseTranscript;
 
   beforeAll(async () => {
-    llmResponseTranscript = await llmUtils.call_llm({ model_name: 'gpt-4o-mini', prompt: testTranscript });
+    llmResponseTranscript = await llmUtils.call_llm({model_name: 'gpt-4o-mini', prompt: testTranscript });
   }, 180000); // 3 minutes = 180,000 milliseconds
 
   describe.only('LLM Response Unit Tests', () => {

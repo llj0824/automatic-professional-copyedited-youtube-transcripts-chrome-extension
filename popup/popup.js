@@ -461,8 +461,11 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       const loader = document.getElementById('loader');
       loader.classList.remove('hidden');
 
-      // Process only the current segment
+      // Get the current raw segment
       const currentRawSegment = rawTranscriptSegments[currentSegmentIndex];
+
+      // Split the segment into two parts
+      const { firstHalf, secondHalf } = splitTranscriptSegment(currentRawSegment);
 
       // Check if the current segment is already processed sufficiently
       if (processedTranscriptSegments[currentSegmentIndex] &&
@@ -470,17 +473,24 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
         alert('Current segment is already processed, but we will reprocess it because you clicked the button.');
       }
 
-      // TODO: Add prefix to the call -> youtube video title & description & Date.
-      const response = await llmUtils.call_llm({
+      // Process first half
+      const response1 = await llmUtils.call_llm({
         model_name: selectedModel,
-        prompt: currentRawSegment
+        prompt: firstHalf
       });
 
-      // Update the processed segment
-      processedTranscriptSegments[currentSegmentIndex] = response;
+      // Process second half
+      const response2 = await llmUtils.call_llm({
+        model_name: selectedModel,
+        prompt: secondHalf
+      });
 
-      // Update the display for the current segment
-      processedDisplay.textContent = response;
+      // Combine the responses
+      const combinedResponse = response1 + '\n\n' + response2;
+
+      // Update the processed segment
+      processedTranscriptSegments[currentSegmentIndex] = combinedResponse;
+      processedDisplay.textContent = combinedResponse;
 
       // Combine all processed segments into a single text block
       processedTranscript = processedTranscriptSegments.join('\n');
@@ -502,6 +512,64 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       loader.classList.add('hidden');
     }
   });
+}
+
+
+/**
+ * Splits a transcript segment into two roughly equal parts, ensuring timestamps are not split.
+ * @param {string} segment - The transcript segment to split
+ * @returns {{firstHalf: string, secondHalf: string}} The split segments
+ */
+function splitTranscriptSegment(segment) {
+  // Split the segment into lines
+  const lines = segment.split('\n');
+  
+  // Find the context section and transcript delimiter
+  const contextStartIndex = lines.findIndex(line => 
+    line.includes(YoutubeTranscriptRetriever.CONTEXT_BEGINS_DELIMITER)
+  );
+  const transcriptStartIndex = lines.findIndex(line => 
+    line.includes(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER)
+  );
+  
+  // Extract context section
+  const contextSection = lines.slice(contextStartIndex, transcriptStartIndex + 1).join('\n');
+  
+  // Get just the transcript lines
+  const transcriptLines = lines.slice(transcriptStartIndex + 1);
+  
+  // Find the middle timestamp
+  const timestamps = transcriptLines
+    .map(line => {
+      const match = line.match(/\[(\d+):(\d+)\]/);
+      if (match) {
+        return parseInt(match[1]) * 60 + parseInt(match[2]);
+      }
+      return null;
+    })
+    .filter(time => time !== null);
+  
+  const totalDuration = Math.max(...timestamps);
+  const midPoint = totalDuration / 2;
+  
+  // Find the line index closest to the midpoint
+  let splitIndex = transcriptLines.findIndex(line => {
+    const match = line.match(/\[(\d+):(\d+)\]/);
+    if (match) {
+      const time = parseInt(match[1]) * 60 + parseInt(match[2]);
+      return time >= midPoint;
+    }
+    return false;
+  });
+  
+  // Create the two halves, including context in both
+  const firstHalf = contextSection + '\n' + 
+    transcriptLines.slice(0, splitIndex).join('\n');
+  
+  const secondHalf = contextSection + '\n' + 
+    transcriptLines.slice(splitIndex).join('\n');
+  
+  return { firstHalf, secondHalf };
 }
 
 // Add this new function
@@ -580,6 +648,7 @@ export {
   handlePrevClick,
   handleNextClick,
   setupProcessButton,
-  setupLoadTranscriptButton
+  setupLoadTranscriptButton,
+  splitTranscriptSegment
 };
 
