@@ -21,13 +21,12 @@ const llmUtils = new LLM_API_Utils();
 let fontSizeDecrease, fontSizeIncrease;
 let currentFontSize = 12; // Default font size in px
 
-/**
- * Initialize the popup with dependency injection
- * @param {Document} doc - The Document object to interact with the DOM.
- * @param {StorageUtils} storageUtils - The StorageUtils instance.
- */
-document.addEventListener('DOMContentLoaded', () => initializePopup());
 
+
+// Call it immediately in browser environment
+if (typeof document !== 'undefined') {
+  setupPopup();
+}
 /**
  * Initialize the popup by loading API keys and any existing transcripts.
  * @param {Document} doc - The Document object to interact with the DOM.
@@ -83,6 +82,12 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
   } catch (error) {
     console.error('Error initializing popup:', error);
     transcriptDisplay.textContent = 'Error initializing popup.';
+  }
+}
+
+function setupPopup() {
+  if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => initializePopup());
   }
 }
 
@@ -473,6 +478,7 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
         alert('Current segment is already processed, but we will reprocess it because you clicked the button.');
       }
 
+      // TODO: = make the two calls in parallel, wait, and then stitch together.
       // Process first half
       const response1 = await llmUtils.call_llm({
         model_name: selectedModel,
@@ -516,6 +522,7 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
 
 
 /**
+ * TODO: parameterize number of  partitions, n
  * Splits a transcript segment into two roughly equal parts, ensuring timestamps are not split.
  * @param {string} segment - The transcript segment to split
  * @returns {{firstHalf: string, secondHalf: string}} The split segments
@@ -649,6 +656,7 @@ export {
   handleNextClick,
   setupProcessButton,
   setupLoadTranscriptButton,
-  splitTranscriptSegment
+  splitTranscriptSegment,
+  setupPopup
 };
 
