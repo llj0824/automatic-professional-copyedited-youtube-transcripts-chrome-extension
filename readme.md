@@ -104,6 +104,9 @@ II. Debugging unit and integration tests on Cursor
 7) [show remaining balance] show remaining balance in the popup, atleast some visual indicator why no longer able to process new segmnets.
     -> note: chrome extension description should have section explaining this.
 8) [prevent abuse] disable reprocessing if transcript alrdy exists
+9) [feedback form] add @llj0824 twitter [x] handle for users to tweet me their feedback lol.
+10) [remote server] use google drive/substack post the processed transcripts there and retrieve from there.
+11) [top priority] remove permission to read browsing history...
 
 ### Features
 0. [high priority] timestamps ~atleast 1 per 15 minutes, maybe 2-3 per page

@@ -23,10 +23,8 @@
         }
       ],
       "permissions": [
-        "activeTab",
         "scripting", 
         "storage",
-        "tabs",
         "activeTab",
         "sidePanel"
       ],
