@@ -177,3 +177,11 @@ h2, h3 {
 .font-controls button:hover {
   background-color: #e0e0e0;
 }
+
+/* Update the selector name but keep the same styles */
+#page-info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
+}

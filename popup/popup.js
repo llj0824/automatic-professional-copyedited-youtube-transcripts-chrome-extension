@@ -6,15 +6,15 @@ import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 
 
 // Declare the variables in a higher scope
-let transcriptDisplay, processedDisplay, prevBtn, nextBtn, segmentInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
+let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
 
 let isRawTranscriptVisible = true; // true for 'raw transcript', false for 'processed transcript'
 let rawTranscript = ""; // loaded from youtube automatically 
 let processedTranscript = ""; // loaded from storage
-let rawTranscriptSegments = []; // paginated from raw transcript
-let processedTranscriptSegments = []; // paginated from processed transcript
-let currentSegmentIndex = 0;
-let SEGMENT_DURATION = 15 * 60; // seconds (modifiable)
+let rawTranscriptPages = []; // paginated from raw transcript
+let processedTranscriptPages = []; // paginated from processed transcript
+let currentPageIndex = 0;
+let PAGE_DURATION = 15 * 60; // seconds (modifiable)
 
 const llmUtils = new LLM_API_Utils();
 
@@ -42,7 +42,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     processedDisplay = doc.getElementById('processed-display');
     prevBtn = doc.getElementById('prev-btn');
     nextBtn = doc.getElementById('next-btn');
-    segmentInfo = doc.getElementById('segment-info');
+    pageInfo = doc.getElementById('page-info');
     processBtn = doc.getElementById('process-btn');
     loader = doc.getElementById('loader');
     tabButtons = doc.querySelectorAll('.tab-button');
@@ -58,7 +58,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     setupTabs(doc, tabButtons, tabContents);
     setupProcessButton(processBtn, modelSelect, storageUtils);
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
-    setupPagination(prevBtn, nextBtn, segmentInfo);
+    setupPagination(prevBtn, nextBtn, pageInfo);
 
     // Load existing transcripts if available
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
@@ -109,7 +109,7 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
     paginateTranscript(rawTranscript, processedTranscript);
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
-    updateSegmentInfo();
+    updatePageInfo();
   } else {
     // Show manual load transcript section only if both auto-load methods failed
     document.getElementById('transcript-input-section').classList.remove('hidden');
@@ -169,24 +169,24 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUt
  * @returns {Object} An object containing rawTranscriptSegments and processedTranscriptSegments
  */
 function paginateTranscript(rawTranscript, processedTranscript) {
-  rawTranscriptSegments = paginateTranscriptHelper(rawTranscript);
-  processedTranscriptSegments = paginateProcessedTranscript(processedTranscript);
+  rawTranscriptPages = paginateTranscriptHelper(rawTranscript);
+  processedTranscriptPages = paginateProcessedTranscript(processedTranscript);
 
   // If no segments were created, add a default message
-  if (rawTranscriptSegments.length === 0) {
-    rawTranscriptSegments.push("No raw transcript available.");
+  if (rawTranscriptPages.length === 0) {
+    rawTranscriptPages.push("No raw transcript available.");
   }
-  if (processedTranscriptSegments.length === 0) {
-    processedTranscriptSegments.push("No processed transcript available.");
+  if (processedTranscriptPages.length === 0) {
+    processedTranscriptPages.push("No processed transcript available.");
   }
 
   // Reset the current segment index and update UI
-  currentSegmentIndex = 0;
-  updateSegmentInfo();
+  currentPageIndex = 0;
+  updatePageInfo();
   setRawAndProcessedTranscriptText();
   updatePaginationButtons();
 
-  return { rawTranscriptSegments, processedTranscriptSegments };
+  return { rawTranscriptSegments: rawTranscriptPages, processedTranscriptSegments: processedTranscriptPages };
 }
 
 /**
@@ -225,7 +225,7 @@ function paginateTranscriptHelper(transcript) {
   const segments = [];
   let currentSegment = '';
   let segmentStartTime = 0;
-  let segmentEndTime = SEGMENT_DURATION;
+  let segmentEndTime = PAGE_DURATION;
 
   parsedTranscript.forEach(item => {
     if (item.timestamp < segmentEndTime) {
@@ -235,8 +235,8 @@ function paginateTranscriptHelper(transcript) {
         // Add context block to each segment
         segments.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentSegment.trim()}`);
       }
-      segmentStartTime = Math.floor(item.timestamp / SEGMENT_DURATION) * SEGMENT_DURATION;
-      segmentEndTime = segmentStartTime + SEGMENT_DURATION;
+      segmentStartTime = Math.floor(item.timestamp / PAGE_DURATION) * PAGE_DURATION;
+      segmentEndTime = segmentStartTime + PAGE_DURATION;
       currentSegment = `[${formatTime(item.timestamp)}] ${item.text}\n`;
     }
   });
@@ -261,7 +261,7 @@ function paginateProcessedTranscript(processedTranscript) {
   let currentPage = '';
   let currentDuration = 0;
   let segmentStartTime = 0;
-  let segmentEndTime = SEGMENT_DURATION;
+  let segmentEndTime = PAGE_DURATION;
 
   lines.forEach(line => {
     const match = line.match(/\[(\d+):(\d+) -> (\d+):(\d+)\]/);
@@ -279,13 +279,13 @@ function paginateProcessedTranscript(processedTranscript) {
           paginated.push(currentPage.trim());
         }
         // Update the segment window
-        segmentStartTime = Math.floor(startTime / SEGMENT_DURATION) * SEGMENT_DURATION;
-        segmentEndTime = segmentStartTime + SEGMENT_DURATION;
+        segmentStartTime = Math.floor(startTime / PAGE_DURATION) * PAGE_DURATION;
+        segmentEndTime = segmentStartTime + PAGE_DURATION;
         currentPage = '';
         currentDuration = 0;
       }
 
-      if (currentDuration + duration > SEGMENT_DURATION) {
+      if (currentDuration + duration > PAGE_DURATION) {
         if (currentPage) {
           paginated.push(currentPage.trim());
         }
@@ -321,24 +321,24 @@ function formatTime(seconds) {
  */
 function setRawAndProcessedTranscriptText() {
   // Visibility is handled separately via CSS classes
-  transcriptDisplay.textContent = rawTranscriptSegments[currentSegmentIndex] || "No transcript available.";
-  processedDisplay.textContent = processedTranscriptSegments[currentSegmentIndex] || "Processed output will appear here.";
+  transcriptDisplay.textContent = rawTranscriptPages[currentPageIndex] || "No transcript available.";
+  processedDisplay.textContent = processedTranscriptPages[currentPageIndex] || "Processed output will appear here.";
 }
 
 /**
  * Updates the state of pagination buttons.
  */
 function updatePaginationButtons() {
-  prevBtn.disabled = currentSegmentIndex === 0;
-  nextBtn.disabled = currentSegmentIndex === (getCurrentDisplaySegments().length - 1);
+  prevBtn.disabled = currentPageIndex === 0;
+  nextBtn.disabled = currentPageIndex === (getCurrentDisplayPages().length - 1);
 }
 
 /**
  * Retrieves the current set of segments based on the active tab.
  * @returns {Array} Array of current display segments.
  */
-function getCurrentDisplaySegments() {
-  return isRawTranscriptVisible ? rawTranscriptSegments : processedTranscriptSegments;
+function getCurrentDisplayPages() {
+  return isRawTranscriptVisible ? rawTranscriptPages : processedTranscriptPages;
 }
 
 // Update handleLoadTranscriptClick to remove formatting step
@@ -368,22 +368,22 @@ async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
 
 // Event handler for previous button click
 function handlePrevClick() {
-  if (currentSegmentIndex > 0) {
-    currentSegmentIndex--;
+  if (currentPageIndex > 0) {
+    currentPageIndex--;
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
-    updateSegmentInfo();
+    updatePageInfo();
   }
 }
 
 // Event handler for next button click
 function handleNextClick() {
-  const currentSegments = getCurrentDisplaySegments();
-  if (currentSegmentIndex < currentSegments.length - 1) {
-    currentSegmentIndex++;
+  const currentSegments = getCurrentDisplayPages();
+  if (currentPageIndex < currentSegments.length - 1) {
+    currentPageIndex++;
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
-    updateSegmentInfo();
+    updatePageInfo();
   }
 }
 
@@ -401,9 +401,9 @@ function setupPagination(prevBtn, nextBtn) {
 /**
  * Updates the segment information display.
  */
-function updateSegmentInfo() {
-  const currentSegments = getCurrentDisplaySegments();
-  segmentInfo.textContent = `Segment ${currentSegmentIndex + 1} of ${currentSegments.length}`;
+function updatePageInfo() {
+  const currentPages = getCurrentDisplayPages();
+  pageInfo.textContent = `Page ${currentPageIndex + 1} of ${currentPages.length}`;
 }
 
 /**
@@ -436,7 +436,7 @@ function setupTabs(doc, tabButtons, tabContents) {
       // Update the display based on the new state
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
-      updateSegmentInfo();
+      updatePageInfo();
     });
   });
 }
@@ -468,14 +468,14 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       loader.classList.remove('hidden');
 
       // Get the current raw segment
-      const currentRawSegment = rawTranscriptSegments[currentSegmentIndex];
+      const currentRawSegment = rawTranscriptPages[currentPageIndex];
 
       // Split the segment into two parts
       const { firstHalf, secondHalf } = splitTranscriptSegment(currentRawSegment);
 
       // Check if the current segment is already processed sufficiently
-      if (processedTranscriptSegments[currentSegmentIndex] &&
-        processedTranscriptSegments[currentSegmentIndex].split(/\s+/).length >= 100) {
+      if (processedTranscriptPages[currentPageIndex] &&
+        processedTranscriptPages[currentPageIndex].split(/\s+/).length >= 100) {
         alert('Current segment is already processed, but we will reprocess it because you clicked the button.');
       }
 
@@ -496,11 +496,11 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       const combinedResponse = response1 + '\n\n' + response2;
 
       // Update the processed segment
-      processedTranscriptSegments[currentSegmentIndex] = combinedResponse;
+      processedTranscriptPages[currentPageIndex] = combinedResponse;
       processedDisplay.textContent = combinedResponse;
 
       // Combine all processed segments into a single text block
-      processedTranscript = processedTranscriptSegments.join('\n');
+      processedTranscript = processedTranscriptPages.join('\n');
 
       // Save the full processed transcript
       await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
@@ -510,7 +510,7 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       // Update the display
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
-      updateSegmentInfo();
+      updatePageInfo();
     } catch (error) {
       console.error('Error processing transcript:', error);
       alert('Failed to process the current segment.');
