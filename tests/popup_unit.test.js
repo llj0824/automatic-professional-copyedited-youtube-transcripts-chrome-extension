@@ -58,9 +58,21 @@ describe('Popup Unit Tests', () => {
     document = domMockSetup();
     global.document = document;
     global.window = document.defaultView;
-    global.navigator = {
-      userAgent: 'node.js',
+
+    // Mock window.alert
+    global.alert = jest.fn();
+    global.window.alert = global.alert;
+
+    // Mock chrome API if needed
+    global.chrome = {
+      storage: {
+        local: {
+          get: jest.fn(),
+          set: jest.fn()
+        }
+      }
     };
+
     llmUtils = new LLM_API_Utils();
     initializePopup(
       mockDocument, // Pass the mock document directly

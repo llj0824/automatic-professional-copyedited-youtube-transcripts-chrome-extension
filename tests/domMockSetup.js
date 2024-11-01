@@ -2,16 +2,11 @@
 import { JSDOM } from 'jsdom';
 
 export function domMockSetup() {
-  // Create a new JSDOM instance first
-  const dom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`);
-
-  // Set up global objects
-  global.window = dom.window;
-  global.document = dom.window.document;
-  global.navigator = { userAgent: 'node.js' };
-
-  // Now set the innerHTML
-  document.body.innerHTML = `
+  // Create a new JSDOM instance with the HTML template
+  const dom = new JSDOM(`
+    <!DOCTYPE html>
+    <html>
+    <body>
       <div class="container">
         <h2>YouTube Transcript Manager</h2>
         <div id="transcript-section">
@@ -62,24 +57,20 @@ export function domMockSetup() {
           <button id="load-transcript-btn">Load Transcript</button>
         </div>
       </div>
-    `;
+    </body>
+    </html>
+  `);
 
-  // Add any required DOM methods that might be missing
-  dom.window.document.getElementsByClassName = function (className) {
-    return this.querySelectorAll('.' + className);
-  };
+  // Set up global objects
+  global.window = dom.window;
+  global.document = dom.window.document;
+  global.navigator = { userAgent: 'node.js' };
 
-  // Setup classList methods for elements
-  const elements = dom.window.document.querySelectorAll('*');
+  // Add any event listener mocks that might be needed
+  const elements = dom.window.document.querySelectorAll('button, input, select');
   elements.forEach(element => {
-    element.classList = {
-      add: jest.fn(),
-      remove: jest.fn(),
-      toggle: jest.fn(),
-      contains: jest.fn()
-    };
+    element.addEventListener = jest.fn();
   });
 
-  // Return both window and document objects
-  return document;
+  return dom.window.document;
 }

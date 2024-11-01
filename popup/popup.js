@@ -106,7 +106,7 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
     document.getElementById('actions').classList.remove('hidden'); // TODO: if processed transcripts is avaliable, hide process button
 
     // Paginate transcripts and update UI
-    paginateTranscript(rawTranscript, processedTranscript);
+    paginateRawTranscript(rawTranscript, processedTranscript);
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
     updatePageInfo();
@@ -169,7 +169,7 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUt
  * @returns {Object} An object containing rawTranscriptSegments and processedTranscriptSegments
  */
 function paginateTranscript(rawTranscript, processedTranscript) {
-  rawTranscriptPages = paginateTranscriptHelper(rawTranscript);
+  rawTranscriptPages = paginateRawTranscript(rawTranscript);
   processedTranscriptPages = paginateProcessedTranscript(processedTranscript);
 
   // If no segments were created, add a default message
@@ -195,7 +195,7 @@ function paginateTranscript(rawTranscript, processedTranscript) {
  * @param {string} transcript - String transcript with timestamps [MM:SS]
  * @returns {Array} Array of paginated transcript segments
  */
-function paginateTranscriptHelper(transcript) {
+function paginateRawTranscript(transcript) {
   // Split context and transcript content
   const [contextBlock, transcriptContent] = transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
   if (!transcriptContent) {
@@ -350,7 +350,7 @@ async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
     return;
   }
 
-  paginateTranscript(rawTranscript, processedTranscript);
+  paginateRawTranscript(rawTranscript, processedTranscript);
   setRawAndProcessedTranscriptText();
   updatePaginationButtons();
 
@@ -653,6 +653,8 @@ function updateFontSize() {
 export {
   initializePopup,
   paginateTranscript,
+  paginateRawTranscript,
+  paginateProcessedTranscript,
   handlePrevClick,
   handleNextClick,
   setupProcessButton,
