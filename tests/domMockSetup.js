@@ -1,7 +1,17 @@
-// tests/domSetup.js
+// tests/domMockSetup.js
+import { JSDOM } from 'jsdom';
 
 export function domMockSetup() {
-    document.body.innerHTML = `
+  // Create a new JSDOM instance first
+  const dom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`);
+
+  // Set up global objects
+  global.window = dom.window;
+  global.document = dom.window.document;
+  global.navigator = { userAgent: 'node.js' };
+
+  // Now set the innerHTML
+  document.body.innerHTML = `
       <div class="container">
         <h2>YouTube Transcript Manager</h2>
         <div id="transcript-section">
@@ -54,5 +64,22 @@ export function domMockSetup() {
       </div>
     `;
 
-    return document;
-  }
+  // Add any required DOM methods that might be missing
+  dom.window.document.getElementsByClassName = function (className) {
+    return this.querySelectorAll('.' + className);
+  };
+
+  // Setup classList methods for elements
+  const elements = dom.window.document.querySelectorAll('*');
+  elements.forEach(element => {
+    element.classList = {
+      add: jest.fn(),
+      remove: jest.fn(),
+      toggle: jest.fn(),
+      contains: jest.fn()
+    };
+  });
+
+  // Return both window and document objects
+  return document;
+}

@@ -3,13 +3,12 @@
  * @description Unit tests for individual functions in popup.js
  */
 
-import { 
+import {
   parseTranscript,
   paginateTranscript,
-  displayRawOrProcessedSegment,
-  handlePrevClick, 
-  handleNextClick, 
-  setupProcessButton, 
+  handlePrevClick,
+  handleNextClick,
+  setupProcessButton,
   setupLoadTranscriptButton,
   initializePopup
 } from '../popup/popup.js';
@@ -36,9 +35,9 @@ jest.mock('../popup/llm_api_utils.js', () => {
 });
 
 describe('Popup Unit Tests', () => {
-  const mockVideoId= 'mockVideoId';
-  const mockRawTranscript='mockRawTranscript';
-  const mockProcessedTranscript='mockProcessedTranscript';
+  const mockVideoId = 'mockVideoId';
+  const mockRawTranscript = 'mockRawTranscript';
+  const mockProcessedTranscript = 'mockProcessedTranscript';
   const mockDocument = domMockSetup();
   let mockStorageUtils;
   let llmUtils;
@@ -56,6 +55,12 @@ describe('Popup Unit Tests', () => {
   }
 
   beforeAll(() => {
+    document = domMockSetup();
+    global.document = document;
+    global.window = document.defaultView;
+    global.navigator = {
+      userAgent: 'node.js',
+    };
     llmUtils = new LLM_API_Utils();
     initializePopup(
       mockDocument, // Pass the mock document directly
@@ -105,8 +110,9 @@ describe('Popup Unit Tests', () => {
         { timestamp: 5, text: 'Page 1 continued' }
       ];
       mockStorageUtils.loadTranscriptsById.mockResolvedValue({
-         rawTranscript: mockRawTranscript,
-         processedTranscript: mockProcessedTranscript});
+        rawTranscript: mockRawTranscript,
+        processedTranscript: mockProcessedTranscript
+      });
       const expected = [
         '[00:00] Page 1\n[00:05] Page 1 continued'
       ];
@@ -130,8 +136,9 @@ describe('Popup Unit Tests', () => {
         { timestamp: 1800, text: 'Page 3' }
       ];
       mockStorageUtils.loadTranscriptsById.mockResolvedValue({
-         rawTranscript: mockRawTranscript,
-         processedTranscript: mockProcessedTranscript});
+        rawTranscript: mockRawTranscript,
+        processedTranscript: mockProcessedTranscript
+      });
       const expected = [
         '[00:00] Page 1\n[00:05] Page 1 continued',
         '[15:00] Page 2',
@@ -181,7 +188,7 @@ describe('Popup Unit Tests', () => {
         }
         return [];
       });
-      
+
       // Mock global alert and console
       global.alert = jest.fn();
       global.console = {
