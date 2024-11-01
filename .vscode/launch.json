@@ -10,7 +10,7 @@
                 "--runInBand",
                 "--no-cache",
                 "--testTimeout=180000",
-                "tests/llm_response.test.js"
+                "tests/parsing_transcript_unit.test.js"
             ],
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",

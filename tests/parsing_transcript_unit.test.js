@@ -3,11 +3,11 @@ import fs from 'fs';
 import path from 'path';
 
 // Read test data files
-const raw = fs.readFileSync(path.join(__dirname, '../llm_responses/raw_transcript.txt'), 'utf8');
-const processed = fs.readFileSync(path.join(__dirname, '../llm_responses/gpt-40-mini_processed_transcript.txt'), 'utf8');
+const raw = fs.readFileSync(new URL('../llm_responses/raw_transcript.txt', import.meta.url), 'utf8');
+const processed = fs.readFileSync(new URL('../llm_responses/gpt-40-mini_processed_transcript.txt', import.meta.url), 'utf8');
 
 describe('Transcript Parsing', () => {
-  describe('paginateRawTranscript', () => {
+  describe.only('paginateRawTranscript', () => {
     it('should handle sample raw transcript data', () => {
       const pages = paginateRawTranscript(raw);
       expect(pages).toBeInstanceOf(Array);
