@@ -14,9 +14,6 @@
             ],
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "env": {
-                "NODE_OPTIONS": "--experimental-vm-modules"
-            }
         },
         // {
         //     "type": "node",
@@ -41,9 +38,7 @@
             ],
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "env": {
-                "NODE_OPTIONS": "--experimental-vm-modules"
-            }
+            // Note: no longer need "experimental-vm-modules" flag since tests are written in CommonJS, not ES anymore.
         }
     ]
 }
