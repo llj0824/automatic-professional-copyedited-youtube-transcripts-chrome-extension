@@ -1,10 +1,14 @@
-import { paginateRawTranscript, paginateProcessedTranscript } from '../popup/popup.js';
-import fs from 'fs';
-import path from 'path';
+const { paginateRawTranscript, paginateProcessedTranscript } = require('../popup/popup.js');
+const fs = require('fs');
+const path = require('path');
 
-// Read test data files
-const raw = fs.readFileSync(new URL('../llm_responses/raw_transcript.txt', import.meta.url), 'utf8');
-const processed = fs.readFileSync(new URL('../llm_responses/gpt-40-mini_processed_transcript.txt', import.meta.url), 'utf8');
+
+// Get current file's directory in CommonJS
+const __dirname = path.dirname(__filename); // __dirname is already available in CommonJS
+
+// Read test data files using path.join
+const raw = fs.readFileSync(path.join(__dirname, '../llm_responses/raw_transcript.txt'), 'utf8');
+const processed = fs.readFileSync(path.join(__dirname, '../llm_responses/gpt-40-mini_processed_transcript.txt'), 'utf8');
 
 describe('Transcript Parsing', () => {
   describe.only('paginateRawTranscript', () => {
