@@ -45,7 +45,7 @@ describe('Transcript Parsing', () => {
     });
   });
 
-  describe.only('paginateProcessedTranscript', () => {
+  describe('paginateProcessedTranscript', () => {
     it('should handle sample processed transcript data', () => {
       const pages = paginateProcessedTranscript(processed);
       expect(pages).toBeInstanceOf(Array);
