@@ -256,7 +256,6 @@ function paginateProcessedTranscript(processedTranscript) {
   const lines = processedTranscript.split('\n');
   const paginated = [];
   let currentPage = '';
-  let currentDuration = 0;
   let segmentStartTime = 0;
   let segmentEndTime = PAGE_DURATION;
 
@@ -265,11 +264,7 @@ function paginateProcessedTranscript(processedTranscript) {
     if (match) {
       const startMinutes = parseInt(match[1], 10);
       const startSeconds = parseInt(match[2], 10);
-      const endMinutes = parseInt(match[3], 10);
-      const endSeconds = parseInt(match[4], 10);
       const startTime = startMinutes * 60 + startSeconds;
-      const endTime = endMinutes * 60 + endSeconds;
-      const duration = endTime - startTime;
 
       if (startTime >= segmentEndTime) {
         if (currentPage) {
@@ -279,19 +274,9 @@ function paginateProcessedTranscript(processedTranscript) {
         segmentStartTime = Math.floor(startTime / PAGE_DURATION) * PAGE_DURATION;
         segmentEndTime = segmentStartTime + PAGE_DURATION;
         currentPage = '';
-        currentDuration = 0;
-      }
-
-      if (currentDuration + duration > PAGE_DURATION) {
-        if (currentPage) {
-          paginated.push(currentPage.trim());
-        }
-        currentPage = '';
-        currentDuration = 0;
       }
 
       currentPage += `${line}\n`;
-      currentDuration += duration;
     } else {
       currentPage += `${line}\n`;
     }
