@@ -2,7 +2,7 @@
 
 import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
-import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js'; 
+import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 
 
 // Declare the variables in a higher scope
@@ -99,7 +99,7 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
   if (youtubeStatus === '✅' || existingStatus === '✅') {
     // Hide manual load transcript section
     document.getElementById('transcript-input-section').classList.add('hidden');
-    
+
     // Show other sections
     document.getElementById('transcript-section').classList.remove('hidden');
     document.getElementById('content-section').classList.remove('hidden');
@@ -196,12 +196,9 @@ function paginateTranscript(rawTranscript, processedTranscript) {
  * @returns {Array} Array of paginated transcript pages
  */
 function paginateRawTranscript(transcript) {
-  // Split context and transcript content
-  const [contextBlock, transcriptContent] = transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
-  if (!transcriptContent) {
-    // If no transcript content found, return context as first page
-    return [transcript.trim()];
-  }
+  // Split into context and content, defaulting to empty context if no delimiter
+  const [contextBlock = "", transcriptContent = transcript] =
+    transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
 
   // Parse the transcript content into array of objects with timestamp and text
   const parsedTranscript = (function parseTranscript(rawTranscript) {
@@ -531,21 +528,21 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
 function splitTranscriptPage(page) {
   // Split the page into lines
   const lines = page.split('\n');
-  
+
   // Find the context section and transcript delimiter
-  const contextStartIndex = lines.findIndex(line => 
+  const contextStartIndex = lines.findIndex(line =>
     line.includes(YoutubeTranscriptRetriever.CONTEXT_BEGINS_DELIMITER)
   );
-  const transcriptStartIndex = lines.findIndex(line => 
+  const transcriptStartIndex = lines.findIndex(line =>
     line.includes(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER)
   );
-  
+
   // Extract context section
   const contextSection = lines.slice(contextStartIndex, transcriptStartIndex + 1).join('\n');
-  
+
   // Get just the transcript lines
   const transcriptLines = lines.slice(transcriptStartIndex + 1);
-  
+
   // Find the middle timestamp
   const timestamps = transcriptLines
     .map(line => {
@@ -556,10 +553,10 @@ function splitTranscriptPage(page) {
       return null;
     })
     .filter(time => time !== null);
-  
+
   const totalDuration = Math.max(...timestamps);
   const midPoint = totalDuration / 2;
-  
+
   // Find the line index closest to the midpoint
   let splitIndex = transcriptLines.findIndex(line => {
     const match = line.match(/\[(\d+):(\d+)\]/);
@@ -569,14 +566,14 @@ function splitTranscriptPage(page) {
     }
     return false;
   });
-  
+
   // Create the two halves, including context in both
-  const firstHalf = contextSection + '\n' + 
+  const firstHalf = contextSection + '\n' +
     transcriptLines.slice(0, splitIndex).join('\n');
-  
-  const secondHalf = contextSection + '\n' + 
+
+  const secondHalf = contextSection + '\n' +
     transcriptLines.slice(splitIndex).join('\n');
-  
+
   return { firstHalf, secondHalf };
 }
 

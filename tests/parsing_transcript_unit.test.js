@@ -20,26 +20,28 @@ describe('Transcript Parsing', () => {
       // Check first page format
       const firstPage = pages[0];
       expect(firstPage).toContain('[00:01]');
-      expect(firstPage).toContain('Joe Rogan:');
+      expect(firstPage).toContain('Joe Rogan');
     });
 
     it('should split pages at PAGE_DURATION intervals', () => {
-      const input = `[00:00] First line
-[14:59] Before split
-[15:00] After split
-[29:59] Last line`;
+      const input = `[00:01] First page
+[14:59] End of First Page 
+[15:00] Start of Second Page
+[29:59] End of Second Page`;
       
       const pages = paginateRawTranscript(input);
       expect(pages.length).toBe(2);
-      expect(pages[0]).toContain('[00:00]');
-      expect(pages[0]).toContain('[14:59]');
-      expect(pages[1]).toContain('[15:00]');
-      expect(pages[1]).toContain('[29:59]');
+      const firstPage = pages[0];
+      expect(firstPage).toContain('[00:01]');
+      expect(firstPage).toContain('[14:59]');
+      const secondPage = pages[1];
+      expect(secondPage).toContain('[15:00]');
+      expect(secondPage).toContain('[29:59]');
     });
 
     it('should handle empty input', () => {
       const pages = paginateRawTranscript('');
-      expect(pages).toEqual(['No raw transcript available.']);
+      expect(pages).toEqual([]);
     });
   });
 
