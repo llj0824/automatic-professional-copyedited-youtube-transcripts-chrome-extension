@@ -2,6 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
+            // Unit tests debugger
             "type": "node",
             "request": "launch",
             "name": "Debug LLM Tests",
@@ -16,6 +17,7 @@
             "internalConsoleOptions": "neverOpen",
         },
         // {
+        //     // Debugger for integration tests.
         //     "type": "node",
         //     "request": "launch",
         //     "name": "Debug Integration Tests",

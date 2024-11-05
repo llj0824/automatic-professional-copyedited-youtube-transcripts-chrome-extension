@@ -117,6 +117,7 @@ II. Debugging unit and integration tests on Cursor
 0. [high] occasionally unable to automatically retrieve transcript -> initial data unavailable. Refresh page resolves. Replicate and implement a fix (possibly a retry mechanism).
 1. if no processed transcripts sets segments to 0, even when there is a raw transcript for that page.
 2. loading saved processed transcripts still not working
+3. [failed to retrieve] [bug] failed to retrieve transcript from - https://www.youtube.com/watch?v=WNJ93FfWVBY
 
 [Resolved]
 * [low priority, but should be easy] add some functionality to change font size of transcript.

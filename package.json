@@ -22,7 +22,7 @@
     "test:popup_unit": "jest tests/popup_unit.test.js",
     "test:unit_tests": "jest tests/parsing_transcript_unit.test.js",
     "test:youtube_transcript_retrieval": "jest tests/youtube_transcript_retrieval.test.js",
-    "build:extension": "mkdir -p dist && cp manifest.json dist/ && cp -r popup background icons dist/",
+    "build:extension": "mkdir -p dist && cp -r manifest.json popup background icons content.js dist/",
     "pretest:integration": "npm run build:extension",
     "test:integration": "jest tests/integration.test.js --runInBand --detectOpenHandles",
     "test:llm": "jest tests/llm_response.test.js --runInBand",
