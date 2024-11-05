@@ -2,6 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
+            // Unit tests debugger
             "type": "node",
             "request": "launch",
             "name": "Debug LLM Tests",
@@ -10,15 +11,13 @@
                 "--runInBand",
                 "--no-cache",
                 "--testTimeout=180000",
-                "tests/llm_response.test.js"
+                "tests/parsing_transcript_unit.test.js"
             ],
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "env": {
-                "NODE_OPTIONS": "--experimental-vm-modules"
-            }
         },
         // {
+        //     // Debugger for integration tests.
         //     "type": "node",
         //     "request": "launch",
         //     "name": "Debug Integration Tests",
@@ -41,9 +40,7 @@
             ],
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "env": {
-                "NODE_OPTIONS": "--experimental-vm-modules"
-            }
+            // Note: no longer need "experimental-vm-modules" flag since tests are written in CommonJS, not ES anymore.
         }
     ]
 }

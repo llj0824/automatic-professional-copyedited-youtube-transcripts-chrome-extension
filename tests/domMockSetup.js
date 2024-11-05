@@ -1,7 +1,12 @@
-// tests/domSetup.js
+// tests/domMockSetup.js
+import { JSDOM } from 'jsdom';
 
 export function domMockSetup() {
-    document.body.innerHTML = `
+  // Create a new JSDOM instance with the HTML template
+  const dom = new JSDOM(`
+    <!DOCTYPE html>
+    <html>
+    <body>
       <div class="container">
         <h2>YouTube Transcript Manager</h2>
         <div id="transcript-section">
@@ -52,7 +57,20 @@ export function domMockSetup() {
           <button id="load-transcript-btn">Load Transcript</button>
         </div>
       </div>
-    `;
+    </body>
+    </html>
+  `);
 
-    return document;
-  }
+  // Set up global objects
+  global.window = dom.window;
+  global.document = dom.window.document;
+  global.navigator = { userAgent: 'node.js' };
+
+  // Add any event listener mocks that might be needed
+  const elements = dom.window.document.querySelectorAll('button, input, select');
+  elements.forEach(element => {
+    element.addEventListener = jest.fn();
+  });
+
+  return dom.window.document;
+}

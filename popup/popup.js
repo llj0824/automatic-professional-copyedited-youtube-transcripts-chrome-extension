@@ -2,7 +2,7 @@
 
 import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
-import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js'; 
+import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 
 
 // Declare the variables in a higher scope
@@ -99,14 +99,14 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
   if (youtubeStatus === '✅' || existingStatus === '✅') {
     // Hide manual load transcript section
     document.getElementById('transcript-input-section').classList.add('hidden');
-    
+
     // Show other sections
     document.getElementById('transcript-section').classList.remove('hidden');
     document.getElementById('content-section').classList.remove('hidden');
     document.getElementById('actions').classList.remove('hidden'); // TODO: if processed transcripts is avaliable, hide process button
 
     // Paginate transcripts and update UI
-    paginateTranscript(rawTranscript, processedTranscript);
+    paginateRawTranscript(rawTranscript, processedTranscript);
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
     updatePageInfo();
@@ -158,21 +158,21 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUt
 }
 
 /**
- * Paginate the transcript into segments based on SEGMENT_DURATION.
+ * Paginate the transcript into pages based on PAGE_DURATION.
  * 
- * This function divides both raw and processed transcripts into smaller segments based on a predefined duration.
- * It updates the global rawTranscriptSegments and processedTranscriptSegments arrays, ensuring each segment is 
+ * This function divides both raw and processed transcripts into smaller pages based on a predefined duration.
+ * It updates the global rawTranscriptPages and processedTranscriptPages arrays, ensuring each page is 
  * properly formatted with timestamps and text.
  * 
  * @param {Array} rawTranscript - Array of objects with timestamp and text for raw transcript
  * @param {string} processedTranscript - Full processed transcript string
- * @returns {Object} An object containing rawTranscriptSegments and processedTranscriptSegments
+ * @returns {Object} An object containing rawTranscriptPages and processedTranscriptPages
  */
 function paginateTranscript(rawTranscript, processedTranscript) {
-  rawTranscriptPages = paginateTranscriptHelper(rawTranscript);
+  rawTranscriptPages = paginateRawTranscript(rawTranscript);
   processedTranscriptPages = paginateProcessedTranscript(processedTranscript);
 
-  // If no segments were created, add a default message
+  // If no pages were created, add a default message
   if (rawTranscriptPages.length === 0) {
     rawTranscriptPages.push("No raw transcript available.");
   }
@@ -180,28 +180,25 @@ function paginateTranscript(rawTranscript, processedTranscript) {
     processedTranscriptPages.push("No processed transcript available.");
   }
 
-  // Reset the current segment index and update UI
+  // Reset the current page index and update UI
   currentPageIndex = 0;
   updatePageInfo();
   setRawAndProcessedTranscriptText();
   updatePaginationButtons();
 
-  return { rawTranscriptSegments: rawTranscriptPages, processedTranscriptSegments: processedTranscriptPages };
+  return { rawTranscriptPages, processedTranscriptPages };
 }
 
 /**
  * Helper function to paginate a raw transcript
  * 
  * @param {string} transcript - String transcript with timestamps [MM:SS]
- * @returns {Array} Array of paginated transcript segments
+ * @returns {Array} Array of paginated transcript pages
  */
-function paginateTranscriptHelper(transcript) {
-  // Split context and transcript content
-  const [contextBlock, transcriptContent] = transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
-  if (!transcriptContent) {
-    // If no transcript content found, return context as first segment
-    return [transcript.trim()];
-  }
+function paginateRawTranscript(transcript) {
+  // Split into context and content, defaulting to empty context if no delimiter
+  const [contextBlock = "", transcriptContent = transcript] =
+    transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
 
   // Parse the transcript content into array of objects with timestamp and text
   const parsedTranscript = (function parseTranscript(rawTranscript) {
@@ -221,45 +218,44 @@ function paginateTranscriptHelper(transcript) {
     }).filter(item => item !== null);
   })(transcriptContent);
 
-  // Paginate into segments based on SEGMENT_DURATION
-  const segments = [];
-  let currentSegment = '';
-  let segmentStartTime = 0;
-  let segmentEndTime = PAGE_DURATION;
+  // Paginate into pages based on PAGE_DURATION
+  const pages = [];
+  let currentPage = '';
+  let pageStartTime = 0;
+  let pageEndTime = PAGE_DURATION;
 
   parsedTranscript.forEach(item => {
-    if (item.timestamp < segmentEndTime) {
-      currentSegment += `[${formatTime(item.timestamp)}] ${item.text}\n`;
+    if (item.timestamp < pageEndTime) {
+      currentPage += `[${formatTime(item.timestamp)}] ${item.text}\n`;
     } else {
-      if (currentSegment) {
-        // Add context block to each segment
-        segments.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentSegment.trim()}`);
+      if (currentPage) {
+        // Add context block to each page
+        pages.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentPage.trim()}`);
       }
-      segmentStartTime = Math.floor(item.timestamp / PAGE_DURATION) * PAGE_DURATION;
-      segmentEndTime = segmentStartTime + PAGE_DURATION;
-      currentSegment = `[${formatTime(item.timestamp)}] ${item.text}\n`;
+      pageStartTime = Math.floor(item.timestamp / PAGE_DURATION) * PAGE_DURATION;
+      pageEndTime = pageStartTime + PAGE_DURATION;
+      currentPage = `[${formatTime(item.timestamp)}] ${item.text}\n`;
     }
   });
 
-  if (currentSegment) {
-    // Add context block to final segment
-    segments.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentSegment.trim()}`);
+  if (currentPage) {
+    // Add context block to final page
+    pages.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentPage.trim()}`);
   }
 
-  return segments;
+  return pages;
 }
 
 /**
  * Helper function to paginate a processed transcript
  * 
  * @param {string} processedTranscript - Full processed transcript string
- * @returns {Array} Array of paginated processed transcript segments
+ * @returns {Array} Array of paginated processed transcript pages
  */
 function paginateProcessedTranscript(processedTranscript) {
   const lines = processedTranscript.split('\n');
   const paginated = [];
   let currentPage = '';
-  let currentDuration = 0;
   let segmentStartTime = 0;
   let segmentEndTime = PAGE_DURATION;
 
@@ -268,11 +264,7 @@ function paginateProcessedTranscript(processedTranscript) {
     if (match) {
       const startMinutes = parseInt(match[1], 10);
       const startSeconds = parseInt(match[2], 10);
-      const endMinutes = parseInt(match[3], 10);
-      const endSeconds = parseInt(match[4], 10);
       const startTime = startMinutes * 60 + startSeconds;
-      const endTime = endMinutes * 60 + endSeconds;
-      const duration = endTime - startTime;
 
       if (startTime >= segmentEndTime) {
         if (currentPage) {
@@ -282,19 +274,9 @@ function paginateProcessedTranscript(processedTranscript) {
         segmentStartTime = Math.floor(startTime / PAGE_DURATION) * PAGE_DURATION;
         segmentEndTime = segmentStartTime + PAGE_DURATION;
         currentPage = '';
-        currentDuration = 0;
-      }
-
-      if (currentDuration + duration > PAGE_DURATION) {
-        if (currentPage) {
-          paginated.push(currentPage.trim());
-        }
-        currentPage = '';
-        currentDuration = 0;
       }
 
       currentPage += `${line}\n`;
-      currentDuration += duration;
     } else {
       currentPage += `${line}\n`;
     }
@@ -317,7 +299,7 @@ function formatTime(seconds) {
 }
 
 /**
- * Displays the current segment based on visibility state.
+ * Displays the current page based on visibility state.
  */
 function setRawAndProcessedTranscriptText() {
   // Visibility is handled separately via CSS classes
@@ -334,8 +316,8 @@ function updatePaginationButtons() {
 }
 
 /**
- * Retrieves the current set of segments based on the active tab.
- * @returns {Array} Array of current display segments.
+ * Retrieves the current set of pages based on the active tab.
+ * @returns {Array} Array of current display pages.
  */
 function getCurrentDisplayPages() {
   return isRawTranscriptVisible ? rawTranscriptPages : processedTranscriptPages;
@@ -350,7 +332,7 @@ async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
     return;
   }
 
-  paginateTranscript(rawTranscript, processedTranscript);
+  paginateRawTranscript(rawTranscript, processedTranscript);
   setRawAndProcessedTranscriptText();
   updatePaginationButtons();
 
@@ -378,8 +360,8 @@ function handlePrevClick() {
 
 // Event handler for next button click
 function handleNextClick() {
-  const currentSegments = getCurrentDisplayPages();
-  if (currentPageIndex < currentSegments.length - 1) {
+  const currentPages = getCurrentDisplayPages();
+  if (currentPageIndex < currentPages.length - 1) {
     currentPageIndex++;
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
@@ -399,7 +381,7 @@ function setupPagination(prevBtn, nextBtn) {
 }
 
 /**
- * Updates the segment information display.
+ * Updates the page information display.
  */
 function updatePageInfo() {
   const currentPages = getCurrentDisplayPages();
@@ -467,16 +449,16 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       const loader = document.getElementById('loader');
       loader.classList.remove('hidden');
 
-      // Get the current raw segment
-      const currentRawSegment = rawTranscriptPages[currentPageIndex];
+      // Get the current raw page
+      const currentRawPage = rawTranscriptPages[currentPageIndex];
 
-      // Split the segment into two parts
-      const { firstHalf, secondHalf } = splitTranscriptSegment(currentRawSegment);
+      // Split the page into two parts
+      const { firstHalf, secondHalf } = splitTranscriptPage(currentRawPage);
 
-      // Check if the current segment is already processed sufficiently
+      // Check if the current page is already processed sufficiently
       if (processedTranscriptPages[currentPageIndex] &&
         processedTranscriptPages[currentPageIndex].split(/\s+/).length >= 100) {
-        alert('Current segment is already processed, but we will reprocess it because you clicked the button.');
+        alert('Current page is already processed, but we will reprocess it because you clicked the button.');
       }
 
       // TODO: = make the two calls in parallel, wait, and then stitch together.
@@ -495,17 +477,17 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       // Combine the responses
       const combinedResponse = response1 + '\n\n' + response2;
 
-      // Update the processed segment
+      // Update the processed page
       processedTranscriptPages[currentPageIndex] = combinedResponse;
       processedDisplay.textContent = combinedResponse;
 
-      // Combine all processed segments into a single text block
+      // Combine all processed pages into a single text block
       processedTranscript = processedTranscriptPages.join('\n');
 
       // Save the full processed transcript
       await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
 
-      alert('Current segment processed successfully!');
+      alert('Current page processed successfully!');
 
       // Update the display
       setRawAndProcessedTranscriptText();
@@ -513,7 +495,7 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       updatePageInfo();
     } catch (error) {
       console.error('Error processing transcript:', error);
-      alert('Failed to process the current segment.');
+      alert('Failed to process the current page.');
     } finally {
       const loader = document.getElementById('loader');
       loader.classList.add('hidden');
@@ -524,28 +506,28 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
 
 /**
  * TODO: parameterize number of  partitions, n
- * Splits a transcript segment into two roughly equal parts, ensuring timestamps are not split.
- * @param {string} segment - The transcript segment to split
- * @returns {{firstHalf: string, secondHalf: string}} The split segments
+ * Splits a transcript page into two roughly equal parts, ensuring timestamps are not split.
+ * @param {string} page - The transcript page to split
+ * @returns {{firstHalf: string, secondHalf: string}} The split pages
  */
-function splitTranscriptSegment(segment) {
-  // Split the segment into lines
-  const lines = segment.split('\n');
-  
+function splitTranscriptPage(page) {
+  // Split the page into lines
+  const lines = page.split('\n');
+
   // Find the context section and transcript delimiter
-  const contextStartIndex = lines.findIndex(line => 
+  const contextStartIndex = lines.findIndex(line =>
     line.includes(YoutubeTranscriptRetriever.CONTEXT_BEGINS_DELIMITER)
   );
-  const transcriptStartIndex = lines.findIndex(line => 
+  const transcriptStartIndex = lines.findIndex(line =>
     line.includes(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER)
   );
-  
+
   // Extract context section
   const contextSection = lines.slice(contextStartIndex, transcriptStartIndex + 1).join('\n');
-  
+
   // Get just the transcript lines
   const transcriptLines = lines.slice(transcriptStartIndex + 1);
-  
+
   // Find the middle timestamp
   const timestamps = transcriptLines
     .map(line => {
@@ -556,10 +538,10 @@ function splitTranscriptSegment(segment) {
       return null;
     })
     .filter(time => time !== null);
-  
+
   const totalDuration = Math.max(...timestamps);
   const midPoint = totalDuration / 2;
-  
+
   // Find the line index closest to the midpoint
   let splitIndex = transcriptLines.findIndex(line => {
     const match = line.match(/\[(\d+):(\d+)\]/);
@@ -569,14 +551,14 @@ function splitTranscriptSegment(segment) {
     }
     return false;
   });
-  
+
   // Create the two halves, including context in both
-  const firstHalf = contextSection + '\n' + 
+  const firstHalf = contextSection + '\n' +
     transcriptLines.slice(0, splitIndex).join('\n');
-  
-  const secondHalf = contextSection + '\n' + 
+
+  const secondHalf = contextSection + '\n' +
     transcriptLines.slice(splitIndex).join('\n');
-  
+
   return { firstHalf, secondHalf };
 }
 
@@ -653,11 +635,13 @@ function updateFontSize() {
 export {
   initializePopup,
   paginateTranscript,
+  paginateRawTranscript,
+  paginateProcessedTranscript,
   handlePrevClick,
   handleNextClick,
   setupProcessButton,
   setupLoadTranscriptButton,
-  splitTranscriptSegment,
+  splitTranscriptPage,
   setupPopup
 };
 
