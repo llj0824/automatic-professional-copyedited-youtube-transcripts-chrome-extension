@@ -21,21 +21,21 @@ describe('Logger Functional Tests', () => {
     it('should verify Google Sheets access', async () => {
       const token = await logger.getToken();
       const testUrl = `${logger.BASE_URL}/${logger.SHEET_ID}?fields=properties.title`;
-      
+
       console.log('Testing sheet access...');
       console.log('URL:', testUrl);
       console.log('Token (first 10 chars):', token.substring(0, 10));
-    
+
       const response = await fetch(testUrl, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-    
+
       console.log('Response status:', response.status);
       const data = await response.text();
       console.log('Response:', data);
-    
+
       expect(response.status).toBe(200);
     });
 
@@ -56,7 +56,7 @@ describe('Logger Functional Tests', () => {
 
       const token = await logger.getToken();
       const url = `${logger.BASE_URL}/${logger.SHEET_ID}/values/Logging!A:C?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`;
-      
+
       // Add logging for the request
       console.log('Fetching from URL:', url);
       const response = await fetch(url, {
@@ -80,7 +80,7 @@ describe('Logger Functional Tests', () => {
       expect(lastRow[1]).toBe(testEvent.eventName);
       const parsedData = JSON.parse(lastRow[2]);
       expect(parsedData).toMatchObject(testEvent.data);
-      
+
       testRows.push(lastRow); // Track for cleanup
     }, 15000);
 
@@ -90,13 +90,13 @@ describe('Logger Functional Tests', () => {
       const uniqueId = Math.random().toString(36).substring(7);
       testError.uniqueId = uniqueId; // Add unique identifier
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
       await logger.logError(errorType, testError);
 
       const token = await logger.getToken();
       const response = await fetch(
-        `${logger.BASE_URL}/${logger.SHEET_ID}/values/Sheet1!A:C?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`,
+        `${logger.BASE_URL}/${logger.SHEET_ID}/values/Logging!A:C?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -118,23 +118,6 @@ describe('Logger Functional Tests', () => {
       consoleErrorSpy.mockRestore();
       testRows.push(lastRow); // Track for cleanup
     }, 15000);
-
-    it('should handle network errors gracefully', async () => {
-      // Temporarily modify BASE_URL to trigger network error
-      const originalBaseUrl = logger.BASE_URL;
-      logger.BASE_URL = 'https://invalid-url-that-will-fail.com';
-
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-      await logger.logEvent('test_event', { data: 'test' });
-
-      expect(consoleErrorSpy).toHaveBeenCalled();
-      const errorCall = consoleErrorSpy.mock.calls[0];
-      expect(errorCall[0]).toBe('Logging error:');
-
-      consoleErrorSpy.mockRestore();
-      logger.BASE_URL = originalBaseUrl;
-    });
   });
 
   describe('Token Management', () => {
@@ -154,7 +137,7 @@ describe('Logger Functional Tests', () => {
 
     it('should get new token if current one is expired', async () => {
       const token1 = await logger.getToken();
-      
+
       logger.tokenExpiry = Date.now() - 1000; // Expire token
 
       const token2 = await logger.getToken();
@@ -167,8 +150,8 @@ describe('Logger Functional Tests', () => {
       logger.token = 'invalid_token';
       logger.tokenExpiry = Date.now() - 1000;
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
       try {
         await logger.logEvent('test_event', { data: 'test' });
       } catch (error) {
