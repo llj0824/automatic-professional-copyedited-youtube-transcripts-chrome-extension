@@ -17,13 +17,27 @@ describe('Logger Functional Tests', () => {
     }
   });
 
-  describe.only('Google Sheets Integration', () => {
-    it('should successfully get an access token', async () => {
+  describe('Google Sheets Integration', () => {
+    it('should verify Google Sheets access', async () => {
       const token = await logger.getToken();
-      expect(token).toBeTruthy();
-      expect(typeof token).toBe('string');
-      expect(token.length).toBeGreaterThan(50); // OAuth2 tokens are typically long
-    }, 10000);
+      const testUrl = `${logger.BASE_URL}/${logger.SHEET_ID}?fields=properties.title`;
+      
+      console.log('Testing sheet access...');
+      console.log('URL:', testUrl);
+      console.log('Token (first 10 chars):', token.substring(0, 10));
+    
+      const response = await fetch(testUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+    
+      console.log('Response status:', response.status);
+      const data = await response.text();
+      console.log('Response:', data);
+    
+      expect(response.status).toBe(200);
+    });
 
     it('should successfully log an event to Google Sheets', async () => {
       const testEvent = {
@@ -35,20 +49,31 @@ describe('Logger Functional Tests', () => {
         }
       };
 
+      // Add logging for the event being sent
+      console.log('Sending test event:', testEvent);
+
       await logger.logEvent(testEvent.eventName, testEvent.data);
 
       const token = await logger.getToken();
-      const response = await fetch(
-        `${logger.BASE_URL}/${logger.SHEET_ID}/values/Sheet1!A:C?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+      const url = `${logger.BASE_URL}/${logger.SHEET_ID}/values/Logging!A:C?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`;
+      
+      // Add logging for the request
+      console.log('Fetching from URL:', url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      );
+      });
+
+      // Add logging for the response
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response body:', responseText);
+
+      // Convert text back to JSON for the test
+      const data = JSON.parse(responseText);
 
       expect(response.status).toBe(200);
-      const data = await response.json();
       const lastRow = data.values[data.values.length - 1];
 
       expect(lastRow).toHaveLength(3);
@@ -153,6 +178,4 @@ describe('Logger Functional Tests', () => {
       consoleErrorSpy.mockRestore();
     });
   });
-
-  // ... Event Constants tests remain the same ...
 });

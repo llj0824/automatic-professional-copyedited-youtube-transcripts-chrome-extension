@@ -81,20 +81,34 @@ class Logger {
 
     try {
       const token = await this.getToken();
-      await fetch(`${this.BASE_URL}/${this.SHEET_ID}/values/Sheet1!A:F:append?valueInputOption=RAW`, {
+      const url = `${this.BASE_URL}/${this.SHEET_ID}/values/Logging!A:C:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+      
+      // Add logging
+      console.log('Row data:', row);
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          range: 'Logging!A:C',
+          majorDimension: 'ROWS',
           values: [row]
         })
       });
 
-      console.log('Logged event:', eventName, data);
+      // Add response logging
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        throw new Error(`Failed to log event: ${response.status} ${responseText}`);
+      }
+
     } catch (error) {
       console.error('Logging error:', error);
+      throw error; // Re-throw to make test fail with actual error
     }
   }
 

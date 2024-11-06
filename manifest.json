@@ -17,14 +17,14 @@
         "service_worker": "background/service_worker.js"
       },
       "permissions": [
-        "scripting", 
+        "scripting",
         "storage",
         "activeTab",
         "sidePanel"
       ],
       "host_permissions": [
         "https://*.youtube.com/*",
-        "https://api.openai.com/*", 
+        "https://api.openai.com/*",
         "https://api.anthropic.com/*"
       ],
       "side_panel": {
@@ -38,7 +38,12 @@
             "popup/storage_utils.js",
             "popup/llm_api_utils.js"
           ],
-          "matches": ["<all_urls>"]
+          "matches": [
+            "<all_urls>"
+          ]
         }
-      ]
+      ],
+      "content_security_policy": {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+      }
     }
