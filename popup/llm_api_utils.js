@@ -1,6 +1,5 @@
 // llm_api_utils.js
-
-// Class definition remains the same
+import EncryptionUtils from './encryption.js';
 
 class LLM_API_Utils {
   constructor() {

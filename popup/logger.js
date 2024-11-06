@@ -1,5 +1,4 @@
-import { google } from 'googleapis';
-
+import EncryptionUtils from './encryption.js';
 class Logger {
   // Class-level constants for event names
   static EVENTS = {
@@ -43,50 +42,60 @@ class Logger {
   constructor() {
     this.SHEET_ID = '1eIibhZkdkSaDPGOjvvXWl7x7Ar2TZd9pXgMv2Mt9jbU';
     this.CREDENTIALS = {
-      // TODO: use encryption.js to encrypt this.
       type: "service_account",
       project_id: "professionalyoutubetranscript",
-      private_key_id: EncryptionUtils.decryptString(ENCRYPTED_PRIVATE_KEY_ID),
-      private_key: EncryptionUtils.decryptString(ENCRYPTED_PRIVATE_KEY),
+      private_key_id: EncryptionUtils.decryptString(EncryptionUtils.ENCRYPTED_GOOGLESHEETS_PRIVATE_KEY_ID),
+      private_key: EncryptionUtils.decryptString(EncryptionUtils.ENCRYPTED_GOOGLESHEETS_PRIVATE_KEY),
       client_email: "googlesheetslogging@professionalyoutubetranscript.iam.gserviceaccount.com",
       client_id: "103624239886143270739",
     };
+    this.token = null;
+    this.tokenExpiry = null;
+    // Add missing BASE_URL
+    this.BASE_URL = 'https://sheets.googleapis.com/v4/spreadsheets';
   }
 
-  async initialize() {
-    try {
-      const auth = new google.auth.GoogleAuth({
-        credentials: this.CREDENTIALS,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-      });
-
-      this.sheets = google.sheets({ version: 'v4', auth });
-    } catch (error) {
-      console.error('Error initializing logger:', error);
+  async getToken() {
+    if (this.token && this.tokenExpiry && (Date.now() < (this.tokenExpiry - 300000))) {
+      return this.token;
     }
-  }
 
-  logEvent(eventName, data = {}) {
-    const timestamp = new Date().toISOString();
-    const row = [
-      timestamp,
-      eventName,
-      JSON.stringify(data)
-    ];
+    const jwt = await EncryptionUtils.generateGoogleSheetsJWT(this.CREDENTIALS);
 
-    this.sheets.spreadsheets.values.append({
-      spreadsheetId: this.SHEET_ID,
-      range: 'Sheet1!A:F',
-      valueInputOption: 'RAW',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: {
-        values: [row]
-      }
-    }).catch(error => {
-      console.error('Logging error:', error);
+    // Exchange JWT for access token
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
     });
 
-    console.log('Logged event:', eventName, data);
+    const data = await response.json();
+    this.token = data.access_token;
+    this.tokenExpiry = Date.now() + (data.expires_in * 1000);
+    return this.token;
+  }
+
+  async logEvent(eventName, data = {}) {
+    const timestamp = new Date().toISOString();
+    const row = [timestamp, eventName, JSON.stringify(data)];
+
+    try {
+      const token = await this.getToken();
+      await fetch(`${this.BASE_URL}/${this.SHEET_ID}/values/Sheet1!A:F:append?valueInputOption=RAW`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          values: [row]
+        })
+      });
+
+      console.log('Logged event:', eventName, data);
+    } catch (error) {
+      console.error('Logging error:', error);
+    }
   }
 
   logError(errorType, error) {
@@ -96,10 +105,6 @@ class Logger {
       stack: error.stack
     });
   }
-}
-
-const ENCRYPTED_PRIVATE_KEY_ID = "5715460d5f0a0742505e03444c45551146425150100f105f580c0857170a535d510005070f505700";
-
-const ENCRYPTED_PRIVATE_KEY = "4c5e5e42422c243420294524273a33332731482236305e4a4244436d39262b20170528212a212f2a310219070d1908295d0e5f3722302b32323536222e261e1c021e3205380a2a332407282332222c220a003f5e314a4d3e1b2a3c3d7e1b221c5d363d212e201f02203301120459065c5619282a22401534260c1c063c1505084e0c20341136021d07281c370d000d41550828153e4e313e0926441906790800211d261a35012117003036464a3f57135e355f0a5100043808010935363646154b382d1f35000a56173332361738233a234e1e250e0f1f214e0d0a5e3b0b6f10582343290d3f0d233d3f23503204322e08100c092109111d3e3f04222a3c39331310353b12591d0236340927240b442c0a05103c232009223e115f2e0c291f7339130e222a2a3d5a04000511304b02210d56391626212222011e0d14020e045e095a09245f275e5f2036240809272a390a333e2e3610060235011225320d1639695356161802272d3d3b200f063e0c3e38345f245d5c3833021f35565a111808281d121623115945042505152032260b1e0a0d262e28160004283231133b03352978323734061d01411734042c2c35323126060b28382a07101b0a1d2a0a3b135b290d12181601452b310b3032261f152c143c120f113c07404818511906455638246b31294832153c1c0052080f07433b37283a1b432126362429195320005f321f280c1106122c240b1609273210072c233c0222071d2318053f3f3005463b33110e791d015c2d1531363020092c25281c0e5c3d033d1c010a37310a364c5c5e2f27293c455f29383e1a095d350919594c5f3f464a0753323b061b031a0b003b331f017f1f02081a333c012358403e2b3a575e3b2a0b0108301551190b041d052e160e0b214e5d2c3e2001533228212b22101b34064b2e04492908561d22453d0138064b790d5b0b0c223b103d401c0213132327305f162d0005590205020200152e2f142d29312f0220074e1d3c32420d25051a37321b56201d1715283b2b3b2f192b4102640942002a0b10500f1b440836593023200e214333172e27371a313f4b0a1257363d2a215b400c020533302829023f274a56141001311237543d1d2056133e1b477e2d0e5c2323272640382c013b212730203422435c3e0e272a0023351327140b0e01041f430743020332405d0215462c26152c37133a2d2d3b3e4015201b5c431364520d062d05585d2c451e1c232a3735312a3c2409400e5e59575a03182022192a1a2e191f2c22013924514a27003c1d303d1a3157205b290e5e2c4a02001407326f582605215d18032b1b1e3e235e411005240531371c06203e0e3a2e3b063f3a54361a175129221a1d2d202a191a313e3506132915151732215c1120235e3a3d276d3816033d284906172a52275705292a0f091f0a370f185b2c57393e0d3b011c101928363f04152057322e172a0b072b2323122d1a0d2b0408212c0440000326587e3f13062b14090a5a5e3d1344213c230120045c552c3d1d281e032130055b51140938144a141e3c1e0f370722360f0011261c1f5a1a1b0f5b030d05151744412f792f3206254040311d1025232b143830213f245e25111b153c254d28145e360952253c2b173114183c273e572f0b26343f162d280f281e31251c0909411c2e5c2b6f2a2a2e383927292332271921534c053a54421d105d23052158225d062b1d433e1b09561520013e222607223107143d0a3b3a521f2c3f5b2a383f37060c342122735d3548273c01240735552e2e3527340203411938211f30391d1602392a1a2e22052210113527381711354906122415392451410237145d1902232a2c033e3b1f69045b4c42240256065d213c523f09224f3e21150c2f351b0712232024113c46235c041b0913144b182a0c4b0d1026170e16093d35333f03160f210d1f2b574a29783022083658363158160017001a35040b26155c180d0f4f2204370c3d4224250a50201916032c3b055f2910430614522046110c071542290a17001d16065f552d6b52162f1e33252d15071041032a5404151640392d37265f194003173d2f15092f0b200d413b1f381d290e2631322628342f2333350e2038432706061d0e0558047931242441102e5c31300a2b36350423205c041407251110513a0d085a21351b561e150212563d3f28212017571a291d05273f300c593639080b2f5642030955427f4b093c27151c2625212955290823005f574d09172b0b0a110e3c2e45303940111e031a211f1b2f35341e001f24151b3b42350d53323824321a150b500058391d795b5b3610183d3f4e263b180619393f193c1e3125520658086d59424f484c272f274b353c2d2524263345392437495442584e";
+};
 
 export default Logger;
