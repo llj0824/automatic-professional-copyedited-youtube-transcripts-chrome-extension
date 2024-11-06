@@ -3,6 +3,7 @@
 import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
+import Logger from './logger.js';
 
 
 // Declare the variables in a higher scope
@@ -17,12 +18,11 @@ let currentPageIndex = 0;
 let PAGE_DURATION = 15 * 60; // seconds (modifiable)
 
 const llmUtils = new LLM_API_Utils();
+const logger = new Logger();
 
 // Add these variables to the top-level declarations
 let fontSizeDecrease, fontSizeIncrease;
 let currentFontSize = 12; // Default font size in px
-
-
 
 // Call it immediately in browser environment
 if (typeof document !== 'undefined') {
@@ -59,10 +59,13 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     setupProcessButton(processBtn, modelSelect, storageUtils);
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
     setupPagination(prevBtn, nextBtn, pageInfo);
+    await logger.initialize();
 
     // Load existing transcripts if available
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
-    console.log(`Current YouTube Video ID: ${videoId}`);
+    logger.logEvent(Logger.EVENTS.EXTENSION_OPENED, { 
+      [Logger.FIELDS.VIDEO_ID]: videoId 
+    });
 
     // First try to load from storage
     const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
@@ -83,6 +86,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     setupFontSizeControls(fontSizeDecrease, fontSizeIncrease, storageUtils);
 
   } catch (error) {
+    logger.logError(Logger.EVENTS.ERROR, error);
     console.error('Error initializing popup:', error);
     transcriptDisplay.textContent = 'Error initializing popup.';
   }
@@ -370,6 +374,11 @@ function handlePrevClick() {
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
     updatePageInfo();
+    
+    logger.logEvent(Logger.EVENTS.PAGE_NAVIGATION, {
+      [Logger.FIELDS.NAVIGATION_DIRECTION]: 'prev',
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex
+    });
   }
 }
 
@@ -434,6 +443,11 @@ function setupTabs(doc, tabButtons, tabContents) {
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updatePageInfo();
+
+      logger.logEvent(Logger.EVENTS.TAB_SWITCH, {
+        [Logger.FIELDS.TAB_NAME]: tab,
+        [Logger.FIELDS.PAGE_INDEX]: currentPageIndex
+      });
     });
   });
 }
@@ -447,14 +461,20 @@ function setupTabs(doc, tabButtons, tabContents) {
 function setupProcessButton(processBtn, modelSelect, storageUtils) {
   processBtn.addEventListener('click', async () => {
     const selectedModel = modelSelect.value;
+    const startTime = Date.now();
 
-    const videoId = await storageUtils.getCurrentYouTubeVideoId();
-    if (!videoId) {
-      alert('Unable to determine YouTube Video ID.');
-      return;
-    }
+    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_START, {
+      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex
+    });
 
     try {
+      const videoId = await storageUtils.getCurrentYouTubeVideoId();
+      if (!videoId) {
+        alert('Unable to determine YouTube Video ID.');
+        return;
+      }
+
       const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
       if (!savedTranscripts.rawTranscript) {
         alert('No raw transcript available to process.');
@@ -508,9 +528,23 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updatePageInfo();
+
+      const processingTime = Date.now() - startTime;
+      logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_SUCCESS, {
+        [Logger.FIELDS.MODEL]: selectedModel,
+        [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+        [Logger.FIELDS.PROCESSING_TIME]: processingTime,
+        [Logger.FIELDS.RESPONSE_LENGTH]: combinedResponse.length
+      });
+
     } catch (error) {
-      console.error('Error processing transcript:', error);
-      alert('Failed to process the current page.');
+      logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_FAILURE, {
+        [Logger.FIELDS.MODEL]: selectedModel,
+        [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+        [Logger.FIELDS.PROCESSING_TIME]: Date.now() - startTime,
+        [Logger.FIELDS.ERROR_MESSAGE]: error.message
+      });
+      throw error;
     } finally {
       const loader = document.getElementById('loader');
       loader.classList.add('hidden');
@@ -625,6 +659,11 @@ function setupFontSizeControls(decreaseBtn, increaseBtn, storageUtils) {
       } catch (error) {
         console.error('Error saving font size:', error);
       }
+      
+      logger.logEvent(Logger.EVENTS.FONT_SIZE_CHANGE, {
+        [Logger.FIELDS.FONT_SIZE]: currentFontSize,
+        'action': 'decrease'
+      });
     }
   });
 
@@ -637,6 +676,11 @@ function setupFontSizeControls(decreaseBtn, increaseBtn, storageUtils) {
       } catch (error) {
         console.error('Error saving font size:', error);
       }
+
+      logger.logEvent(Logger.EVENTS.FONT_SIZE_CHANGE, {
+        [Logger.FIELDS.FONT_SIZE]: currentFontSize,
+        'action': 'increase'
+      });
     }
   });
 }
