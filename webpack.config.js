@@ -4,7 +4,6 @@ module.exports = {
   entry: {
     background: './background/service_worker.js', // Entry point for the service worker
     popup: './popup/popup.js',      // Entry point for the popup script
-    content: './content.js', // Entry point for content scripts (if any)
   },
   output: {
     filename: '[name].bundle.js', // Outputs: background.bundle.js, popup.bundle.js, content.bundle.js

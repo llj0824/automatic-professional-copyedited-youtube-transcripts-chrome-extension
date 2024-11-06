@@ -16,12 +16,6 @@
       "background": {
         "service_worker": "background/service_worker.js"
       },
-      "content_scripts": [
-        {
-          "matches": ["https://www.youtube.com/watch*"],
-          "js": ["content.js"]
-        }
-      ],
       "permissions": [
         "scripting", 
         "storage",
