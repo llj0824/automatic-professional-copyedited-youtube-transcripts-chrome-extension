@@ -68,8 +68,10 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
 
     // Then try to load from YouTube if needed
-    const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } =
-      await handleTranscriptRetrieval(videoId, savedTranscripts, storageUtils);
+    const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
+    const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
+
+    paginateBothTranscripts(rawTranscript, processedTranscript);
 
     // handle showing UI elements based on auto-load transcript success status
     handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
@@ -105,8 +107,7 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
     document.getElementById('content-section').classList.remove('hidden');
     document.getElementById('actions').classList.remove('hidden'); // TODO: if processed transcripts is avaliable, hide process button
 
-    // Paginate transcripts and update UI
-    paginateRawTranscript(rawTranscript, processedTranscript);
+    // update UI
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
     updatePageInfo();
@@ -118,38 +119,52 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
 }
 
 
-async function handleTranscriptRetrieval(videoId, savedTranscripts, storageUtils) {
-  let youtubeTranscriptStatus = '⏭️';  // Changed to skip emoji
-  let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
-  let existingTranscriptStatus = '❌';
-  let existingTranscriptMessage = 'No existing transcript found.';
-
+async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils) {
   // First check if we have saved transcripts
   if (savedTranscripts.rawTranscript) {
     rawTranscript = savedTranscripts.rawTranscript;
     processedTranscript = savedTranscripts.processedTranscript || "";
-    existingTranscriptStatus = '✅';
-    existingTranscriptMessage = 'Existing transcript loaded from storage.';
-    return { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage };
+    return { isCached: true, isLoadedFromYoutube: false };
   }
 
   // If no saved transcript, try to fetch from YouTube
-  youtubeTranscriptStatus = '❌';  // Reset to failure state before attempting
-  youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
-
   try {
     rawTranscript = await YoutubeTranscriptRetriever.fetchParsedTranscript(videoId);
     if (rawTranscript) {
-      // Save the newly fetched transcript
       await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
-      youtubeTranscriptStatus = '✅';
-      youtubeTranscriptMessage = 'Transcript automatically retrieved from YouTube.';
+      processedTranscript = ""; // Reset processed transcript
+      return { isCached: false, isLoadedFromYoutube: true };
     }
   } catch (ytError) {
     console.error('Error automatically retrieving transcript from YouTube:', ytError);
   }
 
-  return { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage };
+  return { isCached: false, isLoadedFromYoutube: false };
+}
+
+function getTranscriptStatus(isCached, isLoadedFromYoutube) {
+  let youtubeTranscriptStatus = '⏭️';
+  let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
+  let existingTranscriptStatus = '❌';
+  let existingTranscriptMessage = 'No existing transcript found.';
+
+  if (isCached) {
+    existingTranscriptStatus = '✅';
+    existingTranscriptMessage = 'Existing transcript loaded from storage.';
+  } else if (isLoadedFromYoutube) {
+    youtubeTranscriptStatus = '✅';
+    youtubeTranscriptMessage = 'Transcript automatically retrieved from YouTube.';
+  } else {
+    youtubeTranscriptStatus = '❌';
+    youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
+  }
+
+  return {
+    youtubeTranscriptStatus,
+    youtubeTranscriptMessage,
+    existingTranscriptStatus,
+    existingTranscriptMessage
+  };
 }
 
 // Setup load transcript button event
@@ -168,7 +183,7 @@ function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUt
  * @param {string} processedTranscript - Full processed transcript string
  * @returns {Object} An object containing rawTranscriptPages and processedTranscriptPages
  */
-function paginateTranscript(rawTranscript, processedTranscript) {
+function paginateBothTranscripts(rawTranscript, processedTranscript) {
   rawTranscriptPages = paginateRawTranscript(rawTranscript);
   processedTranscriptPages = paginateProcessedTranscript(processedTranscript);
 
@@ -332,7 +347,7 @@ async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
     return;
   }
 
-  paginateRawTranscript(rawTranscript, processedTranscript);
+  paginateRawTranscript(rawTranscript);
   setRawAndProcessedTranscriptText();
   updatePaginationButtons();
 
@@ -634,7 +649,7 @@ function updateFontSize() {
 // Export the functions for testing purposes
 export {
   initializePopup,
-  paginateTranscript,
+  paginateBothTranscripts,
   paginateRawTranscript,
   paginateProcessedTranscript,
   handlePrevClick,
