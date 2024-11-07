@@ -1,6 +1,7 @@
 {
   "type": "module",
   "dependencies": {
+    "jsonwebtoken": "^9.0.2",
     "node-fetch": "^3.3.0",
     "youtube-transcript": "^1.2.1"
   },
@@ -25,13 +26,14 @@
     "webpack-cli": "^5.1.4"
   },
   "scripts": {
+    "clean": "rm -rf dist",
     "test": "jest",
     "test:popup": "jest tests/popup.test.js",
     "test:popup_unit": "jest tests/popup_unit.test.js",
     "test:pagination_unit_tests": "jest tests/parsing_transcript_unit.test.js",
     "test:logging": "jest tests/logger.test.js",
     "test:youtube_transcript_retrieval": "jest tests/youtube_transcript_retrieval.test.js",
-    "build:extension": "mkdir -p dist && cp -r manifest.json popup background icons dist/",
+    "build:extension": "npm run clean && mkdir -p dist && cp -r manifest.json popup background icons dist/",
     "pretest:integration": "npm run build:extension",
     "test:integration": "jest tests/integration.test.js --runInBand --detectOpenHandles",
     "test:llm": "jest tests/llm_response.test.js --runInBand",

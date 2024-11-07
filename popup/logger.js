@@ -118,6 +118,8 @@ class Logger {
       message: error.message || error,
       stack: error.stack
     });
+
+    console.error('Logging error:', error);
   }
 };
 

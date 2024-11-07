@@ -20,3 +20,7 @@ sample_youtube_transcript.txt
 .vscode/launch.json
 youtube_professional_transcript_chrome_extension.zip
 professionalyoutubetranscript-key.json
+
+# Exclude test key files
+**/*.pem
+**/test/*.pem

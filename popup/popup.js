@@ -59,7 +59,6 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     setupProcessButton(processBtn, modelSelect, storageUtils);
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
     setupPagination(prevBtn, nextBtn, pageInfo);
-    await logger.initialize();
 
     // Load existing transcripts if available
     const videoId = await storageUtils.getCurrentYouTubeVideoId();

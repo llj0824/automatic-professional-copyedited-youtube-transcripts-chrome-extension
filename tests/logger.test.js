@@ -24,7 +24,6 @@ describe('Logger Functional Tests', () => {
 
       console.log('Testing sheet access...');
       console.log('URL:', testUrl);
-      console.log('Token (first 10 chars):', token.substring(0, 10));
 
       const response = await fetch(testUrl, {
         headers: {
@@ -40,6 +39,7 @@ describe('Logger Functional Tests', () => {
     });
 
     it('should successfully log an event to Google Sheets', async () => {
+      // Write the log event to google sheets
       const testEvent = {
         eventName: 'test_event',
         data: {
@@ -48,12 +48,10 @@ describe('Logger Functional Tests', () => {
           test_id: Math.random().toString(36).substring(7) // Add unique identifier
         }
       };
-
-      // Add logging for the event being sent
       console.log('Sending test event:', testEvent);
-
       await logger.logEvent(testEvent.eventName, testEvent.data);
 
+      // Read and confirm the event was sent.
       const token = await logger.getToken();
       const url = `${logger.BASE_URL}/${logger.SHEET_ID}/values/Logging!A:C?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`;
 
