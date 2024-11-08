@@ -1,5 +1,4 @@
-import jwt from 'jsonwebtoken';
-
+import jsrsasign from 'jsrsasign';
 class EncryptionUtils {
   static decryptString(encryptedHex, key = 'assoonasigetusersthisisgoingtobeabackendserverandyoucantstealmykeyanymoreha') {
     const encrypted = encryptedHex.match(/.{2}/g)
@@ -26,7 +25,17 @@ class EncryptionUtils {
     // Convert private key from PEM format
     const privateKey = credentials.private_key.replace(/\\n/g, '\n');
     
-    return jwt.sign(claim, privateKey, { algorithm: 'RS256' });
+    // Create JWT using jsrsasign
+    const header = { alg: 'RS256', typ: 'JWT' };
+    const sHeader = JSON.stringify(header);
+    const sPayload = JSON.stringify(claim);
+    
+    return jsrsasign.KJUR.jws.JWS.sign(
+      'RS256',
+      sHeader,
+      sPayload,
+      privateKey
+    );
   }
 
   static ENCRYPTED_GOOGLESHEETS_PRIVATE_KEY_ID = "5715460d5f0a0742505e03444c45551146425150100f105f580c0857170a535d510005070f505700";

@@ -56,6 +56,9 @@ MIT License
 5. Update release notes with changes
 6. Submit for review
 
+## Note to self: development
+To use it:
+1) Development: npm run watch (watches for changes)
 
 ## Note to self: Debugging 
 
