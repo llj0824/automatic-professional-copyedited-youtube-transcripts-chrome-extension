@@ -4,6 +4,7 @@
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 
 class LLM_API_Utils {
+  static DEFAULT_PARTITIONS = 8; // Default number of partitions for parallel processing. 
   constructor() {
     this.openai_endpoint = "https://api.openai.com/v1/chat/completions";
     this.anthropic_endpoint = "https://api.anthropic.com/v1/complete";
@@ -46,10 +47,10 @@ class LLM_API_Utils {
     Today we are going to be talking about mental health and ideas of self with Dr. Paul Conti. Welcome.
     
     # Notes
-    - If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc. 
-    - Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.
-    - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations.
-    - Never truncate the output or ask for permission to continue - process the entire input segment.`
+    - If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc.
+    - Break long segments into smaller time ranges, clearly identify when speakers change, even within the same time range.
+    - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue.
+    - Never truncate the output or ask for permission to continue - process the entire input segment`
 
   }
   // Simple but sufficient for initial launch
@@ -231,7 +232,7 @@ class LLM_API_Utils {
    * @param {number} params.partitions - Number of partitions (default: 2)
    * @returns {Promise<string>} Processed transcript
    */
-  async processTranscriptInParallel({ transcript, model_name, partitions = 2 }) {
+  async processTranscriptInParallel({ transcript, model_name, partitions = this.DEFAULT_PARTITIONS }) {
     // Split transcript into parts
     const parts = this.splitTranscriptForProcessing(transcript, partitions);
 

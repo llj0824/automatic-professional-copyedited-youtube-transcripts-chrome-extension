@@ -14,7 +14,7 @@ let processedTranscript = ""; // loaded from storage
 let rawTranscriptPages = []; // paginated from raw transcript
 let processedTranscriptPages = []; // paginated from processed transcript
 let currentPageIndex = 0;
-let PAGE_DURATION = 15 * 60; // seconds (modifiable)
+let PAGE_DURATION = 30 * 60; // seconds (modifiable)
 
 const llmUtils = new LLM_API_Utils();
 
@@ -471,7 +471,7 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       const processedPage = await llmUtils.processTranscriptInParallel({
         transcript: currentRawPage,
         model_name: selectedModel,
-        partitions: 2 // You could make this configurable or use the optimal value
+        partitions: llmUtils.DEFAULT_PARTITIONS // Default number of partitions for parallel processing
       });
 
       // Update the processed page
