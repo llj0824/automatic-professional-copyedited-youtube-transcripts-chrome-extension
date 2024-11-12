@@ -2,13 +2,8 @@ import LLM_API_Utils from '../popup/llm_api_utils.js';
 
 const llmUtils = new LLM_API_Utils();
 
-
-// Note to self: thought -> can use claude 3.5 to generate prompt. Give it feedback w/ 3 good and 3 bad examples. 
-// run it with generating 10 prompts and this tests. get results. 
-
-
 // Sample test transcript segment
-const testTranscript = `
+export const testTranscript = `
 *** Background Context ***
 Title: Joe Rogan Experience #2219 - Donald Trump
 Description: Donald Trump is currently the 2024 Presidential Candidate of the Republican Party. He previously served as America’s 45th president, and is also a businessman and media personality.
@@ -395,14 +390,14 @@ Description: Donald Trump is currently the 2024 Presidential Candidate of the Re
 [14:59] back but I wasn&amp;#39;t a Washington guy I was
 `;
 
-describe.only('LLM Response Unit Tests', () => {
+describe('LLM Response Unit Tests', () => {
   let llmResponseTranscript;
 
   beforeAll(async () => {
-    llmResponseTranscript = await llmUtils.call_llm({model_name: 'gpt-4o-mini', prompt: testTranscript });
+    llmResponseTranscript = await llmUtils.call_llm({ model_name: 'gpt-4o-mini', prompt: testTranscript });
   }, 180000); // 3 minutes = 180,000 milliseconds
 
-  describe.only('LLM Response Unit Tests', () => {
+  describe('LLM Response Unit Tests', () => {
 
     test('Response preserves key technical terms', () => {
       const technicalTerms = [
@@ -610,92 +605,114 @@ describe.only('LLM Response Unit Tests', () => {
     }
   });
 
-
-  describe('LLM Quality Assessment Tests', () => {
-    const evaluationPrompt = `
-  You are a professional transcript quality assessor. Evaluate the following transcript based on these criteria:
-  1. Clarity (1-10): How clear and readable is the text?
-  2. Speaker Attribution (1-10): How well are speakers identified and distinguished?
-  3. Professional Polish (1-10): How well has casual speech been converted to professional text?
-  4. Content Preservation (1-10): How well is the original meaning preserved?
+  describe.only('Transcript Paritioning Tests', () => {
+    const sampleTranscript = `
+  *** Background Context ***
+  Title: Sample Video
+  Description: Test description
   
-  Provide scores and brief justification for each criterion.
-  
-  Original transcript:
-  ${testTranscript}
-  
-  Processed transcript:
-  {{PROCESSED_TRANSCRIPT}}
-  
-  Respond in this format:
-  {
-    "clarity": {"score": X, "justification": "..."},
-    "speaker_attribution": {"score": X, "justification": "..."},
-    "professional_polish": {"score": X, "justification": "..."},
-    "content_preservation": {"score": X, "justification": "..."},
-    "overall_score": X,
-    "suggestions": "..."
-  }
+  *** Transcript ***
+  [00:01] Speaker 1: First line
+  [00:10] Speaker 2: Second line
+  [00:20] Speaker 1: Third line
+  [00:30] Speaker 2: Fourth line
+  [00:40] Speaker 1: Fifth line
+  [00:50] Speaker 2: Sixth line
+  [01:00] Speaker 1: Seventh line
+  [01:10] Speaker 2: Eighth line
+  [01:20] Speaker 1: Ninth line
+  [01:30] Speaker 2: Tenth line
   `;
 
-    test('Quality assessment meets minimum standards', async () => {
-      const evaluation = await llmUtils.call_llm(
-        'You are a transcript quality assessor.',
-        evaluationPrompt.replace('{{PROCESSED_TRANSCRIPT}}', llmResponseTranscript)
-      );
 
-      const scores = JSON.parse(evaluation);
+    function logParts(parts, description, toLog = true) {
+      if (!toLog) return;
 
-      // Define minimum acceptable scores
-      const MINIMUM_SCORES = {
-        clarity: 7,
-        speaker_attribution: 7,
-        professional_polish: 7,
-        content_preservation: 8,
-        overall_score: 7.5
-      };
-
-      // Check each criterion meets minimum standards
-      Object.entries(MINIMUM_SCORES).forEach(([criterion, minScore]) => {
-        const actualScore = scores[criterion].score || scores[criterion];
-        expect(actualScore).toBeGreaterThanOrEqual(minScore);
-      });
-
-      // Ensure suggestions are provided
-      expect(scores.suggestions).toBeTruthy();
-      expect(scores.suggestions.length).toBeGreaterThan(20);
-    });
-  });
-
-  // Helper function to compare different prompt versions
-  async function comparePrompts(originalPrompt, newPrompt, testCases) {
-    const results = [];
-
-    for (const testCase of testCases) {
-      const originalResponse = await llmUtils.call_llm('claude-3-sonnet', originalPrompt, testCase);
-      const newResponse = await llmUtils.call_llm('claude-3-sonnet', newPrompt, testCase);
-
-      // Get quality assessments for both responses
-      const originalAssessment = await llmUtils.call_llm(
-        'claude-3-sonnet',
-        'You are a transcript quality assessor.',
-        evaluationPrompt.replace('{{PROCESSED_TRANSCRIPT}}', originalResponse)
-      );
-
-      const newAssessment = await llmUtils.call_llm(
-        'claude-3-sonnet',
-        'You are a transcript quality assessor.',
-        evaluationPrompt.replace('{{PROCESSED_TRANSCRIPT}}', newResponse)
-      );
-
-      results.push({
-        testCase,
-        originalScore: JSON.parse(originalAssessment).overall_score,
-        newScore: JSON.parse(newAssessment).overall_score,
-        improvement: JSON.parse(newAssessment).overall_score - JSON.parse(originalAssessment).overall_score
+      console.log(`\nParts for ${description}:`);
+      parts.forEach((part, i) => {
+        console.log(`\nPart ${i + 1}:`);
+        console.log(part);
       });
     }
 
-    return results;
-  }
+    test('Splits transcript into 2 parts with correct timestamps', () => {
+      const parts = llmUtils.splitTranscriptForProcessing(sampleTranscript, 2);
+      logParts(parts, '2 parts split');
+
+    // First part should contain first half of timestamp
+      expect(parts[0]).toContain('[00:01]'); // Start
+      expect(parts[0]).toContain('[00:10]');
+      expect(parts[0]).toContain('[00:20]');
+      expect(parts[0]).toContain('[00:30]'); 
+      expect(parts[0]).toContain('[00:40]'); // End
+      expect(parts[0]).not.toContain('[00:50]'); // Should not contain second half timestamps
+
+      // Second part should contain second half of timestamps
+      expect(parts[1]).not.toContain('[00:40]'); // Should not contain first half timestamps
+      expect(parts[1]).toContain('[00:50]'); // Start
+      expect(parts[1]).toContain('[01:00]'); 
+      expect(parts[1]).toContain('[01:10]');
+      expect(parts[1]).toContain('[01:20]');
+      expect(parts[1]).toContain('[01:30]'); // End
+    });
+
+    test('Splits transcript into 3 parts with correct timestamps', () => {
+      const parts = llmUtils.splitTranscriptForProcessing(sampleTranscript, 3);
+      logParts(parts, '3 parts split');
+
+      // First part (0:00-0:20)
+      expect(parts[0]).toContain('[00:01]'); // Start
+      expect(parts[0]).toContain('[00:10]');
+      expect(parts[0]).toContain('[00:20]'); // End
+
+      // Second part (0:30-0:50)
+      expect(parts[1]).toContain('[00:30]'); // Start
+      expect(parts[1]).toContain('[00:40]');
+      expect(parts[1]).toContain('[00:50]'); // End
+
+      // Third part (1:00-1:30)
+      expect(parts[2]).toContain('[01:00]'); // Start
+      expect(parts[2]).toContain('[01:10]');
+      expect(parts[2]).toContain('[01:20]');
+      expect(parts[2]).toContain('[01:30]'); // End
+    });
+
+    test('Splits transcript into 4 parts with correct timestamps', () => {
+      const parts = llmUtils.splitTranscriptForProcessing(sampleTranscript, 4);
+      logParts(parts, '4 parts split');
+
+      // First part (0:00-0:20)
+      expect(parts[0]).toContain('[00:01] Speaker 1: First line');
+      expect(parts[0]).toContain('[00:10] Speaker 2: Second line');
+      expect(parts[0]).toContain('[00:20] Speaker 1: Third line');
+
+      // Second part (0:30-0:40)  
+      expect(parts[1]).toContain('[00:30] Speaker 2: Fourth line');
+      expect(parts[1]).toContain('[00:40] Speaker 1: Fifth line');
+
+      // Third part (0:50-1:00)
+      expect(parts[2]).toContain('[00:50] Speaker 2: Sixth line');
+      expect(parts[2]).toContain('[01:00] Speaker 1: Seventh line');
+
+      // Fourth part (1:10-1:30)
+      expect(parts[3]).toContain('[01:10] Speaker 2: Eighth line');
+      expect(parts[3]).toContain('[01:20] Speaker 1: Ninth line');
+      expect(parts[3]).toContain('[01:30] Speaker 2: Tenth line');
+    });
+
+    test('Each part maintains required context', () => {
+      const parts = llmUtils.splitTranscriptForProcessing(sampleTranscript, 3);
+      logParts(parts, 'context check');
+
+      parts.forEach(part => {
+        // Header sections
+        expect(part).toContain('*** Background Context ***');
+        expect(part).toContain('*** Transcript ***');
+
+        // Metadata
+        expect(part).toContain('Title: Sample Video');
+        expect(part).toContain('Description: Test description');
+      });
+    });
+  });
 });
