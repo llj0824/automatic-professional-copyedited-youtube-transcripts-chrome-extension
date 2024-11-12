@@ -1,6 +1,7 @@
 // llm_api_utils.js
 
 // Class definition remains the same
+import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 
 class LLM_API_Utils {
   constructor() {
@@ -49,7 +50,7 @@ class LLM_API_Utils {
     - Ensure that the final transcript reads smoothly and professionally while maintaining the integrity of the original dialogue.
     - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations.
     - Never truncate the output or ask for permission to continue - process the entire input segment.`
-    
+
   }
   // Simple but sufficient for initial launch
   // the api_key has a limit of like ten dollars, so even if cracked, it's not a big deal.
@@ -141,9 +142,9 @@ class LLM_API_Utils {
     return data.content[0].text;
   }
 
-  async call_llm({model_name, system_role=this.llm_system_role, prompt, max_tokens, temperature}) {
+  async call_llm({ model_name, system_role = this.llm_system_role, prompt, max_tokens, temperature }) {
     try {
-      if (model_name.toLowerCase().startsWith("claude")) {
+      if (model_name?.toLowerCase().startsWith("claude")) {
         return await this.call_claude(system_role, prompt, model_name, max_tokens, temperature);
       } else {
         return await this.call_gpt4(system_role, prompt, model_name, max_tokens, temperature);
@@ -152,6 +153,101 @@ class LLM_API_Utils {
       console.error("LLM API call error:", error);
       return "An error occurred while processing your request.";
     }
+  }
+
+  /**
+   * Splits a transcript into n roughly equal parts
+   * each part should have prefix of the context, which provides context.
+   * @param {string} transcript - The transcript to split
+   * @param {number} n - Number of partitions (default: 2)
+   * @returns {string[]} Array of transcript partitions
+   */
+  splitTranscriptForProcessing(transcript, n = 2) {
+    // Split the transcript into lines
+    const lines = transcript.split('\n');
+
+    // Find context and transcript sections
+    const contextStartIndex = lines.findIndex(line =>
+      line.includes(YoutubeTranscriptRetriever.CONTEXT_BEGINS_DELIMITER)
+    );
+    const transcriptStartIndex = lines.findIndex(line =>
+      line.includes(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER)
+    );
+
+    // Extract context section (will be added to each partition)
+    const contextSection = lines.slice(contextStartIndex, transcriptStartIndex + 1).join('\n');
+    const transcriptLines = lines.slice(transcriptStartIndex + 1);
+
+    // Get all timestamps and find total duration
+    const timestamps = transcriptLines
+      .map(line => {
+        const match = line.match(/\[(\d+):(\d+)\]/);
+        return match ? parseInt(match[1]) * 60 + parseInt(match[2]) : null;
+      })
+      .filter(time => time !== null);
+
+    const totalDuration = Math.max(...timestamps);
+    const partitionDuration = totalDuration / n;
+
+    // Create partition boundaries based on time
+    const splitIndices = [];
+    for (let i = 1; i < n; i++) {
+      const targetTime = partitionDuration * i;
+      const splitIndex = transcriptLines.findIndex(line => {
+        const match = line.match(/\[(\d+):(\d+)\]/);
+        if (match) {
+          const time = parseInt(match[1]) * 60 + parseInt(match[2]);
+          return time >= targetTime;
+        }
+        return false;
+      });
+      if (splitIndex !== -1) {
+        splitIndices.push(splitIndex);
+      }
+    }
+
+    // Create partitions using split indices
+    const partitions = [];
+    let startIndex = 0;
+
+    for (let i = 0; i < splitIndices.length; i++) {
+      partitions.push(transcriptLines.slice(startIndex, splitIndices[i]));
+      startIndex = splitIndices[i];
+    }
+    // Add the final partition
+    partitions.push(transcriptLines.slice(startIndex));
+
+    // Add context to each partition
+    return partitions.map(partition =>
+      contextSection + '\n' + partition.join('\n')
+    );
+  }
+
+  /**
+   * Processes a transcript with parallel LLM calls
+   * @param {Object} params - Processing parameters
+   * @param {string} params.transcript - The transcript to process
+   * @param {string} params.model_name - The model to use
+   * @param {number} params.partitions - Number of partitions (default: 2)
+   * @returns {Promise<string>} Processed transcript
+   */
+  async processTranscriptInParallel({ transcript, model_name, partitions = 2 }) {
+    // Split transcript into parts
+    const parts = this.splitTranscriptForProcessing(transcript, partitions);
+
+    // Process all parts in parallel
+    const promises = parts.map(part =>
+      this.call_llm({
+        model_name,
+        prompt: part
+      })
+    );
+
+    // Wait for all parts to complete
+    const results = await Promise.all(promises);
+
+    // Combine results
+    return results.join('\n\n');
   }
 }
 

@@ -467,34 +467,16 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       // Get the current raw page
       const currentRawPage = rawTranscriptPages[currentPageIndex];
 
-      // Split the page into two parts
-      const { firstHalf, secondHalf } = splitTranscriptPage(currentRawPage);
-
-      // Check if the current page is already processed sufficiently
-      if (processedTranscriptPages[currentPageIndex] &&
-        processedTranscriptPages[currentPageIndex].split(/\s+/).length >= 100) {
-        alert('Current page is already processed, but we will reprocess it because you clicked the button.');
-      }
-
-      // TODO: = make the two calls in parallel, wait, and then stitch together.
-      // Process first half
-      const response1 = await llmUtils.call_llm({
+      // Process the current page using parallel processing
+      const processedPage = await llmUtils.processTranscriptInParallel({
+        transcript: currentRawPage,
         model_name: selectedModel,
-        prompt: firstHalf
+        partitions: 2 // You could make this configurable or use the optimal value
       });
-
-      // Process second half
-      const response2 = await llmUtils.call_llm({
-        model_name: selectedModel,
-        prompt: secondHalf
-      });
-
-      // Combine the responses
-      const combinedResponse = response1 + '\n\n' + response2;
 
       // Update the processed page
-      processedTranscriptPages[currentPageIndex] = combinedResponse;
-      processedDisplay.textContent = combinedResponse;
+      processedTranscriptPages[currentPageIndex] = processedPage;
+      processedDisplay.textContent = processedPage;
 
       // Combine all processed pages into a single text block
       processedTranscript = processedTranscriptPages.join('\n');
@@ -512,7 +494,6 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       console.error('Error processing transcript:', error);
       alert('Failed to process the current page.');
     } finally {
-      const loader = document.getElementById('loader');
       loader.classList.add('hidden');
     }
   });

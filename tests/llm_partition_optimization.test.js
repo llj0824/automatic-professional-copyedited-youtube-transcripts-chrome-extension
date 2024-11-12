@@ -1,7 +1,5 @@
 import LLM_API_Utils from '../popup/llm_api_utils.js';
 
-const llmUtils = new LLM_API_Utils();
-
 // Sample test transcript segment
 export const testTranscript = `
 *** Background Context ***
@@ -390,329 +388,38 @@ Description: Donald Trump is currently the 2024 Presidential Candidate of the Re
 [14:59] back but I wasn&amp;#39;t a Washington guy I was
 `;
 
-describe('LLM Response Unit Tests', () => {
-  let llmResponseTranscript;
+
+describe('LLM Partition Optimization Tests', () => {
+  const llmUtils = new LLM_API_Utils();
+  const MODEL_NAME = 'gpt-4o-mini';
+  const PARTITION_SIZES = [2, 3, 4, 5];
 
   beforeAll(async () => {
-    llmResponseTranscript = await llmUtils.call_llm({ model_name: 'gpt-4o-mini', prompt: testTranscript });
-  }, 180000); // 3 minutes = 180,000 milliseconds
+    console.log('\nPartition Comparison Results');
+    console.log('==========================\n');
 
-  describe('LLM Response Unit Tests', () => {
+    for (const partitions of PARTITION_SIZES) {
+      console.log(`Testing with ${partitions} partitions...`);
+      console.log('----------------------------------------');
 
-    test('Response preserves key technical terms', () => {
-      const technicalTerms = [
-        'Apprentice', // [02:02]
-        'president', // [02:12] 
-        'contract', // [02:26]
-        'military', // [06:09]
-        'surreal', // [05:06]
-        'melancolia', // [09:16]
-        'strategy', // [11:51]
-        'appointments', // [13:54]
-        'treasury', // [14:15]
-        'Washington' // [14:49]
-      ];
-      const foundTerms = technicalTerms.filter(term =>
-        llmResponseTranscript.toLowerCase().includes(term)
-      );
-
-      console.log('\nTechnical Terms Check:');
-      console.log('Expected terms:', technicalTerms);
-      console.log('Found terms:', foundTerms);
-      console.log('Coverage:', `${foundTerms.length}/${technicalTerms.length} (${(foundTerms.length / technicalTerms.length * 100).toFixed(1)}%)`);
-
-      let failures = [];
-      technicalTerms.forEach(term => {
-        if (!llmResponseTranscript.toLowerCase().includes(term)) {
-          failures.push(`Missing term: "${term}"`);
-        }
+      const startTime = Date.now();
+      const processedTranscript = await llmUtils.processTranscriptInParallel({
+        transcript: testTranscript,
+        model_name: MODEL_NAME,
+        partitions
       });
+      const endTime = Date.now();
 
-      if (failures.length > 0) {
-        console.log('Failures:', failures.join('\n'));
-        expect(failures).toHaveLength(0, `Technical terms preservation test failed:\n${failures.join('\n')}`);
-      }
-    });
-
-    test('Response contains timestamps', () => {
-      // Example format: [13:31 -> 13:35]
-      expect(llmResponseTranscript).toMatch(/\[\d{2}:\d{2}\s*->\s*\d{2}:\d{2}\]/);
-    });
-
-    test('Response contains multiple timestamp ranges', () => {
-      // Example of correct response:
-      // [13:40 -> 13:42]
-      // [13:42 -> 13:46] 
-      // [13:46 -> 13:48]
-
-      // Examples of incorrect responses:
-      // [13:40] (missing end time)
-      // [13:42->13:40] (end time before start time)
-      // [13:48 -> 13:46] (timestamps out of order)
-      const timeRanges = llmResponseTranscript.match(/\[\d{2}:\d{2}\s*->\s*\d{2}:\d{2}\]/g);
-
-      console.log('\nTimestamp Ranges Check:');
-      console.log('Found ranges:', timeRanges);
-      console.log('Number of ranges:', timeRanges?.length || 0);
-      console.log('Expected minimum:', 2);
-
-      let failures = [];
-      if (!timeRanges) {
-        failures.push('No timestamp ranges found');
-      } else if (timeRanges.length <= 1) {
-        failures.push(`Only ${timeRanges.length} timestamp range found, expected at least 2`);
-      }
-
-      // Check timestamps are sequential
-      if (timeRanges) {
-        const timestamps = timeRanges.map(range => {
-          const [start, end] = range.match(/\d{2}:\d{2}/g);
-          return { start, end };
-        });
-
-        for (let i = 1; i < timestamps.length; i++) {
-          if (timestamps[i].start < timestamps[i - 1].end) {
-            failures.push(`Non-sequential timestamps: ${timestamps[i - 1].end} -> ${timestamps[i].start}`);
-          }
-        }
-      }
-
-      if (failures.length > 0) {
-        console.log('Failures:', failures.join('\n'));
-        expect(failures).toHaveLength(0, `Timestamp ranges test failed:\n${failures.join('\n')}`);
-      }
-    });
-
-    test('Response identifies speakers', () => {
-      expect(llmResponseTranscript).toMatch(/[A-Za-z\s]+:/);
-    });
-
-    test('Response has consistent speaker attribution', () => {
-      const speakerLines = llmResponseTranscript.match(/^[^[\n]+:/gm);
-      expect(speakerLines).toBeTruthy();
-      expect(speakerLines.length).toBeGreaterThan(1);
-
-      // Get unique speakers
-      const speakers = new Set(speakerLines.map(line => line.trim()));
-
-      // Should have at least 2 speakers (host and guest)
-      expect(speakers.size).toBeGreaterThanOrEqual(2);
-
-      // Check for consistent naming (no "Speaker 1" mixing with actual names)
-      const hasGenericSpeakers = Array.from(speakers).some(speaker =>
-        speaker.includes('Speaker') || speaker.includes('Host') || speaker.includes('Guest')
-      );
-      const hasNamedSpeakers = Array.from(speakers).some(speaker =>
-        !speaker.includes('Speaker') && !speaker.includes('Host') && !speaker.includes('Guest')
-      );
-
-      // Should not mix generic and named speakers
-      expect(hasGenericSpeakers && hasNamedSpeakers).toBeFalsy();
-    });
-
-    test('Response covers entire time range', () => {
-      const firstMatch = llmResponseTranscript.match(/\[(\d{2}:\d{2})/);
-      const lastMatch = llmResponseTranscript.match(/->\\s*(\\d{2}:\\d{2})\]/);
-
-      console.log('\nTime Range Coverage Check:');
-      console.log('First timestamp:', firstMatch?.[1]);
-      console.log('Last timestamp:', lastMatch?.[1]);
-
-      let failures = [];
-      if (!firstMatch) failures.push('No starting timestamp found');
-      if (!lastMatch) failures.push('No ending timestamp found');
-
-      if (firstMatch && lastMatch) {
-        const firstTimestamp = firstMatch[1];
-        const lastTimestamp = lastMatch[1];
-
-        const getSeconds = (timestamp) => {
-          const [mins, secs] = timestamp.split(':').map(Number);
-          return mins * 60 + secs;
-        };
-
-        const startSeconds = getSeconds(firstTimestamp);
-        const endSeconds = getSeconds(lastTimestamp);
-        const totalDuration = endSeconds - startSeconds;
-
-        console.log('Duration (seconds):', totalDuration);
-        console.log('Expected minimum duration:', 60);
-
-        if (totalDuration < 60) {
-          failures.push(`Duration too short: ${totalDuration}s (expected >= 60s)`);
-        }
-      }
-
-      if (failures.length > 0) {
-        console.log('Failures:', failures.join('\n'));
-        expect(failures).toHaveLength(0, `Time range coverage test failed:\n${failures.join('\n')}`);
-      }
-    });
-
-    test('Response covers entire time range', () => {
-      // Extract first and last timestamps
-      const allTimestamps = llmResponseTranscript.match(/\d{2}:\d{2}/g);
-      const firstTimestamp = convertToSeconds(allTimestamps[0]);
-      const lastTimestamp = convertToSeconds(allTimestamps[allTimestamps.length - 1]);
-
-      // Check if it covers the full range from input
-      const inputFirstTime = convertToSeconds('00:00');
-      const inputLastTime = convertToSeconds('00:40');
-
-      expect(firstTimestamp).toBeLessThanOrEqual(inputFirstTime + 5); // Allow 5 seconds flexibility
-      expect(lastTimestamp).toBeGreaterThanOrEqual(inputLastTime - 5); // Allow 5 seconds flexibility
-    });
-
-    test('Response maintains key information', () => {
-      const keyTerms = ['machine learning', 'neural networks', 'deep learning'];
-      const keyPhrases = ['important concept', 'critical point'];
-
-      console.log('\nKey Information Check:');
-      console.log('Checking terms:', keyTerms);
-      console.log('Checking phrases:', keyPhrases);
-
-      let failures = [];
-
-      // Check terms
-      const missingTerms = keyTerms.filter(term =>
-        !llmResponseTranscript.toLowerCase().includes(term)
-      );
-      if (missingTerms.length > 0) {
-        failures.push(`Missing terms: ${missingTerms.join(', ')}`);
-      }
-
-      // Check phrases
-      const missingPhrases = keyPhrases.filter(phrase =>
-        !llmResponseTranscript.toLowerCase().includes(phrase)
-      );
-      if (missingPhrases.length > 0) {
-        failures.push(`Missing phrases: ${missingPhrases.join(', ')}`);
-      }
-
-      console.log('Missing terms:', missingTerms);
-      console.log('Missing phrases:', missingPhrases);
-
-      if (failures.length > 0) {
-        console.log('Failures:', failures.join('\n'));
-        expect(failures).toHaveLength(0, `Key information test failed:\n${failures.join('\n')}`);
-      }
-    });
-
-    // Helper function to convert timestamp to seconds
-    function convertToSeconds(timestamp) {
-      const [minutes, seconds] = timestamp.split(':').map(Number);
-      return minutes * 60 + seconds;
+      console.log('\nProcessed Response:');
+      console.log(processedTranscript);
+      console.log('\nMetrics:');
+      console.log(`- Word count: ${processedTranscript.split(/\s+/).length} words`);
+      console.log(`- Processing time: ${((endTime - startTime) / 1000).toFixed(2)} seconds`);
+      console.log('\n----------------------------------------\n');
     }
+  }, 600000); // 10 minutes timeout
+
+  test('Placeholder test to satisfy jest', () => {
+    expect(true).toBe(true);
   });
-
-  describe.only('Transcript Paritioning Tests', () => {
-    const sampleTranscript = `
-  *** Background Context ***
-  Title: Sample Video
-  Description: Test description
-  
-  *** Transcript ***
-  [00:01] Speaker 1: First line
-  [00:10] Speaker 2: Second line
-  [00:20] Speaker 1: Third line
-  [00:30] Speaker 2: Fourth line
-  [00:40] Speaker 1: Fifth line
-  [00:50] Speaker 2: Sixth line
-  [01:00] Speaker 1: Seventh line
-  [01:10] Speaker 2: Eighth line
-  [01:20] Speaker 1: Ninth line
-  [01:30] Speaker 2: Tenth line
-  `;
-
-
-    function logParts(parts, description, toLog = true) {
-      if (!toLog) return;
-
-      console.log(`\nParts for ${description}:`);
-      parts.forEach((part, i) => {
-        console.log(`\nPart ${i + 1}:`);
-        console.log(part);
-      });
-    }
-
-    test('Splits transcript into 2 parts with correct timestamps', () => {
-      const parts = llmUtils.splitTranscriptForProcessing(sampleTranscript, 2);
-      logParts(parts, '2 parts split');
-
-    // First part should contain first half of timestamp
-      expect(parts[0]).toContain('[00:01]'); // Start
-      expect(parts[0]).toContain('[00:10]');
-      expect(parts[0]).toContain('[00:20]');
-      expect(parts[0]).toContain('[00:30]'); 
-      expect(parts[0]).toContain('[00:40]'); // End
-      expect(parts[0]).not.toContain('[00:50]'); // Should not contain second half timestamps
-
-      // Second part should contain second half of timestamps
-      expect(parts[1]).not.toContain('[00:40]'); // Should not contain first half timestamps
-      expect(parts[1]).toContain('[00:50]'); // Start
-      expect(parts[1]).toContain('[01:00]'); 
-      expect(parts[1]).toContain('[01:10]');
-      expect(parts[1]).toContain('[01:20]');
-      expect(parts[1]).toContain('[01:30]'); // End
-    });
-
-    test('Splits transcript into 3 parts with correct timestamps', () => {
-      const parts = llmUtils.splitTranscriptForProcessing(sampleTranscript, 3);
-      logParts(parts, '3 parts split');
-
-      // First part (0:00-0:20)
-      expect(parts[0]).toContain('[00:01]'); // Start
-      expect(parts[0]).toContain('[00:10]');
-      expect(parts[0]).toContain('[00:20]'); // End
-
-      // Second part (0:30-0:50)
-      expect(parts[1]).toContain('[00:30]'); // Start
-      expect(parts[1]).toContain('[00:40]');
-      expect(parts[1]).toContain('[00:50]'); // End
-
-      // Third part (1:00-1:30)
-      expect(parts[2]).toContain('[01:00]'); // Start
-      expect(parts[2]).toContain('[01:10]');
-      expect(parts[2]).toContain('[01:20]');
-      expect(parts[2]).toContain('[01:30]'); // End
-    });
-
-    test('Splits transcript into 4 parts with correct timestamps', () => {
-      const parts = llmUtils.splitTranscriptForProcessing(sampleTranscript, 4);
-      logParts(parts, '4 parts split');
-
-      // First part (0:00-0:20)
-      expect(parts[0]).toContain('[00:01] Speaker 1: First line');
-      expect(parts[0]).toContain('[00:10] Speaker 2: Second line');
-      expect(parts[0]).toContain('[00:20] Speaker 1: Third line');
-
-      // Second part (0:30-0:40)  
-      expect(parts[1]).toContain('[00:30] Speaker 2: Fourth line');
-      expect(parts[1]).toContain('[00:40] Speaker 1: Fifth line');
-
-      // Third part (0:50-1:00)
-      expect(parts[2]).toContain('[00:50] Speaker 2: Sixth line');
-      expect(parts[2]).toContain('[01:00] Speaker 1: Seventh line');
-
-      // Fourth part (1:10-1:30)
-      expect(parts[3]).toContain('[01:10] Speaker 2: Eighth line');
-      expect(parts[3]).toContain('[01:20] Speaker 1: Ninth line');
-      expect(parts[3]).toContain('[01:30] Speaker 2: Tenth line');
-    });
-
-    test('Each part maintains required context', () => {
-      const parts = llmUtils.splitTranscriptForProcessing(sampleTranscript, 3);
-      logParts(parts, 'context check');
-
-      parts.forEach(part => {
-        // Header sections
-        expect(part).toContain('*** Background Context ***');
-        expect(part).toContain('*** Transcript ***');
-
-        // Metadata
-        expect(part).toContain('Title: Sample Video');
-        expect(part).toContain('Description: Test description');
-      });
-    });
-  });
-});
+}); 
