@@ -114,7 +114,7 @@ II. Debugging unit and integration tests on Cursor
 2. store processed transcript in server, everyone can load it.
 
 ### Bugs
-0. [high] occasionally unable to automatically retrieve transcript -> initial data unavailable. Refresh page resolves. Replicate and implement a fix (possibly a retry mechanism).
+1. make "process with LLM button more prominent" -> make it green or blue 
 1. if no processed transcripts sets segments to 0, even when there is a raw transcript for that page.
 2. loading saved processed transcripts still not working
 3. [failed to retrieve] [bug] failed to retrieve transcript from - https://www.youtube.com/watch?v=WNJ93FfWVBY
@@ -123,3 +123,6 @@ II. Debugging unit and integration tests on Cursor
 * [low priority, but should be easy] add some functionality to change font size of transcript.
 * [top priority] add the title and description of the video to each pagination of transcript (so it knows speakers)
 * [top priority] remove permission to read browsing history...
+* [low priority] occasionally unable to automatically retrieve transcript -> initial data unavailable. Refresh page resolves. Replicate and implement a fix (possibly a retry mechanism).
+	a. if captions is unable -> can't autoload
+	b. if captions avaliable -> please try closing extension tab, and refreshing the page/video.

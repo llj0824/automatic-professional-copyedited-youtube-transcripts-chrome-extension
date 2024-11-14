@@ -20,22 +20,22 @@ class YoutubeTranscriptRetriever {
    * @returns {Promise<string>} - The raw transcript as a single string.
    * @throws Will throw an error if the transcript cannot be retrieved.
    */
-  static async fetchParsedTranscript(videoIdOrUrl) {
-    try {
-      // Extract the video ID from the URL if necessary
-      const videoId = this.extractVideoId(videoIdOrUrl);
-      if (!videoId) {
-        throw new Error('Invalid YouTube video ID or URL.');
-      }
+  static async fetchParsedTranscript(videoIdOrUrl, retryAttempts = 3) {
+    for (let attempt = 1; attempt <= retryAttempts; attempt++) {
+      try {
+        // Extract the video ID from the URL if necessary
+        const videoId = this.extractVideoId(videoIdOrUrl);
+        if (!videoId) {
+          throw new Error('Invalid YouTube video ID or URL.');
+        }
 
-      const html = await this.fetchVideoPage(videoId);
-      const initialData = this.extractInitialData(html);
-      const captionTracks = this.extractCaptionTracks(initialData);
-      
-      if (captionTracks.length === 0) {
-        // TODO: change this to make the placeholder in transcript-display show this message
-        window.alert('No captions available for this video. Unable to automatically retrieve transcript.');
-      }
+        const html = await this.fetchVideoPage(videoId);
+        const initialData = this.extractInitialData(html);
+        const captionTracks = this.extractCaptionTracks(initialData);
+        
+        if (captionTracks.length === 0) {
+          throw new Error('NO_CAPTIONS');
+        }
 
       const transcriptUrl = captionTracks[0].baseUrl;
       const xmlTranscript = await this.fetchTranscriptXml(transcriptUrl);
@@ -70,12 +70,20 @@ Title: ${videoDetails.title || 'Unknown'}
 Description: ${(videoDetails.shortDescription && videoDetails.shortDescription.split('\n')[0]) || 'No description available'}
 ${this.TRANSCRIPT_BEGINS_DELIMITER}
 `;
-
-      // Combine context and transcript
-      return contextBlock + parsedTranscript;
-    } catch (error) {
-      console.error('Error fetching transcript:', error);
-      throw error;
+        // Combine context and transcript
+        return contextBlock + parsedTranscript;
+      } catch (error) {
+        if (error.message === 'NO_CAPTIONS') {
+          throw new Error('This video does not have captions available for automatic retrieval.');
+        }
+        
+        if (attempt === retryAttempts) {
+          window.alert('Unable to load transcript. Please try:\n1. Closing and reopening the extension\n2. Refreshing the YouTube page\n3. If the problem persists, you can manually load the transcript.');
+        }
+        
+        // Wait for a short delay before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
   }
 
