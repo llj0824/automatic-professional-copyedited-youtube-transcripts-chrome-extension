@@ -372,6 +372,10 @@ async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
 // Event handler for previous button click
 function handlePrevClick() {
   if (currentPageIndex > 0) {
+    logger.logEvent(Logger.EVENTS.PAGE_NAVIGATION, {
+      [Logger.FIELDS.NAVIGATION_DIRECTION]: 'prev',
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex - 1
+    });
     currentPageIndex--;
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
@@ -383,6 +387,10 @@ function handlePrevClick() {
 function handleNextClick() {
   const currentPages = getCurrentDisplayPages();
   if (currentPageIndex < currentPages.length - 1) {
+    logger.logEvent(Logger.EVENTS.PAGE_NAVIGATION, {
+      [Logger.FIELDS.NAVIGATION_DIRECTION]: 'next',
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex + 1
+    });
     currentPageIndex++;
     setRawAndProcessedTranscriptText();
     updatePaginationButtons();
@@ -418,6 +426,11 @@ function updatePageInfo() {
 function setupTabs(doc, tabButtons, tabContents) {
   tabButtons.forEach(button => {
     button.addEventListener('click', () => {
+      const tab = button.getAttribute('data-tab');
+      logger.logEvent(Logger.EVENTS.TAB_SWITCH, {
+        [Logger.FIELDS.TAB_NAME]: tab
+      });
+      
       // Remove active class from all buttons
       tabButtons.forEach(btn => btn.classList.remove('active'));
       // Add active class to clicked button
@@ -427,7 +440,6 @@ function setupTabs(doc, tabButtons, tabContents) {
       tabContents.forEach(content => content.classList.add('hidden'));
 
       // Show corresponding tab content
-      const tab = button.getAttribute('data-tab');
       const tabContent = doc.getElementById(tab);
       if (tabContent) {
         tabContent.classList.remove('hidden');
@@ -453,9 +465,20 @@ function setupTabs(doc, tabButtons, tabContents) {
 function setupProcessButton(processBtn, modelSelect, storageUtils) {
   processBtn.addEventListener('click', async () => {
     const selectedModel = modelSelect.value;
+    
+    // Log process attempt
+    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_START, {
+      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+      [Logger.FIELDS.TRANSCRIPT_LENGTH]: rawTranscriptPages[currentPageIndex].length
+    });
 
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
     if (!videoId) {
+      logger.logEvent(Logger.EVENTS.ERROR, {
+        [Logger.FIELDS.ERROR_TYPE]: 'missing_video_id',
+        [Logger.FIELDS.ERROR_MESSAGE]: 'Unable to determine YouTube Video ID'
+      });
       alert('Unable to determine YouTube Video ID.');
       return;
     }
@@ -473,11 +496,21 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       // Get the current raw page
       const currentRawPage = rawTranscriptPages[currentPageIndex];
 
-      // Process the current page using parallel processing
+      const startTime = Date.now();
       const processedPage = await llmUtils.processTranscriptInParallel({
         transcript: currentRawPage,
         model_name: selectedModel,
-        partitions: llmUtils.DEFAULT_PARTITIONS // Default number of partitions for parallel processing
+        partitions: llmUtils.DEFAULT_PARTITIONS
+      });
+      const processingTime = Date.now() - startTime;
+
+      // Log successful processing
+      logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_SUCCESS, {
+        [Logger.FIELDS.MODEL]: selectedModel,
+        [Logger.FIELDS.PROCESSING_TIME]: processingTime,
+        [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentRawPage.length,
+        [Logger.FIELDS.RESPONSE_LENGTH]: processedPage.length,
+        [Logger.FIELDS.VIDEO_ID]: videoId
       });
 
       // Update the processed page
@@ -497,6 +530,12 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
       updatePaginationButtons();
       updatePageInfo();
     } catch (error) {
+      logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_FAILURE, {
+        [Logger.FIELDS.ERROR_TYPE]: error.name,
+        [Logger.FIELDS.ERROR_MESSAGE]: error.message,
+        [Logger.FIELDS.MODEL]: selectedModel,
+        [Logger.FIELDS.VIDEO_ID]: videoId
+      });
       console.error('Error processing transcript:', error);
       alert('Failed to process the current page.');
     } finally {
@@ -572,15 +611,27 @@ function setupCopyButtons(doc) {
       const targetId = button.getAttribute('data-target');
       const targetElement = doc.getElementById(targetId);
       const textToCopy = targetElement.textContent;
+      logger.logEvent(Logger.EVENTS.COPY_ATTEMPT, {
+        [Logger.FIELDS.COPY_TARGET]: targetId,
+        [Logger.FIELDS.TRANSCRIPT_LENGTH]: targetElement.textContent.length
+      });
 
       try {
         await navigator.clipboard.writeText(textToCopy);
+        logger.logEvent(Logger.EVENTS.COPY_SUCCESS, {
+          [Logger.FIELDS.COPY_TARGET]: targetId
+        });
         const originalText = button.textContent;
         button.textContent = '✅ Copied!';
         setTimeout(() => {
           button.textContent = originalText;
         }, 2000);
       } catch (err) {
+        logger.logEvent(Logger.EVENTS.ERROR, {
+          [Logger.FIELDS.ERROR_TYPE]: 'copy_failure',
+          [Logger.FIELDS.ERROR_MESSAGE]: err.message,
+          [Logger.FIELDS.COPY_TARGET]: targetId
+        });
         console.error('Failed to copy text:', err);
         button.textContent = '❌ Failed';
         setTimeout(() => {
