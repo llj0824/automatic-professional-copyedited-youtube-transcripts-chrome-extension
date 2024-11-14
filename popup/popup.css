@@ -99,8 +99,27 @@ h2, h3 {
 }
 
 #process-btn {
-  padding: 5px 10px;
+  padding: 8px 16px;
   cursor: pointer;
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+#process-btn:hover {
+  background-color: #1976D2;
+}
+
+#process-btn:active {
+  background-color: #1565C0;
+}
+
+#process-btn:disabled {
+  background-color: #BDBDBD;
+  cursor: not-allowed;
 }
 
 #loader {
