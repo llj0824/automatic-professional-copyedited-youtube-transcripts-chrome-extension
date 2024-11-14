@@ -25,7 +25,8 @@
       "host_permissions": [
         "https://*.youtube.com/*",
         "https://api.openai.com/*", 
-        "https://api.anthropic.com/*"
+        "https://api.anthropic.com/*",
+        "https://script.google.com/*"
       ],
       "side_panel": {
         "default_path": "popup/popup.html"

@@ -3,6 +3,7 @@
 import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
+import Logger from './logger.js';
 
 
 // Declare the variables in a higher scope
@@ -17,6 +18,7 @@ let currentPageIndex = 0;
 let PAGE_DURATION = 30 * 60; // seconds (modifiable)
 
 const llmUtils = new LLM_API_Utils();
+const logger = new Logger();
 
 // Add these variables to the top-level declarations
 let fontSizeDecrease, fontSizeIncrease;
@@ -62,7 +64,11 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     // Load existing transcripts if available
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
+
     console.log(`Current YouTube Video ID: ${videoId}`);
+    logger.logEvent(Logger.EVENTS.EXTENSION_OPENED, { 
+      [Logger.FIELDS.VIDEO_ID]: videoId 
+    });
 
     // First try to load from storage
     const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
