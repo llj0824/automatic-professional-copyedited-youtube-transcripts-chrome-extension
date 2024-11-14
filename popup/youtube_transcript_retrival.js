@@ -78,8 +78,14 @@ ${this.TRANSCRIPT_BEGINS_DELIMITER}
         }
         
         if (attempt === retryAttempts) {
-          window.alert('Unable to load transcript. Please try:\n1. Closing and reopening the extension\n2. Refreshing the YouTube page\n3. If the problem persists, you can manually load the transcript.');
+          window.alert(
+            'Unable to load the transcript automatically.\n\n' +
+            'Please try:\n' +
+            '1) Toggling off the extension\n' + 
+            '2) Refreshing the YouTube page'
+          );
         }
+
         
         // Wait for a short delay before retrying
         await new Promise(resolve => setTimeout(resolve, 1000));
