@@ -40,7 +40,7 @@ class Logger {
     // Set the URL of your deployed Google Apps Script web app
     this.loggingEndpoint = 'https://script.google.com/macros/s/AKfycbwMzBx3xT-pIK-xi_fxGD5ZOZNwAbpyoQ7gSJ8pzirXmEpERc6OWqP0RWeSIiDa75EuEA/exec';
 
-    
+
   }
 
   async logEvent(eventName, data = {}) {
@@ -54,19 +54,15 @@ class Logger {
     try {
       const response = await fetch(this.loggingEndpoint, {
         method: 'POST',
-        body: JSON.stringify(logEntry),
+        mode: 'no-cors',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(logEntry)
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
 
     } catch (error) {
       console.error('Logging error:', error);
-      // Optionally store failed logs locally
       await this._storeLogLocally(logEntry);
     }
   }
@@ -101,17 +97,15 @@ class Logger {
 
         for (const logEntry of failedLogs) {
           try {
-            const response = await fetch(this.loggingEndpoint, {
+            await fetch(this.loggingEndpoint, {
               method: 'POST',
-              body: JSON.stringify(logEntry),
+              mode: 'no-cors',
+              credentials: 'omit',
               headers: {
                 'Content-Type': 'application/json'
-              }
+              },
+              body: JSON.stringify(logEntry)
             });
-
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
 
             successfulRetries.push(logEntry);
           } catch (error) {
