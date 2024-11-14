@@ -163,7 +163,7 @@ class LLM_API_Utils {
    * @param {number} n - Number of partitions (default: 2)
    * @returns {string[]} Array of transcript partitions
    */
-  splitTranscriptForProcessing(transcript, n = 2) {
+  splitTranscriptForProcessing(transcript, n) {
     // Split the transcript into lines
     const lines = transcript.split('\n');
 
@@ -229,10 +229,10 @@ class LLM_API_Utils {
    * @param {Object} params - Processing parameters
    * @param {string} params.transcript - The transcript to process
    * @param {string} params.model_name - The model to use
-   * @param {number} params.partitions - Number of partitions (default: 2)
+   * @param {number} params.partitions - Number of partitions
    * @returns {Promise<string>} Processed transcript
    */
-  async processTranscriptInParallel({ transcript, model_name, partitions = this.DEFAULT_PARTITIONS }) {
+  async processTranscriptInParallel({ transcript, model_name, partitions = LLM_API_Utils.DEFAULT_PARTITIONS }) {
     // Split transcript into parts
     const parts = this.splitTranscriptForProcessing(transcript, partitions);
 
