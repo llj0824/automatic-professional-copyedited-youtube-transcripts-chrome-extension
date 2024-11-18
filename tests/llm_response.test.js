@@ -390,6 +390,17 @@ Description: Donald Trump is currently the 2024 Presidential Candidate of the Re
 [14:59] back but I wasn&amp;#39;t a Washington guy I was
 `;
 
+function logParts(parts, description, toLog = true) {
+  if (!toLog) return;
+
+  console.log(`\nParts for ${description}:`);
+  parts.forEach((part, i) => {
+    console.log(`\nPart ${i + 1}:`);
+    console.log(part);
+  });
+}
+
+
 describe('LLM Response Unit Tests', () => {
   let llmResponseTranscript;
 
@@ -624,33 +635,22 @@ describe('LLM Response Unit Tests', () => {
   [01:30] Speaker 2: Tenth line
   `;
 
-
-    function logParts(parts, description, toLog = true) {
-      if (!toLog) return;
-
-      console.log(`\nParts for ${description}:`);
-      parts.forEach((part, i) => {
-        console.log(`\nPart ${i + 1}:`);
-        console.log(part);
-      });
-    }
-
     test('Splits transcript into 2 parts with correct timestamps', () => {
       const parts = llmUtils.splitTranscriptForProcessing(sampleTranscript, 2);
       logParts(parts, '2 parts split');
 
-    // First part should contain first half of timestamp
+      // First part should contain first half of timestamp
       expect(parts[0]).toContain('[00:01]'); // Start
       expect(parts[0]).toContain('[00:10]');
       expect(parts[0]).toContain('[00:20]');
-      expect(parts[0]).toContain('[00:30]'); 
+      expect(parts[0]).toContain('[00:30]');
       expect(parts[0]).toContain('[00:40]'); // End
       expect(parts[0]).not.toContain('[00:50]'); // Should not contain second half timestamps
 
       // Second part should contain second half of timestamps
       expect(parts[1]).not.toContain('[00:40]'); // Should not contain first half timestamps
       expect(parts[1]).toContain('[00:50]'); // Start
-      expect(parts[1]).toContain('[01:00]'); 
+      expect(parts[1]).toContain('[01:00]');
       expect(parts[1]).toContain('[01:10]');
       expect(parts[1]).toContain('[01:20]');
       expect(parts[1]).toContain('[01:30]'); // End
@@ -663,17 +663,18 @@ describe('LLM Response Unit Tests', () => {
       // First part (0:00-0:20)
       expect(parts[0]).toContain('[00:01]'); // Start
       expect(parts[0]).toContain('[00:10]');
-      expect(parts[0]).toContain('[00:20]'); // End
+      expect(parts[0]).toContain('[00:20]');
+      expect(parts[0]).toContain('[00:30]');
+
 
       // Second part (0:30-0:50)
-      expect(parts[1]).toContain('[00:30]'); // Start
-      expect(parts[1]).toContain('[00:40]');
-      expect(parts[1]).toContain('[00:50]'); // End
+      expect(parts[1]).toContain('[00:40]'); // start
+      expect(parts[1]).toContain('[00:50]');
+      expect(parts[1]).toContain('[01:00]');
+      expect(parts[1]).toContain('[01:10]'); // end
 
       // Third part (1:00-1:30)
-      expect(parts[2]).toContain('[01:00]'); // Start
-      expect(parts[2]).toContain('[01:10]');
-      expect(parts[2]).toContain('[01:20]');
+      expect(parts[2]).toContain('[01:20]'); // start
       expect(parts[2]).toContain('[01:30]'); // End
     });
 
@@ -689,14 +690,15 @@ describe('LLM Response Unit Tests', () => {
       // Second part (0:30-0:40)  
       expect(parts[1]).toContain('[00:30] Speaker 2: Fourth line');
       expect(parts[1]).toContain('[00:40] Speaker 1: Fifth line');
+      expect(parts[1]).toContain('[00:50] Speaker 2: Sixth line');
+
 
       // Third part (0:50-1:00)
-      expect(parts[2]).toContain('[00:50] Speaker 2: Sixth line');
       expect(parts[2]).toContain('[01:00] Speaker 1: Seventh line');
+      expect(parts[2]).toContain('[01:10] Speaker 2: Eighth line');
+      expect(parts[2]).toContain('[01:20] Speaker 1: Ninth line');
 
       // Fourth part (1:10-1:30)
-      expect(parts[3]).toContain('[01:10] Speaker 2: Eighth line');
-      expect(parts[3]).toContain('[01:20] Speaker 1: Ninth line');
       expect(parts[3]).toContain('[01:30] Speaker 2: Tenth line');
     });
 
@@ -715,4 +717,69 @@ describe('LLM Response Unit Tests', () => {
       });
     });
   });
+
+  // ... existing code ...
+
+  describe.only('Second page of transcript parsing', () => {
+    test('Handles second page of transcript correctly', () => {
+      const memecoinTranscript = `
+*** Background Context ***
+Title: Make Generational Wealth with Memecoins w/ Murad
+Description: Today I have the great Murad on my channel to discuss the Memecoin Supercycle. Why it's happening, and why it will continue.
+
+*** Transcript ***
+[30:02] coins and they held them for a year even
+[30:06] two years right and that's what I've
+[30:08] decided to do with my portfolio
+[36:37] technological their value proposition is
+[36:39] based on community belief Faith You
+[43:55] left curve is like yes buttero we are
+[43:57] coming uh so you know I'm like yes like
+[51:16] so many Temptations to sell
+[58:18] more free content around crypto Defi and
+[58:20] onchain farming please check out the`;
+
+      const parts = llmUtils.splitTranscriptForProcessing(memecoinTranscript, 8);
+      logParts(parts, 'memecoin split');
+
+      // First part (30:00-35:00)
+      expect(parts[0]).toContain('[30:02]');
+      expect(parts[0]).toContain('[30:06]');
+
+      // Second part (35:00-40:00)
+      expect(parts[1]).toContain('[30:08]');
+      expect(parts[1]).toContain('[36:37]');
+
+      // Third part (40:00-45:00)
+      expect(parts[2]).toContain('[36:39]');
+      expect(parts[2]).toContain('[43:55]');
+
+      // Fourth part (50:00-55:00)
+      expect(parts[3]).toContain('[43:57]');
+      expect(parts[3]).toContain('[51:16]');
+
+      // Fifth part (55:00-60:00)
+      expect(parts[4]).toContain('[58:18]');
+      expect(parts[4]).toContain('[58:20]');
+
+      // Check context is maintained
+      parts.forEach(part => {
+        expect(part).toContain('*** Background Context ***');
+        expect(part).toContain('*** Transcript ***');
+        expect(part).toContain('Title: Make Generational Wealth with Memecoins w/ Murad');
+        expect(part).toContain('Description: Today I have the great Murad');
+      });
+
+      // Check timestamp ordering
+      parts.forEach(part => {
+        const timestamps = part.match(/\[\d{2}:\d{2}\]/g) || [];
+        for (let i = 1; i < timestamps.length; i++) {
+          const prev = parseInt(timestamps[i-1].match(/\d+/g).join(''));
+          const curr = parseInt(timestamps[i].match(/\d+/g).join(''));
+          expect(curr).toBeGreaterThan(prev);
+        }
+      });
+    });
+  });
+
 });

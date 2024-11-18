@@ -166,7 +166,7 @@ class LLM_API_Utils {
   splitTranscriptForProcessing(transcript, n) {
     // Split the transcript into lines
     const lines = transcript.split('\n');
-
+  
     // Find context and transcript sections
     const contextStartIndex = lines.findIndex(line =>
       line.includes(YoutubeTranscriptRetriever.CONTEXT_BEGINS_DELIMITER)
@@ -174,54 +174,34 @@ class LLM_API_Utils {
     const transcriptStartIndex = lines.findIndex(line =>
       line.includes(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER)
     );
-
+  
     // Extract context section (will be added to each partition)
     const contextSection = lines.slice(contextStartIndex, transcriptStartIndex + 1).join('\n');
     const transcriptLines = lines.slice(transcriptStartIndex + 1);
-
-    // Get all timestamps and find total duration
-    const timestamps = transcriptLines
-      .map(line => {
-        const match = line.match(/\[(\d+):(\d+)\]/);
-        return match ? parseInt(match[1]) * 60 + parseInt(match[2]) : null;
-      })
-      .filter(time => time !== null);
-
-    const totalDuration = Math.max(...timestamps);
-    const partitionDuration = totalDuration / n;
-
-    // Create partition boundaries based on time
-    const splitIndices = [];
-    for (let i = 1; i < n; i++) {
-      const targetTime = partitionDuration * i;
-      const splitIndex = transcriptLines.findIndex(line => {
-        const match = line.match(/\[(\d+):(\d+)\]/);
-        if (match) {
-          const time = parseInt(match[1]) * 60 + parseInt(match[2]);
-          return time >= targetTime;
-        }
-        return false;
-      });
-      if (splitIndex !== -1) {
-        splitIndices.push(splitIndex);
+  
+    // Filter out empty lines and ensure we have valid timestamps
+    const validTranscriptLines = transcriptLines.filter(line => {
+      const match = line.match(/\[(\d+):(\d+)\]/);
+      return match && line.trim().length > 0;
+    });
+  
+    // Calculate roughly equal-sized partitions
+    const linesPerPartition = Math.ceil(validTranscriptLines.length / n);
+    
+    // Create partitions
+    const partitions = [];
+    for (let i = 0; i < n; i++) {
+      const start = i * linesPerPartition;
+      const end = Math.min(start + linesPerPartition, validTranscriptLines.length);
+      const partition = validTranscriptLines.slice(start, end);
+      
+      // Only add partition if it contains content
+      if (partition.length > 0) {
+        partitions.push(contextSection + '\n' + partition.join('\n'));
       }
     }
-
-    // Create partitions using split indices
-    const partitions = [];
-    let startIndex = 0;
-
-    for (let i = 0; i < splitIndices.length; i++) {
-      partitions.push(transcriptLines.slice(startIndex, splitIndices[i]));
-      startIndex = splitIndices[i];
-    }
-    // Add the final partition
-    partitions.push(transcriptLines.slice(startIndex));
-
-    // Add context to each partition
-    return partitions.map(partition =>
-      contextSection + '\n' + partition.join('\n')
-    );
+  
+    return partitions;
   }
 
   /**
