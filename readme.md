@@ -90,31 +90,23 @@ II. Debugging unit and integration tests on Cursor
  1. when testing, run `npm run test:youtube_transcript_retrieval` to test the youtube_transcript_retrieval.js file.
  2. In Cursor to run debugger, set red dot on sidebar or `debugger;` in the code. Then `Run` tab -> `Start Debugging` refer to `launch.json` for configurations.
 
+# TODOs
 ### backend system changes
-1a. add unit and LLM-as-judge to automaticaly test responses from LLM.
-    - helps track regression in model performance
-    - helps tracks effect of changes to prompt/system role.
-1b. unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
-2. change to use gpt-4o as default model, maybe even hide the model being used from the UI.
-    - change to gpt-4o-mini only if usage is getting too expensive.
-4. [refactoring] rename segments to "pages" or "pagination" it's much more intuitive.
-5. [UI change][important and quick] make tab selection (raw vs processed) visually more obvious.
-5b. [quick] add gif tutorial of extension in action to readme/chrome extension (check ReadingAssist for example).  
 6. [website & database] make transcripts knowledge searchable
 7. [show remaining balance] show remaining balance in the popup, atleast some visual indicator why no longer able to process new segmnets.
     -> note: chrome extension description should have section explaining this.
 8. [prevent abuse] disable reprocessing if transcript alrdy exists
 9. [feedback form] add @llj0824 twitter [x] handle for users to tweet me their feedback lol.
-10. [remote server] use google drive/substack post the processed transcripts there and retrieve from there.
 
 ### Features
-0. [high priority] timestamps ~atleast 1 per 15 minutes, maybe 2-3 per page
+0. log raw & processed transcript in server/google sheets.
+1. turn off extension on non-youtube sites
+0. clear cache button -> existing transcript already exists.
 1. autotrack transcript to where the video is at.
     -> note: actually what if i made the video skip towards where the transcript is at?
-2. store processed transcript in server, everyone can load it.
+
 
 ### Bugs
-1. make "process with LLM button more prominent" -> make it green or blue 
 1. if no processed transcripts sets segments to 0, even when there is a raw transcript for that page.
 2. loading saved processed transcripts still not working
 3. [failed to retrieve] [bug] failed to retrieve transcript from - https://www.youtube.com/watch?v=WNJ93FfWVBY
@@ -126,3 +118,16 @@ II. Debugging unit and integration tests on Cursor
 * [low priority] occasionally unable to automatically retrieve transcript -> initial data unavailable. Refresh page resolves. Replicate and implement a fix (possibly a retry mechanism).
 	a. if captions is unable -> can't autoload
 	b. if captions avaliable -> please try closing extension tab, and refreshing the page/video.
+* [high priority] timestamps ~atleast 1 per 15 minutes, maybe 2-3 per page
+* [remote server] use google drive/substack post the processed transcripts there and retrieve from there.
+* [UI change][important and quick] make tab selection (raw vs processed) visually more obvious.
+* [UIchange] make "process with LLM button more prominent" -> make it green or blue 
+* unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
+* change to use gpt-4o as default model, maybe even hide the model being used from the UI.
+    - changed back to gpt-4o-mini after optimizing it
+* add unit and LLM-as-judge to automaticaly test responses from LLM.
+    - helps track regression in model performance
+    - helps tracks effect of changes to prompt/system role.
+    - [done] in llm_partition_optimization.test.js
+* [refactoring] rename segments to "pages" or "pagination" it's much more intuitive.
+* [quick] add gif tutorial/video of extension in action to readme/chrome extension (check ReadingAssist for example).  

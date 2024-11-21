@@ -217,9 +217,23 @@ function paginateBothTranscripts(rawTranscript, processedTranscript) {
  * @returns {Array} Array of paginated transcript pages
  */
 function paginateRawTranscript(transcript) {
-  // Split into context and content, defaulting to empty context if no delimiter
-  const [contextBlock = "", transcriptContent = transcript] =
-    transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
+  // Inner function to handle all transcript cleaning/decoding html verbage
+  const cleanTranscript = (rawText) => {
+    // Create a temporary element to leverage browser's native decoder
+    const element = document.createElement('div');
+    
+    // First convert &amp; to & then decode all HTML entities
+    element.innerHTML = rawText.replace(/&amp;/g, '&');
+    
+    return element.textContent || element.innerText || '';
+  };
+
+  // Clean the transcript first
+  const cleanedTranscript = cleanTranscript(transcript);
+
+  // Then handle pagination logic with clean text
+  const [contextBlock = "", transcriptContent = cleanedTranscript] =
+    cleanedTranscript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
 
   // Parse the transcript content into array of objects with timestamp and text
   const parsedTranscript = (function parseTranscript(rawTranscript) {
