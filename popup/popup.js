@@ -126,6 +126,17 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
 
 
 async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils) {
+  // Inner function to handle all transcript cleaning/decoding html verbage
+  const decodeTranscript = (text) => {
+    return text
+      .replace(/&amp;/g, '&')
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&nbsp;/g, ' ');
+  };
+
   // First check if we have saved transcripts
   if (savedTranscripts.rawTranscript) {
     rawTranscript = savedTranscripts.rawTranscript;
@@ -135,7 +146,8 @@ async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils
 
   // If no saved transcript, try to fetch from YouTube
   try {
-    rawTranscript = await YoutubeTranscriptRetriever.fetchParsedTranscript(videoId);
+    const fetchedRawTranscript = await YoutubeTranscriptRetriever.fetchParsedTranscript(videoId);
+    rawTranscript = decodeTranscript(fetchedRawTranscript);
     if (rawTranscript) {
       await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
       processedTranscript = ""; // Reset processed transcript
@@ -217,23 +229,9 @@ function paginateBothTranscripts(rawTranscript, processedTranscript) {
  * @returns {Array} Array of paginated transcript pages
  */
 function paginateRawTranscript(transcript) {
-  // Inner function to handle all transcript cleaning/decoding html verbage
-  const cleanTranscript = (rawText) => {
-    // Create a temporary element to leverage browser's native decoder
-    const element = document.createElement('div');
-    
-    // First convert &amp; to & then decode all HTML entities
-    element.innerHTML = rawText.replace(/&amp;/g, '&');
-    
-    return element.textContent || element.innerText || '';
-  };
-
-  // Clean the transcript first
-  const cleanedTranscript = cleanTranscript(transcript);
-
   // Then handle pagination logic with clean text
-  const [contextBlock = "", transcriptContent = cleanedTranscript] =
-    cleanedTranscript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
+  const [contextBlock = "", transcriptContent = transcript] =
+  transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
 
   // Parse the transcript content into array of objects with timestamp and text
   const parsedTranscript = (function parseTranscript(rawTranscript) {
