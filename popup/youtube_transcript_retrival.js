@@ -100,20 +100,12 @@ ${this.TRANSCRIPT_BEGINS_DELIMITER}
    * @returns {Promise<string>} - HTML content of the video page.
    */
   static async fetchVideoPage(videoId) {
-    return new Promise((resolve, reject) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-        try {
-          const [tab] = tabs;
-          const results = await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            func: () => document.documentElement.outerHTML
-          });
-          resolve(results[0].result);
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const response = await fetch(videoUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch video page: ${response.status}`);
+    }
+    return await response.text();
   }
   /**
    * Extracts the initial JSON data from the YouTube video page HTML.
