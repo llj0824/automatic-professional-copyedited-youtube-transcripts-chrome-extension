@@ -66,8 +66,8 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
 
     console.log(`Current YouTube Video ID: ${videoId}`);
-    logger.logEvent(Logger.EVENTS.EXTENSION_OPENED, { 
-      [Logger.FIELDS.VIDEO_ID]: videoId 
+    logger.logEvent(Logger.EVENTS.EXTENSION_OPENED, {
+      [Logger.FIELDS.VIDEO_ID]: videoId
     });
 
     // First try to load from storage
@@ -231,7 +231,7 @@ function paginateBothTranscripts(rawTranscript, processedTranscript) {
 function paginateRawTranscript(transcript) {
   // Then handle pagination logic with clean text
   const [contextBlock = "", transcriptContent = transcript] =
-  transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
+    transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
 
   // Parse the transcript content into array of objects with timestamp and text
   const parsedTranscript = (function parseTranscript(rawTranscript) {
@@ -442,7 +442,7 @@ function setupTabs(doc, tabButtons, tabContents) {
       logger.logEvent(Logger.EVENTS.TAB_SWITCH, {
         [Logger.FIELDS.TAB_NAME]: tab
       });
-      
+
       // Remove active class from all buttons
       tabButtons.forEach(btn => btn.classList.remove('active'));
       // Add active class to clicked button
@@ -475,85 +475,136 @@ function setupTabs(doc, tabButtons, tabContents) {
  * @param {StorageUtils} storageUtils - The StorageUtils instance.
  */
 function setupProcessButton(processBtn, modelSelect, storageUtils) {
-  processBtn.addEventListener('click', async () => {
-    const selectedModel = modelSelect.value;
-    
-    // Log process attempt
-    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_START, {
-      [Logger.FIELDS.MODEL]: selectedModel,
-      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
-      [Logger.FIELDS.TRANSCRIPT_LENGTH]: rawTranscriptPages[currentPageIndex].length
-    });
+  processBtn.addEventListener('click', () => handleProcessTranscriptClick(modelSelect, storageUtils));
+}
 
-    const videoId = await storageUtils.getCurrentYouTubeVideoId();
-    if (!videoId) {
-      logger.logEvent(Logger.EVENTS.ERROR, {
-        [Logger.FIELDS.ERROR_TYPE]: 'missing_video_id',
-        [Logger.FIELDS.ERROR_MESSAGE]: 'Unable to determine YouTube Video ID'
-      });
-      alert('Unable to determine YouTube Video ID.');
+/**
+ * Handles processing the transcript when the process button is clicked.
+ * @param {HTMLElement} modelSelect - The model selection element.
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ */
+async function handleProcessTranscriptClick(modelSelect, storageUtils) {
+  const selectedModel = modelSelect.value;
+
+  const currentRawPage = rawTranscriptPages[currentPageIndex];
+  const videoTitle = extractVideoTitle(currentRawPage);
+  const videoId = await storageUtils.getCurrentYouTubeVideoId();
+
+  // Log process attempt
+  logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_START, {
+    [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
+    [Logger.FIELDS.VIDEO_ID]: videoId,
+    [Logger.FIELDS.MODEL]: selectedModel,
+    [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+    [Logger.FIELDS.TRANSCRIPT_LENGTH]: rawTranscriptPages[currentPageIndex].length
+  });
+
+  if (!videoId) {
+    logger.logEvent(Logger.EVENTS.ERROR, {
+      [Logger.FIELDS.ERROR_TYPE]: 'missing_video_id',
+      [Logger.FIELDS.ERROR_MESSAGE]: 'Unable to determine YouTube Video ID'
+    });
+    alert('Unable to determine YouTube Video ID.');
+    return;
+  }
+
+  try {
+    const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
+    if (!savedTranscripts.rawTranscript) {
+      alert('No raw transcript available to process.');
       return;
     }
 
-    try {
-      const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
-      if (!savedTranscripts.rawTranscript) {
-        alert('No raw transcript available to process.');
-        return;
-      }
+    const loader = document.getElementById('loader');
+    loader.classList.remove('hidden');
 
-      const loader = document.getElementById('loader');
-      loader.classList.remove('hidden');
+    // Get the current raw page
+    const currentRawPage = rawTranscriptPages[currentPageIndex];
 
-      // Get the current raw page
-      const currentRawPage = rawTranscriptPages[currentPageIndex];
+    const startTime = Date.now();
+    const processedPage = await llmUtils.processTranscriptInParallel({
+      transcript: currentRawPage,
+      model_name: selectedModel,
+      partitions: llmUtils.DEFAULT_PARTITIONS
+    });
+    const processingTime = Date.now() - startTime;
 
-      const startTime = Date.now();
-      const processedPage = await llmUtils.processTranscriptInParallel({
-        transcript: currentRawPage,
-        model_name: selectedModel,
-        partitions: llmUtils.DEFAULT_PARTITIONS
-      });
-      const processingTime = Date.now() - startTime;
+    // Log successful processing
+    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_SUCCESS, {
+      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.PROCESSING_TIME]: processingTime,
+      [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentRawPage.length,
+      [Logger.FIELDS.RESPONSE_LENGTH]: processedPage.length,
+    });
 
-      // Log successful processing
-      logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_SUCCESS, {
-        [Logger.FIELDS.MODEL]: selectedModel,
-        [Logger.FIELDS.PROCESSING_TIME]: processingTime,
-        [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentRawPage.length,
-        [Logger.FIELDS.RESPONSE_LENGTH]: processedPage.length,
-        [Logger.FIELDS.VIDEO_ID]: videoId
-      });
+    // Log processed transcript result
+    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_RESULT, {
+      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+      [Logger.FIELDS.PROCESSED_TRANSCRIPT]: processedPage
+    });
 
-      // Update the processed page
-      processedTranscriptPages[currentPageIndex] = processedPage;
-      processedDisplay.textContent = processedPage;
+    // Update the processed page
+    processedTranscriptPages[currentPageIndex] = processedPage;
+    processedDisplay.textContent = processedPage;
 
-      // Combine all processed pages into a single text block
-      processedTranscript = processedTranscriptPages.join('\n');
+    // Combine all processed pages into a single text block
+    processedTranscript = processedTranscriptPages.join('\n');
 
-      // Save the full processed transcript
-      await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
+    // Save the full processed transcript
+    await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
 
-      alert('Current page processed successfully!');
+    alert('Current page processed successfully!');
 
-      // Update the display
-      setRawAndProcessedTranscriptText();
-      updatePaginationButtons();
-      updatePageInfo();
-    } catch (error) {
-      logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_FAILURE, {
-        [Logger.FIELDS.ERROR_TYPE]: error.name,
-        [Logger.FIELDS.ERROR_MESSAGE]: error.message,
-        [Logger.FIELDS.MODEL]: selectedModel,
-        [Logger.FIELDS.VIDEO_ID]: videoId
-      });
-      console.error('Error processing transcript:', error);
-      alert('Failed to process the current page.');
-    } finally {
-      loader.classList.add('hidden');
+    // Update the display
+    setRawAndProcessedTranscriptText();
+    updatePaginationButtons();
+    updatePageInfo();
+  } catch (error) {
+    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_FAILURE, {
+      [Logger.FIELDS.ERROR_TYPE]: error.name,
+      [Logger.FIELDS.ERROR_MESSAGE]: error.message,
+      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+    });
+    console.error('Error processing transcript:', error);
+    alert('Failed to process the current page.');
+  } finally {
+    loader.classList.add('hidden');
+  }
+}
+
+/**
+ * Extracts the video title from a transcript page's context block
+ * @param {string} rawTranscriptPage - The transcript page containing the context block
+ * @returns {string} The extracted title or an error message
+ */
+function extractVideoTitle(rawTranscriptPage) {
+  try {
+    if (!rawTranscriptPage || typeof rawTranscriptPage !== 'string') {
+      throw new Error(`Invalid transcript page: ${typeof rawTranscriptPage}`);
     }
-  });
+
+    // The regex pattern breakdown:
+    // Title:          - Matches the literal text "Title:"
+    // \s*            - Matches zero or more whitespace characters (spaces, tabs, newlines)
+    // ([^*\n]+)      - Capture group that matches:
+    //                  [^*\n] = any character that is NOT an asterisk or newline
+    //                  + = one or more of these characters
+    //                  This ensures we stop at the next section (marked by ***) or next line
+    const titleMatch = rawTranscriptPage.match(/Title:\s*([^*\n]+)/);
+    if (!titleMatch) {
+      throw new Error('No title pattern found in context block');
+    }
+
+    return titleMatch[1];
+  } catch (error) {
+    return `Failed to retrieve title - ${error.message}`;
+  }
 }
 
 

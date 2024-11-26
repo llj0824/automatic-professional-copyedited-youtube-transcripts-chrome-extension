@@ -6,6 +6,7 @@ class Logger {
     TRANSCRIPT_RETRIEVED_FROM_YOUTUBE: 'transcript_retrieved_from_youtube',
     PROCESS_TRANSCRIPT_ATTEMPT: 'process_transcript_attempt',
     PROCESS_TRANSCRIPT_SUCCESS: 'process_transcript_success',
+    PROCESS_TRANSCRIPT_RESULT: 'process_transcript_result',
     ERROR: 'error',
     PAGE_NAVIGATION: 'page_navigation',
     TAB_SWITCH: 'tab_switch',
@@ -19,7 +20,9 @@ class Logger {
 
   static FIELDS = {
     VIDEO_ID: 'videoId',
+    VIDEO_TITLE: 'videoTitle',
     TRANSCRIPT_LENGTH: 'transcriptLength',
+    PROCESSED_TRANSCRIPT: 'processedTranscript',
     MODEL: 'model',
     PAGE_INDEX: 'pageIndex',
     ERROR: 'error',
