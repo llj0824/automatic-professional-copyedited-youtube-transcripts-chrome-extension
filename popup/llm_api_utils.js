@@ -181,7 +181,8 @@ class LLM_API_Utils {
   
     // Filter out empty lines and ensure we have valid timestamps
     const validTranscriptLines = transcriptLines.filter(line => {
-      const match = line.match(/\[(\d+):(\d+)\]/);
+      // Updated regex to handle HH:MM:SS format
+      const match = line.match(/\[(\d+):(\d+)(?::(\d+))?\]/);
       return match && line.trim().length > 0;
     });
   
