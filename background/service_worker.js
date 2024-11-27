@@ -9,8 +9,6 @@ chrome.sidePanel
 
 // Helper: Show or hide the side panel
 async function togglePanel(tabId, shouldShow) {
-  console.log(`Toggling panel for tab ${tabId}, shouldShow: ${shouldShow}`);
-
   if (shouldShow) {
     await chrome.sidePanel.setOptions({
       tabId,
