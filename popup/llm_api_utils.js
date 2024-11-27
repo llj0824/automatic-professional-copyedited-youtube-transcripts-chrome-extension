@@ -179,22 +179,15 @@ class LLM_API_Utils {
     const contextSection = lines.slice(contextStartIndex, transcriptStartIndex + 1).join('\n');
     const transcriptLines = lines.slice(transcriptStartIndex + 1);
   
-    // Filter out empty lines and ensure we have valid timestamps
-    const validTranscriptLines = transcriptLines.filter(line => {
-      // Updated regex to handle HH:MM:SS format
-      const match = line.match(/\[(\d+):(\d+)(?::(\d+))?\]/);
-      return match && line.trim().length > 0;
-    });
-  
     // Calculate roughly equal-sized partitions
-    const linesPerPartition = Math.ceil(validTranscriptLines.length / n);
+    const linesPerPartition = Math.ceil(transcriptLines.length / n);
     
     // Create partitions
     const partitions = [];
     for (let i = 0; i < n; i++) {
       const start = i * linesPerPartition;
-      const end = Math.min(start + linesPerPartition, validTranscriptLines.length);
-      const partition = validTranscriptLines.slice(start, end);
+      const end = Math.min(start + linesPerPartition, transcriptLines.length);
+      const partition = transcriptLines.slice(start, end);
       
       // Only add partition if it contains content
       if (partition.length > 0) {
