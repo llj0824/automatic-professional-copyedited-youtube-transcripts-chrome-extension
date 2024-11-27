@@ -186,7 +186,7 @@ Yeah, exactly. I think DeFi people love the AI coins.
 describe('LLM Highlight Extraction Tests', () => {
   const llmUtils = new LLM_API_Utils();
   // const MODEL_NAME = 'chatgpt-4o-latest';
-  const MODEL_NAME = 'gpt-40-mini';
+  const MODEL_NAME = 'gpt-4o-mini';
 
 
   // Test different prompt variations to find the most effective one
@@ -534,33 +534,63 @@ Format each highlight as:
 
     log('\nHighlight Extraction Comparison Results');
     log('=====================================\n');
-    for (const { name, prompt } of PROMPT_VARIATIONS) {
-      log(`Testing "${name}" prompt variation...`);
-      log('----------------------------------------');
 
-      const startTime = Date.now();
-      try {
-        const extractedHighlights = await llmUtils.processTranscriptInParallel({
-          transcript: processedTranscript,
-          model_name: MODEL_NAME,
-          prompt: prompt,
-          partitions: llmUtils.DEFAULT_PARTITIONS  // Using optimal partition size from previous tests
-        });
+    const startTime = Date.now();
+    try {
+      // Run all prompt variations in parallel
+      const results = await Promise.all(PROMPT_VARIATIONS.map(async ({ name, prompt }) => {
+        try {
+          const extractedHighlights = await llmUtils.processTranscriptInParallel({
+            transcript: processedTranscript,
+            model_name: MODEL_NAME,
+            partitions: LLM_API_Utils.DEFAULT_PARTITIONS,
+            system_role: prompt  // Using the prompt variation as the system_role
+          });
+      
+          return {
+            name: name,
+            system_role: prompt,
+            success: true,
+            highlights: extractedHighlights
+          };
+        } catch (error) {
+          return {
+            name,
+            success: false,
+            error: error
+          };
+        }
+      }));
 
-        const endTime = Date.now();
+      const endTime = Date.now();
+      const totalTime = ((endTime - startTime) / 1000).toFixed(2);
 
-        log('\nExtracted Highlights:');
-        log(extractedHighlights);
-        log('\nMetrics:');
-        log(`- Highlight count: ${extractedHighlights.split('\n').filter(line => line.trim()).length}`);
-        log(`- Processing time: ${((endTime - startTime) / 1000).toFixed(2)} seconds`);
-      } catch (error) {
-        log('\nError occurred during processing:');
-        log(`- Prompt variation: "${name}"`);
-        log(`- Error message: ${error.message}`);
-        log(`- Stack trace: ${error.stack}`);
+      // Log results for each prompt variation
+      for (const result of results) {
+        log(`\nResults for "${result.name}" prompt variation...`);
+        log(`\system_role used:`);
+        log(`${result.system_role}`); 
+        log('----------------------------------------');
+
+        if (result.success) {
+          log('\nExtracted Highlights:');
+          log(result.highlights);
+          log('\nMetrics:');
+          log(`- Highlight count: ${result.highlights.split('\n').filter(line => line.trim()).length}`);
+        } else {
+          log('\nError occurred during processing:');
+          log(`- Prompt variation: "${result.name}"`);
+          log(`- Error message: ${result.error.message}`);
+          log(`- Stack trace: ${result.error.stack}`);
+        }
+        log('\n----------------------------------------');
       }
-      log('\n----------------------------------------\n');
+
+      log(`\nTotal processing time for all variations: ${totalTime} seconds`);
+    } catch (error) {
+      log('\nFatal error occurred:');
+      log(`- Error message: ${error.message}`);
+      log(`- Stack trace: ${error.stack}`);
     }
 
     logStream.end();

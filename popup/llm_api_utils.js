@@ -166,7 +166,7 @@ class LLM_API_Utils {
   splitTranscriptForProcessing(transcript, n) {
     // Split the transcript into lines
     const lines = transcript.split('\n');
-  
+
     // Find context and transcript sections
     const contextStartIndex = lines.findIndex(line =>
       line.includes(YoutubeTranscriptRetriever.CONTEXT_BEGINS_DELIMITER)
@@ -174,27 +174,27 @@ class LLM_API_Utils {
     const transcriptStartIndex = lines.findIndex(line =>
       line.includes(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER)
     );
-  
+
     // Extract context section (will be added to each partition)
     const contextSection = lines.slice(contextStartIndex, transcriptStartIndex + 1).join('\n');
     const transcriptLines = lines.slice(transcriptStartIndex + 1);
-  
+
     // Calculate roughly equal-sized partitions
     const linesPerPartition = Math.ceil(transcriptLines.length / n);
-    
+
     // Create partitions
     const partitions = [];
     for (let i = 0; i < n; i++) {
       const start = i * linesPerPartition;
       const end = Math.min(start + linesPerPartition, transcriptLines.length);
       const partition = transcriptLines.slice(start, end);
-      
+
       // Only add partition if it contains content
       if (partition.length > 0) {
         partitions.push(contextSection + '\n' + partition.join('\n'));
       }
     }
-  
+
     return partitions;
   }
 
@@ -204,9 +204,10 @@ class LLM_API_Utils {
    * @param {string} params.transcript - The transcript to process
    * @param {string} params.model_name - The model to use
    * @param {number} params.partitions - Number of partitions
+   * @param {string} [params.system_role] - Optional system role, defaults to this.llm_system_role
    * @returns {Promise<string>} Processed transcript
    */
-  async processTranscriptInParallel({ transcript, model_name, partitions = LLM_API_Utils.DEFAULT_PARTITIONS }) {
+  async processTranscriptInParallel({ transcript, model_name, partitions = LLM_API_Utils.DEFAULT_PARTITIONS, system_role = this.llm_system_role }) {
     // Split transcript into parts
     const parts = this.splitTranscriptForProcessing(transcript, partitions);
 
@@ -214,6 +215,7 @@ class LLM_API_Utils {
     const promises = parts.map(part =>
       this.call_llm({
         model_name,
+        system_role: system_role,
         prompt: part
       })
     );
