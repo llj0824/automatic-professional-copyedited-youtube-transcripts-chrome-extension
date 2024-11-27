@@ -185,8 +185,8 @@ Yeah, exactly. I think DeFi people love the AI coins.
 
 describe('LLM Highlight Extraction Tests', () => {
   const llmUtils = new LLM_API_Utils();
-  // const MODEL_NAME = 'chatgpt-4o-latest';
-  const MODEL_NAME = 'gpt-4o-mini';
+  const MODEL_NAME = 'chatgpt-4o-latest';
+  // const MODEL_NAME = 'gpt-4o-mini';
 
 
   // Test different prompt variations to find the most effective one
@@ -276,6 +276,7 @@ describe('LLM Highlight Extraction Tests', () => {
       `
     },
     {
+      // human feedback: Useful! - esp the Key Point 
       name: 'Viral Moments',
       prompt: `Identify the most viral-worthy moments from this transcript that would resonate on social media.
       
@@ -297,6 +298,7 @@ describe('LLM Highlight Extraction Tests', () => {
       `
     },
     {
+      // # Useful!
       name: 'Growth Hacker Format',
       prompt: `Extract content optimized for maximum social media engagement. 
       
@@ -320,6 +322,7 @@ describe('LLM Highlight Extraction Tests', () => {
       `
     },
     {
+      // human feedback: my favorite one so far...
       name: 'Alpha Leaks',
       prompt: `Extract only the highest-value alpha and insights that crypto traders/investors would want to share.
       
@@ -395,6 +398,7 @@ Format each highlight as:
 `
     },
     {
+      // // human feedback: really useful! My favorite one so far
       name: 'Practical Tips and Best Practices',
       prompt: `Identify actionable tips, best practices, or advice that the speaker provides, which the audience can apply directly.
 
@@ -543,7 +547,7 @@ Format each highlight as:
           const extractedHighlights = await llmUtils.processTranscriptInParallel({
             transcript: processedTranscript,
             model_name: MODEL_NAME,
-            partitions: LLM_API_Utils.DEFAULT_PARTITIONS,
+            partitions: 1,
             system_role: prompt  // Using the prompt variation as the system_role
           });
       

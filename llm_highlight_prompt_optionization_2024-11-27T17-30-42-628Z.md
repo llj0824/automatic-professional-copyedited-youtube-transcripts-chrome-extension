@@ -1,5 +1,5 @@
 
-Highlight Extraction Comparison Results
+Highlight Extraction Comparison Results - used GPT-4o-mini
 =====================================
 
 
