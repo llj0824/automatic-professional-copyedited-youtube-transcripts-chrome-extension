@@ -1,8 +1,8 @@
 // background/service_worker.js
-console.log('Service worker initialized');
-
 const YOUTUBE_ORIGIN = 'https://www.youtube.com';
-console.log('YouTube origin set to:', YOUTUBE_ORIGIN);
+
+// Track which tabs have the panel open
+const extensionEnabledTabs = new Set();
 
 // Configure side panel to open on action click
 console.log('Configuring side panel behavior...');
@@ -15,10 +15,9 @@ async function togglePanel(tabId, shouldOpen) {
   console.log('Toggling panel for tab:', tabId, 'shouldOpen:', shouldOpen);
   
   if (shouldOpen) {
-    panelTabs.add(tabId);
+    extensionEnabledTabs.add(tabId);
     console.log('Opening panel for tab:', tabId);
     await chrome.sidePanel.setOptions({
-      tabId,
       path: 'popup/popup.html',
       enabled: true
     });
@@ -30,32 +29,24 @@ async function togglePanel(tabId, shouldOpen) {
   }
 }
 
-// Track which tabs have the panel open
-const panelTabs = new Set();
-
-// Show alert when trying to open extension on non-YouTube sites
+// Show alert when trying to OPEN extension, this isn't called on closing extension.
 chrome.action.onClicked.addListener(async (tab) => {
-  console.log('Extension icon clicked on tab:', tab);
-  if (!tab.url || new URL(tab.url).origin !== YOUTUBE_ORIGIN) {
-    console.log('Non-YouTube site detected, showing alert. Tab URL:', tab.url);
-    alert('This extension only works on YouTube websites')
-    return;
-  }
-
+  console.log('OnClicked tab details:', tab);
+  if (!tab.url) return;
   await togglePanel(tab.id, true);
 });
 
 // Listen for tab activation changes
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
-  if (!panelTabs.has(tabId)) {
+  const tab = await chrome.tabs.get(tabId);
+  console.log('OnActivated tab details:', tab);
+  if (!extensionEnabledTabs.has(tabId)) {
     await togglePanel(tabId, false);
   }
-
-  const tab = await chrome.tabs.get(tabId);
-  console.log('Retrieved tab details:', tab);
 });
 
 // Clean up when tabs are closed
 chrome.tabs.onRemoved.addListener((tabId) => {
-  panelTabs.delete(tabId);
+  console.log('OnActivated tab details:', tabId);
+  extensionEnabledTabs.delete(tabId);
 });
