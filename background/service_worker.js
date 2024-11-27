@@ -1,5 +1,5 @@
 // background/service_worker.js
-const YOUTUBE_ORIGIN = 'https://www.youtube.com';
+const YOUTUBE_ORIGIN = 'www.youtube.com';
 
 // Configure side panel to open on action click
 console.log('Configuring side panel behavior...');
@@ -7,33 +7,38 @@ chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
   .catch((error) => console.error('Failed to set panel behavior:', error));
 
-// Toggle panel open/closed for a specific tab
-async function togglePanel(tabId, shouldOpen) {
-  const tab = await chrome.tabs.get(tabId);
-  console.log('Toggling panel for tab:', tab, 'shouldOpen:', shouldOpen);
-  
-  if (shouldOpen) {
-    console.log('Opening panel for tab:', tabId);
+// Helper: Show or hide the side panel
+async function togglePanel(tabId, shouldShow) {
+  console.log(`Toggling panel for tab ${tabId}, shouldShow: ${shouldShow}`);
+
+  if (shouldShow) {
     await chrome.sidePanel.setOptions({
-      tabId: tabId,
+      tabId,
       path: 'popup/popup.html',
       enabled: true
     });
-  } else {
-    console.log('Closing panel');
-    await chrome.sidePanel.setOptions({
-      path: 'popup/popup.html',
-      enabled: false
-    });
+    console.log('Panel opened');
+    return;
   }
+
+  await chrome.sidePanel.setOptions({
+    path: 'popup/popup.html',
+    enabled: false
+  });
+  console.log('Panel closed');
 }
 
-// Show alert when trying to OPEN extension, this isn't called on closing extension.
-chrome.action.onClicked.addListener(async (tab) => {
-  await togglePanel(tab.id, true)
+// Event: User clicks extension icon - show panel
+chrome.action.onClicked.addListener((tab) => {
+  togglePanel(tab.id, true);
 });
 
-// Listen for tab activation changes
+// Event: User switches tabs - hide panel if not on YouTube
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
-  await togglePanel(tabId, false)
+  const tab = await chrome.tabs.get(tabId);
+  const isYouTube = tab.url?.includes(YOUTUBE_ORIGIN);
+  
+  if (!isYouTube) {
+    togglePanel(tabId, false);
+  }
 });
