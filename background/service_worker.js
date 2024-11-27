@@ -1,30 +1,42 @@
 // background/service_worker.js
+const YOUTUBE_ORIGIN = 'www.youtube.com';
 
-const YOUTUBE_ORIGIN = 'https://www.youtube.com';
-
-chrome.runtime.onInstalled.addListener(() => {
-  // Optional: Perform actions on installation
-});
-
-// Allows users to open the side panel by clicking on the action toolbar icon
+// Configure side panel to open on action click
+console.log('Configuring side panel behavior...');
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch((error) => console.error(error));
+  .catch((error) => console.error('Failed to set panel behavior:', error));
 
-// Listen for tab updates to enable/disable the side panel based on the URL
-chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
-  if (!tab.url) return;
-  const url = new URL(tab.url);
-  if (url.origin === YOUTUBE_ORIGIN) {
+// Helper: Show or hide the side panel
+async function togglePanel(tabId, shouldShow) {
+  if (shouldShow) {
     await chrome.sidePanel.setOptions({
       tabId,
       path: 'popup/popup.html',
       enabled: true
     });
-  } else {
-    await chrome.sidePanel.setOptions({
-      tabId,
-      enabled: false
-    });
+    console.log('Panel opened');
+    return;
+  }
+
+  await chrome.sidePanel.setOptions({
+    path: 'popup/popup.html',
+    enabled: false
+  });
+  console.log('Panel closed');
+}
+
+// Event: User clicks extension icon - show panel
+chrome.action.onClicked.addListener((tab) => {
+  togglePanel(tab.id, true);
+});
+
+// Event: User switches tabs - hide panel if not on YouTube
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+  const tab = await chrome.tabs.get(tabId);
+  const isYouTube = tab.url?.includes(YOUTUBE_ORIGIN);
+  
+  if (!isYouTube) {
+    togglePanel(tabId, false);
   }
 });
