@@ -76,11 +76,8 @@ Format each highlight as:
 🔬 Topic: Brief title
 
 ✨ Quote (if applicable) : "Exact words from the speaker"
-
 💎 Insight: Summary of the explanation or analysis
-
 🎯 TAKEAWAY: Why this matters
-
 📝 CONTEXT: Key supporting details
 
 --- 

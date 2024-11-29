@@ -564,7 +564,8 @@ async function loadHighlightsForCurrentPage() {
  * @returns {Array} Array of current display pages.
  */
 function getCurrentDisplayPagesNumbers() {
-  return currentTab === TabState.RAW ? rawTranscriptPages : processedTranscriptPages;
+  // note: let's always use number of raw pages.
+  return rawTranscriptPages
 }
 
 
