@@ -22,6 +22,7 @@
     "test:popup_unit": "jest tests/popup_unit.test.js",
     "test:parsing_tests": "jest tests/parsing_transcript_unit.test.js",
     "test:llm_response_tests": "jest tests/llm_partition_optimization.test.js",
+    "test:llm_highlight_optimization": "jest tests/llm_highlight_prompt_optimization.test.js",
     "test:llm_api_tests": "jest tests/llm_response.test.js",
     "test:youtube_transcript_retrieval": "jest tests/youtube_transcript_retrieval.test.js",
     "build:extension": "mkdir -p dist && cp -r manifest.json popup background icons dist/",

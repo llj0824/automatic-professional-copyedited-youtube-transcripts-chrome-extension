@@ -6,8 +6,22 @@ import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 import Logger from './logger.js';
 
 
+//==============================================================================
+//                              GLOBAL VARIABLES
+//==============================================================================
+
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
+
+// Add this near other global variables
+const TabState = {
+  RAW: 'raw',
+  PROCESSED: 'processed',
+  HIGHLIGHTS: 'highlights'
+};
+
+// Replace the three boolean variables with a single state
+let currentTab = TabState.RAW;
 
 let isRawTranscriptVisible = true; // true for 'raw transcript', false for 'processed transcript'
 let rawTranscript = ""; // loaded from youtube automatically 
@@ -24,12 +38,23 @@ const logger = new Logger();
 let fontSizeDecrease, fontSizeIncrease;
 let currentFontSize = 12; // Default font size in px
 
+// Add these variables to the top-level declarations
+let highlightsDisplay, generateHighlightsBtn;
+
+// Add a variable to store highlights pages
+let highlightsPages = [];
+
+
+//==============================================================================
+//                         INITIALIZATION FUNCTIONS 
+//==============================================================================
 
 
 // Call it immediately in browser environment
 if (typeof document !== 'undefined') {
   setupPopup();
 }
+
 /**
  * Initialize the popup by loading API keys and any existing transcripts.
  * @param {Document} doc - The Document object to interact with the DOM.
@@ -42,10 +67,12 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     // this is allow for jest testing...lol
     transcriptDisplay = doc.getElementById('transcript-display');
     processedDisplay = doc.getElementById('processed-display');
+    highlightsDisplay = doc.getElementById('highlights-display');
     prevBtn = doc.getElementById('prev-btn');
     nextBtn = doc.getElementById('next-btn');
     pageInfo = doc.getElementById('page-info');
     processBtn = doc.getElementById('process-btn');
+    generateHighlightsBtn = doc.getElementById('generate-highlights-btn');
     loader = doc.getElementById('loader');
     tabButtons = doc.querySelectorAll('.tab-button');
     tabContents = doc.querySelectorAll('.tab-content');
@@ -77,6 +104,16 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
     const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
 
+    // Load highlights for current page
+    try {
+      const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
+      if (savedHighlights) {
+        highlightsPages[currentPageIndex] = savedHighlights;
+      }
+    } catch (error) {
+      console.error('Error loading highlights:', error);
+    }
+
     paginateBothTranscripts(rawTranscript, processedTranscript);
 
     // handle showing UI elements based on auto-load transcript success status
@@ -88,17 +125,177 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     // Add new setup call
     setupFontSizeControls(fontSizeDecrease, fontSizeIncrease, storageUtils);
 
+    setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils);
+
   } catch (error) {
     console.error('Error initializing popup:', error);
     transcriptDisplay.textContent = 'Error initializing popup.';
   }
 }
 
+//==============================================================================
+//                             SETUP FUNCTIONS
+//==============================================================================
+
 function setupPopup() {
   if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', () => initializePopup());
   }
 }
+
+/**
+ * Sets up tab switching functionality.
+ * @param {Document} doc - The Document object to interact with the DOM.
+ * @param {NodeList} tabButtons - The list of tab button elements.
+ * @param {NodeList} tabContents - The list of tab content elements.
+ */
+function setupTabs(doc, tabButtons, tabContents) {
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const tab = button.getAttribute('data-tab');
+      logger.logEvent(Logger.EVENTS.TAB_SWITCH, {
+        [Logger.FIELDS.TAB_NAME]: tab
+      });
+
+      // Remove active class from all buttons
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      // Add active class to clicked button
+      button.classList.add('active');
+
+      // Hide all tab contents
+      tabContents.forEach(content => content.classList.add('hidden'));
+
+      // Show corresponding tab content
+      const tabContent = doc.getElementById(tab);
+      if (tabContent) {
+        tabContent.classList.remove('hidden');
+      }
+      // on processed tab show processBtn, on highlights tab show generateHighlightsBtn
+      const processBtn = doc.getElementById('process-btn');
+      const generateHighlightsBtn = doc.getElementById('generate-highlights-btn');
+      // Update visibility state
+      currentTab = tab;
+      
+      processBtn.classList.toggle('hidden', currentTab !== TabState.PROCESSED);
+      generateHighlightsBtn.classList.toggle('hidden', currentTab !== TabState.HIGHLIGHTS);
+
+      // Update the display based on the new state
+      setRawAndProcessedTranscriptText();
+      setHighlightsTranscriptText();
+      updatePaginationButtons();
+      updatePageInfo();
+    });
+  });
+}
+
+/**
+ * Sets up the process button event listener.
+ * @param {HTMLElement} processBtn - The process button element.
+ * @param {HTMLElement} modelSelect - The model selection element.
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ */
+function setupProcessButton(processBtn, modelSelect, storageUtils) {
+  processBtn.addEventListener('click', () => handleProcessTranscriptClick(modelSelect, storageUtils));
+}
+
+// Setup load transcript button event
+function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils) {
+  loadTranscriptBtn.addEventListener('click', handleLoadTranscriptClick.bind(null, transcriptInput, storageUtils));
+}
+
+/**
+ * Sets up pagination button event listeners.
+ * @param {HTMLElement} prevBtn - The previous button element.
+ * @param {HTMLElement} nextBtn - The next button element.
+ */
+function setupPagination(prevBtn, nextBtn) {
+  // Add event listeners
+  prevBtn.addEventListener('click', handlePrevClick);
+  nextBtn.addEventListener('click', handleNextClick);
+}
+
+function setupCopyButtons(doc) {
+  const copyButtons = doc.querySelectorAll('.copy-btn');
+  copyButtons.forEach(button => {
+    button.addEventListener('click', async () => {
+      const targetId = button.getAttribute('data-target');
+      const targetElement = doc.getElementById(targetId);
+      const textToCopy = targetElement.textContent;
+      logger.logEvent(Logger.EVENTS.COPY_ATTEMPT, {
+        [Logger.FIELDS.COPY_TARGET]: targetId,
+        [Logger.FIELDS.TRANSCRIPT_LENGTH]: targetElement.textContent.length
+      });
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        logger.logEvent(Logger.EVENTS.COPY_SUCCESS, {
+          [Logger.FIELDS.COPY_TARGET]: targetId
+        });
+        const originalText = button.textContent;
+        button.textContent = '✅ Copied!';
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 2000);
+      } catch (err) {
+        logger.logEvent(Logger.EVENTS.ERROR, {
+          [Logger.FIELDS.ERROR_TYPE]: 'copy_failure',
+          [Logger.FIELDS.ERROR_MESSAGE]: err.message,
+          [Logger.FIELDS.COPY_TARGET]: targetId
+        });
+        console.error('Failed to copy text:', err);
+        button.textContent = '❌ Failed';
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 2000);
+      }
+    });
+  });
+}
+
+function setupFontSizeControls(decreaseBtn, increaseBtn, storageUtils) {
+  // Load saved font size when initializing
+  (async () => {
+    try {
+      currentFontSize = await storageUtils.loadFontSize();
+      updateFontSize();
+    } catch (error) {
+      console.error('Error loading font size:', error);
+    }
+  })();
+
+  decreaseBtn.addEventListener('click', async () => {
+    if (currentFontSize > 8) { // Minimum font size
+      currentFontSize -= 2;
+      updateFontSize();
+      try {
+        await storageUtils.saveFontSize(currentFontSize);
+      } catch (error) {
+        console.error('Error saving font size:', error);
+      }
+    }
+  });
+
+  increaseBtn.addEventListener('click', async () => {
+    if (currentFontSize < 24) { // Maximum font size
+      currentFontSize += 2;
+      updateFontSize();
+      try {
+        await storageUtils.saveFontSize(currentFontSize);
+      } catch (error) {
+        console.error('Error saving font size:', error);
+      }
+    }
+  });
+}
+
+function setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils) {
+  generateHighlightsBtn.addEventListener('click', () => handleGenerateHighlightsClick(storageUtils));
+}
+
+//==============================================================================
+//                            EVENT HANDLERS
+//==============================================================================
+
 
 function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingStatus, existingMessage) {
   const statusMessage = `YouTube Transcript: ${youtubeStatus} ${youtubeMessage}\nExisting Transcript: ${existingStatus} ${existingMessage}`;
@@ -123,6 +320,323 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
     window.alert("Unable to auto-load transcript. Please load manually.");
   }
 }
+
+// Update handleLoadTranscriptClick to remove formatting step
+async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
+  rawTranscript = transcriptInput.value.trim();
+  if (!rawTranscript) {
+    console.warn('No transcript entered.');
+    alert('Please enter a transcript.');
+    return;
+  }
+
+  paginateRawTranscript(rawTranscript);
+  setRawAndProcessedTranscriptText();
+  updatePaginationButtons();
+
+  const videoId = await storageUtils.getCurrentYouTubeVideoId();
+  if (videoId) {
+    try {
+      await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
+      alert('Transcript loaded and saved successfully!');
+    } catch (error) {
+      console.error('Error saving raw transcript:', error);
+      alert('Failed to save the raw transcript.');
+    }
+  }
+}
+
+// Event handler for previous button click
+function handlePrevClick() {
+  if (currentPageIndex > 0) {
+    logger.logEvent(Logger.EVENTS.PAGE_NAVIGATION, {
+      [Logger.FIELDS.NAVIGATION_DIRECTION]: 'prev',
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex - 1
+    });
+    currentPageIndex--;
+    setRawAndProcessedTranscriptText();
+    setHighlightsTranscriptText();
+    updatePaginationButtons();
+    updatePageInfo();
+    loadHighlightsForCurrentPage();
+  }
+}
+
+// Event handler for next button click
+function handleNextClick() {
+  const currentPages = getCurrentDisplayPagesNumbers();
+  if (currentPageIndex < currentPages.length - 1) {
+    logger.logEvent(Logger.EVENTS.PAGE_NAVIGATION, {
+      [Logger.FIELDS.NAVIGATION_DIRECTION]: 'next',
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex + 1
+    });
+    currentPageIndex++;
+    setRawAndProcessedTranscriptText();
+    setHighlightsTranscriptText();
+    updatePaginationButtons();
+    updatePageInfo();
+    loadHighlightsForCurrentPage();
+  }
+}
+
+
+/**
+ * Handles processing the transcript when the process button is clicked.
+ * @param {HTMLElement} modelSelect - The model selection element.
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ */
+async function handleProcessTranscriptClick(modelSelect, storageUtils) {
+  const selectedModel = modelSelect.value;
+
+  const currentRawPage = rawTranscriptPages[currentPageIndex];
+  const videoTitle = extractVideoTitle(currentRawPage);
+  const videoId = await storageUtils.getCurrentYouTubeVideoId();
+
+  // Log process attempt
+  logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_START, {
+    [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
+    [Logger.FIELDS.VIDEO_ID]: videoId,
+    [Logger.FIELDS.MODEL]: selectedModel,
+    [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+    [Logger.FIELDS.TRANSCRIPT_LENGTH]: rawTranscriptPages[currentPageIndex].length
+  });
+
+  if (!videoId) {
+    logger.logEvent(Logger.EVENTS.ERROR, {
+      [Logger.FIELDS.ERROR_TYPE]: 'missing_video_id',
+      [Logger.FIELDS.ERROR_MESSAGE]: 'Unable to determine YouTube Video ID'
+    });
+    alert('Unable to determine YouTube Video ID.');
+    return;
+  }
+
+  try {
+    const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
+    if (!savedTranscripts.rawTranscript) {
+      alert('No raw transcript available to process.');
+      return;
+    }
+
+    const loader = document.getElementById('loader');
+    loader.classList.remove('hidden');
+
+    // Get the current raw page
+    const currentRawPage = rawTranscriptPages[currentPageIndex];
+
+    const startTime = Date.now();
+    const processedPage = await llmUtils.processTranscriptInParallel({
+      transcript: currentRawPage,
+      model_name: selectedModel,
+      partitions: llmUtils.DEFAULT_PARTITIONS
+    });
+    const processingTime = Date.now() - startTime;
+
+    // Log successful processing
+    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_SUCCESS, {
+      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.PROCESSING_TIME]: processingTime,
+      [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentRawPage.length,
+      [Logger.FIELDS.RESPONSE_LENGTH]: processedPage.length,
+    });
+
+    // Log processed transcript result
+    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_RESULT, {
+      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+      [Logger.FIELDS.PROCESSED_TRANSCRIPT]: processedPage
+    });
+
+    // Update the processed page
+    processedTranscriptPages[currentPageIndex] = processedPage;
+    processedDisplay.textContent = processedPage;
+
+    // Combine all processed pages into a single text block
+    processedTranscript = processedTranscriptPages.join('\n');
+
+    // Save the full processed transcript
+    await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
+
+    alert('Current page processed successfully!');
+
+    // Update the display
+    setRawAndProcessedTranscriptText();
+    updatePaginationButtons();
+    updatePageInfo();
+  } catch (error) {
+    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_FAILURE, {
+      [Logger.FIELDS.ERROR_TYPE]: error.name,
+      [Logger.FIELDS.ERROR_MESSAGE]: error.message,
+      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+    });
+    console.error('Error processing transcript:', error);
+    alert('Failed to process the current page.');
+  } finally {
+    loader.classList.add('hidden');
+  }
+}
+
+async function handleGenerateHighlightsClick(storageUtils) {
+  const videoId = await storageUtils.getCurrentYouTubeVideoId();
+
+  if (!videoId) {
+    alert('Unable to determine YouTube Video ID.');
+    return;
+  }
+
+  const selectedModel = modelSelect.value;
+  const currentProcessedPage = processedTranscriptPages[currentPageIndex];
+
+  if (!currentProcessedPage || currentProcessedPage.trim() === "") {
+    alert('No processed transcript available to generate highlights.');
+    return;
+  }
+
+  logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_START, {
+    [Logger.FIELDS.VIDEO_ID]: videoId,
+    [Logger.FIELDS.MODEL]: selectedModel,
+    [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+    [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentProcessedPage.length,
+  });
+
+  try {
+    loader.classList.remove('hidden');
+
+    const llmResponse = await llmUtils.generateHighlights({
+      processedTranscript: currentProcessedPage,
+    });
+
+    // Save highlights for current page
+    highlightsPages[currentPageIndex] = llmResponse;
+    highlightsDisplay.textContent = llmResponse;
+
+    // Save the highlights for this specific page
+    await storageUtils.saveHighlightsById(videoId, currentPageIndex, llmResponse);
+
+    logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_SUCCESS, {
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+      [Logger.FIELDS.HIGHLIGHTS_LENGTH]: llmResponse.length,
+    });
+
+    alert('Highlights generated successfully!');
+  } catch (error) {
+    logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_FAILURE, {
+      [Logger.FIELDS.ERROR_TYPE]: error.name,
+      [Logger.FIELDS.ERROR_MESSAGE]: error.message,
+      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+    });
+    console.error('Error generating highlights:', error);
+    alert('Failed to generate highlights for the current page.');
+  } finally {
+    loader.classList.add('hidden');
+  }
+}
+
+// Add a function to load highlights when changing pages
+async function loadHighlightsForCurrentPage() {
+  const videoId = await storageUtils.getCurrentYouTubeVideoId();
+  if (!videoId) return;
+
+  try {
+    const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
+    if (savedHighlights) {
+      highlightsPages[currentPageIndex] = savedHighlights;
+      setHighlightsTranscriptText();
+    }
+  } catch (error) {
+    console.error('Error loading highlights for current page:', error);
+  }
+}
+
+//==============================================================================
+//                            GETTERS & UTILITIES
+//==============================================================================
+
+/**
+ * Retrieves the current set of pages based on the active tab.
+ * @returns {Array} Array of current display pages.
+ */
+function getCurrentDisplayPagesNumbers() {
+  // note: let's always use number of raw pages.
+  return rawTranscriptPages
+}
+
+
+function getTranscriptStatus(isCached, isLoadedFromYoutube) {
+  let youtubeTranscriptStatus = '⏭️';
+  let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
+  let existingTranscriptStatus = '❌';
+  let existingTranscriptMessage = 'No existing transcript found.';
+
+  if (isCached) {
+    existingTranscriptStatus = '✅';
+    existingTranscriptMessage = 'Existing transcript loaded from storage.';
+  } else if (isLoadedFromYoutube) {
+    youtubeTranscriptStatus = '✅';
+    youtubeTranscriptMessage = 'Transcript automatically retrieved from YouTube.';
+  } else {
+    youtubeTranscriptStatus = '❌';
+    youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
+  }
+
+  return {
+    youtubeTranscriptStatus,
+    youtubeTranscriptMessage,
+    existingTranscriptStatus,
+    existingTranscriptMessage
+  };
+}
+
+
+/**
+ * Extracts the video title from a transcript page's context block
+ * @param {string} rawTranscriptPage - The transcript page containing the context block
+ * @returns {string} The extracted title or an error message
+ */
+function extractVideoTitle(rawTranscriptPage) {
+  try {
+    if (!rawTranscriptPage || typeof rawTranscriptPage !== 'string') {
+      throw new Error(`Invalid transcript page: ${typeof rawTranscriptPage}`);
+    }
+
+    // The regex pattern breakdown:
+    // Title:          - Matches the literal text "Title:"
+    // \s*            - Matches zero or more whitespace characters (spaces, tabs, newlines)
+    // ([^*\n]+)      - Capture group that matches:
+    //                  [^*\n] = any character that is NOT an asterisk or newline
+    //                  + = one or more of these characters
+    //                  This ensures we stop at the next section (marked by ***) or next line
+    const titleMatch = rawTranscriptPage.match(/Title:\s*([^*\n]+)/);
+    if (!titleMatch) {
+      throw new Error('No title pattern found in context block');
+    }
+
+    return titleMatch[1];
+  } catch (error) {
+    return `Failed to retrieve title - ${error.message}`;
+  }
+}
+
+// Format time from seconds to mm:ss or hh:mm:ss with two digits for each unit
+function formatTime(seconds) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
+
+  return hrs > 0 ? `${hrs}:${mins}:${secs}` : `${mins}:${secs}`;
+}
+
+//==============================================================================
+//                            TRANSCRIPT PROCESSING
+//==============================================================================
+
 
 
 async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils) {
@@ -160,35 +674,6 @@ async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils
   return { isCached: false, isLoadedFromYoutube: false };
 }
 
-function getTranscriptStatus(isCached, isLoadedFromYoutube) {
-  let youtubeTranscriptStatus = '⏭️';
-  let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
-  let existingTranscriptStatus = '❌';
-  let existingTranscriptMessage = 'No existing transcript found.';
-
-  if (isCached) {
-    existingTranscriptStatus = '✅';
-    existingTranscriptMessage = 'Existing transcript loaded from storage.';
-  } else if (isLoadedFromYoutube) {
-    youtubeTranscriptStatus = '✅';
-    youtubeTranscriptMessage = 'Transcript automatically retrieved from YouTube.';
-  } else {
-    youtubeTranscriptStatus = '❌';
-    youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
-  }
-
-  return {
-    youtubeTranscriptStatus,
-    youtubeTranscriptMessage,
-    existingTranscriptStatus,
-    existingTranscriptMessage
-  };
-}
-
-// Setup load transcript button event
-function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils) {
-  loadTranscriptBtn.addEventListener('click', handleLoadTranscriptClick.bind(null, transcriptInput, storageUtils));
-}
 
 /**
  * Paginate the transcript into pages based on PAGE_DURATION.
@@ -322,291 +807,6 @@ function paginateProcessedTranscript(processedTranscript) {
   return paginated;
 }
 
-// Format time from seconds to mm:ss or hh:mm:ss with two digits for each unit
-function formatTime(seconds) {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-  const secs = (seconds % 60).toString().padStart(2, '0');
-
-  return hrs > 0 ? `${hrs}:${mins}:${secs}` : `${mins}:${secs}`;
-}
-
-/**
- * Displays the current page based on visibility state.
- */
-function setRawAndProcessedTranscriptText() {
-  // Visibility is handled separately via CSS classes
-  transcriptDisplay.textContent = rawTranscriptPages[currentPageIndex] || "No transcript available.";
-  processedDisplay.textContent = processedTranscriptPages[currentPageIndex] || "Processed output will appear here.";
-}
-
-/**
- * Updates the state of pagination buttons.
- */
-function updatePaginationButtons() {
-  prevBtn.disabled = currentPageIndex === 0;
-  nextBtn.disabled = currentPageIndex === (getCurrentDisplayPages().length - 1);
-}
-
-/**
- * Retrieves the current set of pages based on the active tab.
- * @returns {Array} Array of current display pages.
- */
-function getCurrentDisplayPages() {
-  return isRawTranscriptVisible ? rawTranscriptPages : processedTranscriptPages;
-}
-
-// Update handleLoadTranscriptClick to remove formatting step
-async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
-  rawTranscript = transcriptInput.value.trim();
-  if (!rawTranscript) {
-    console.warn('No transcript entered.');
-    alert('Please enter a transcript.');
-    return;
-  }
-
-  paginateRawTranscript(rawTranscript);
-  setRawAndProcessedTranscriptText();
-  updatePaginationButtons();
-
-  const videoId = await storageUtils.getCurrentYouTubeVideoId();
-  if (videoId) {
-    try {
-      await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
-      alert('Transcript loaded and saved successfully!');
-    } catch (error) {
-      console.error('Error saving raw transcript:', error);
-      alert('Failed to save the raw transcript.');
-    }
-  }
-}
-
-// Event handler for previous button click
-function handlePrevClick() {
-  if (currentPageIndex > 0) {
-    logger.logEvent(Logger.EVENTS.PAGE_NAVIGATION, {
-      [Logger.FIELDS.NAVIGATION_DIRECTION]: 'prev',
-      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex - 1
-    });
-    currentPageIndex--;
-    setRawAndProcessedTranscriptText();
-    updatePaginationButtons();
-    updatePageInfo();
-  }
-}
-
-// Event handler for next button click
-function handleNextClick() {
-  const currentPages = getCurrentDisplayPages();
-  if (currentPageIndex < currentPages.length - 1) {
-    logger.logEvent(Logger.EVENTS.PAGE_NAVIGATION, {
-      [Logger.FIELDS.NAVIGATION_DIRECTION]: 'next',
-      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex + 1
-    });
-    currentPageIndex++;
-    setRawAndProcessedTranscriptText();
-    updatePaginationButtons();
-    updatePageInfo();
-  }
-}
-
-/**
- * Sets up pagination button event listeners.
- * @param {HTMLElement} prevBtn - The previous button element.
- * @param {HTMLElement} nextBtn - The next button element.
- */
-function setupPagination(prevBtn, nextBtn) {
-  // Add event listeners
-  prevBtn.addEventListener('click', handlePrevClick);
-  nextBtn.addEventListener('click', handleNextClick);
-}
-
-/**
- * Updates the page information display.
- */
-function updatePageInfo() {
-  const currentPages = getCurrentDisplayPages();
-  pageInfo.textContent = `Page ${currentPageIndex + 1} of ${currentPages.length}`;
-}
-
-/**
- * Sets up tab switching functionality.
- * @param {Document} doc - The Document object to interact with the DOM.
- * @param {NodeList} tabButtons - The list of tab button elements.
- * @param {NodeList} tabContents - The list of tab content elements.
- */
-function setupTabs(doc, tabButtons, tabContents) {
-  tabButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const tab = button.getAttribute('data-tab');
-      logger.logEvent(Logger.EVENTS.TAB_SWITCH, {
-        [Logger.FIELDS.TAB_NAME]: tab
-      });
-
-      // Remove active class from all buttons
-      tabButtons.forEach(btn => btn.classList.remove('active'));
-      // Add active class to clicked button
-      button.classList.add('active');
-
-      // Hide all tab contents
-      tabContents.forEach(content => content.classList.add('hidden'));
-
-      // Show corresponding tab content
-      const tabContent = doc.getElementById(tab);
-      if (tabContent) {
-        tabContent.classList.remove('hidden');
-      }
-
-      // Update the isRawTranscriptVisible state
-      isRawTranscriptVisible = (tab === 'raw');
-
-      // Update the display based on the new state
-      setRawAndProcessedTranscriptText();
-      updatePaginationButtons();
-      updatePageInfo();
-    });
-  });
-}
-
-/**
- * Sets up the process button event listener.
- * @param {HTMLElement} processBtn - The process button element.
- * @param {HTMLElement} modelSelect - The model selection element.
- * @param {StorageUtils} storageUtils - The StorageUtils instance.
- */
-function setupProcessButton(processBtn, modelSelect, storageUtils) {
-  processBtn.addEventListener('click', () => handleProcessTranscriptClick(modelSelect, storageUtils));
-}
-
-/**
- * Handles processing the transcript when the process button is clicked.
- * @param {HTMLElement} modelSelect - The model selection element.
- * @param {StorageUtils} storageUtils - The StorageUtils instance.
- */
-async function handleProcessTranscriptClick(modelSelect, storageUtils) {
-  const selectedModel = modelSelect.value;
-
-  const currentRawPage = rawTranscriptPages[currentPageIndex];
-  const videoTitle = extractVideoTitle(currentRawPage);
-  const videoId = await storageUtils.getCurrentYouTubeVideoId();
-
-  // Log process attempt
-  logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_START, {
-    [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
-    [Logger.FIELDS.VIDEO_ID]: videoId,
-    [Logger.FIELDS.MODEL]: selectedModel,
-    [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
-    [Logger.FIELDS.TRANSCRIPT_LENGTH]: rawTranscriptPages[currentPageIndex].length
-  });
-
-  if (!videoId) {
-    logger.logEvent(Logger.EVENTS.ERROR, {
-      [Logger.FIELDS.ERROR_TYPE]: 'missing_video_id',
-      [Logger.FIELDS.ERROR_MESSAGE]: 'Unable to determine YouTube Video ID'
-    });
-    alert('Unable to determine YouTube Video ID.');
-    return;
-  }
-
-  try {
-    const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
-    if (!savedTranscripts.rawTranscript) {
-      alert('No raw transcript available to process.');
-      return;
-    }
-
-    const loader = document.getElementById('loader');
-    loader.classList.remove('hidden');
-
-    // Get the current raw page
-    const currentRawPage = rawTranscriptPages[currentPageIndex];
-
-    const startTime = Date.now();
-    const processedPage = await llmUtils.processTranscriptInParallel({
-      transcript: currentRawPage,
-      model_name: selectedModel,
-      partitions: llmUtils.DEFAULT_PARTITIONS
-    });
-    const processingTime = Date.now() - startTime;
-
-    // Log successful processing
-    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_SUCCESS, {
-      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
-      [Logger.FIELDS.VIDEO_ID]: videoId,
-      [Logger.FIELDS.MODEL]: selectedModel,
-      [Logger.FIELDS.PROCESSING_TIME]: processingTime,
-      [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentRawPage.length,
-      [Logger.FIELDS.RESPONSE_LENGTH]: processedPage.length,
-    });
-
-    // Log processed transcript result
-    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_RESULT, {
-      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
-      [Logger.FIELDS.VIDEO_ID]: videoId,
-      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
-      [Logger.FIELDS.PROCESSED_TRANSCRIPT]: processedPage
-    });
-
-    // Update the processed page
-    processedTranscriptPages[currentPageIndex] = processedPage;
-    processedDisplay.textContent = processedPage;
-
-    // Combine all processed pages into a single text block
-    processedTranscript = processedTranscriptPages.join('\n');
-
-    // Save the full processed transcript
-    await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
-
-    alert('Current page processed successfully!');
-
-    // Update the display
-    setRawAndProcessedTranscriptText();
-    updatePaginationButtons();
-    updatePageInfo();
-  } catch (error) {
-    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_FAILURE, {
-      [Logger.FIELDS.ERROR_TYPE]: error.name,
-      [Logger.FIELDS.ERROR_MESSAGE]: error.message,
-      [Logger.FIELDS.MODEL]: selectedModel,
-      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
-      [Logger.FIELDS.VIDEO_ID]: videoId,
-    });
-    console.error('Error processing transcript:', error);
-    alert('Failed to process the current page.');
-  } finally {
-    loader.classList.add('hidden');
-  }
-}
-
-/**
- * Extracts the video title from a transcript page's context block
- * @param {string} rawTranscriptPage - The transcript page containing the context block
- * @returns {string} The extracted title or an error message
- */
-function extractVideoTitle(rawTranscriptPage) {
-  try {
-    if (!rawTranscriptPage || typeof rawTranscriptPage !== 'string') {
-      throw new Error(`Invalid transcript page: ${typeof rawTranscriptPage}`);
-    }
-
-    // The regex pattern breakdown:
-    // Title:          - Matches the literal text "Title:"
-    // \s*            - Matches zero or more whitespace characters (spaces, tabs, newlines)
-    // ([^*\n]+)      - Capture group that matches:
-    //                  [^*\n] = any character that is NOT an asterisk or newline
-    //                  + = one or more of these characters
-    //                  This ensures we stop at the next section (marked by ***) or next line
-    const titleMatch = rawTranscriptPage.match(/Title:\s*([^*\n]+)/);
-    if (!titleMatch) {
-      throw new Error('No title pattern found in context block');
-    }
-
-    return titleMatch[1];
-  } catch (error) {
-    return `Failed to retrieve title - ${error.message}`;
-  }
-}
-
 
 /**
  * TODO: parameterize number of  partitions, n
@@ -666,86 +866,48 @@ function splitTranscriptPage(page) {
   return { firstHalf, secondHalf };
 }
 
-// Add this new function
-function setupCopyButtons(doc) {
-  const copyButtons = doc.querySelectorAll('.copy-btn');
-  copyButtons.forEach(button => {
-    button.addEventListener('click', async () => {
-      const targetId = button.getAttribute('data-target');
-      const targetElement = doc.getElementById(targetId);
-      const textToCopy = targetElement.textContent;
-      logger.logEvent(Logger.EVENTS.COPY_ATTEMPT, {
-        [Logger.FIELDS.COPY_TARGET]: targetId,
-        [Logger.FIELDS.TRANSCRIPT_LENGTH]: targetElement.textContent.length
-      });
+//==============================================================================
+//                            UI UPDATES
+//==============================================================================
 
-      try {
-        await navigator.clipboard.writeText(textToCopy);
-        logger.logEvent(Logger.EVENTS.COPY_SUCCESS, {
-          [Logger.FIELDS.COPY_TARGET]: targetId
-        });
-        const originalText = button.textContent;
-        button.textContent = '✅ Copied!';
-        setTimeout(() => {
-          button.textContent = originalText;
-        }, 2000);
-      } catch (err) {
-        logger.logEvent(Logger.EVENTS.ERROR, {
-          [Logger.FIELDS.ERROR_TYPE]: 'copy_failure',
-          [Logger.FIELDS.ERROR_MESSAGE]: err.message,
-          [Logger.FIELDS.COPY_TARGET]: targetId
-        });
-        console.error('Failed to copy text:', err);
-        button.textContent = '❌ Failed';
-        setTimeout(() => {
-          button.textContent = originalText;
-        }, 2000);
-      }
-    });
-  });
+
+/**
+ * Displays the current page based on visibility state.
+ */
+function setRawAndProcessedTranscriptText() {
+  // Visibility is handled separately via CSS classes
+  transcriptDisplay.textContent = rawTranscriptPages[currentPageIndex] || "No transcript available.";
+  processedDisplay.textContent = processedTranscriptPages[currentPageIndex] || "Processed output will appear here.";
 }
 
-// Add this new function
-function setupFontSizeControls(decreaseBtn, increaseBtn, storageUtils) {
-  // Load saved font size when initializing
-  (async () => {
-    try {
-      currentFontSize = await storageUtils.loadFontSize();
-      updateFontSize();
-    } catch (error) {
-      console.error('Error loading font size:', error);
-    }
-  })();
-
-  decreaseBtn.addEventListener('click', async () => {
-    if (currentFontSize > 8) { // Minimum font size
-      currentFontSize -= 2;
-      updateFontSize();
-      try {
-        await storageUtils.saveFontSize(currentFontSize);
-      } catch (error) {
-        console.error('Error saving font size:', error);
-      }
-    }
-  });
-
-  increaseBtn.addEventListener('click', async () => {
-    if (currentFontSize < 24) { // Maximum font size
-      currentFontSize += 2;
-      updateFontSize();
-      try {
-        await storageUtils.saveFontSize(currentFontSize);
-      } catch (error) {
-        console.error('Error saving font size:', error);
-      }
-    }
-  });
+/**
+ * Updates the state of pagination buttons.
+ */
+function updatePaginationButtons() {
+  prevBtn.disabled = currentPageIndex === 0;
+  nextBtn.disabled = currentPageIndex === (getCurrentDisplayPagesNumbers().length - 1);
+}
+/**
+ * Updates the page information display.
+ */
+function updatePageInfo() {
+  const currentPages = getCurrentDisplayPagesNumbers();
+  pageInfo.textContent = `Page ${currentPageIndex + 1} of ${currentPages.length}`;
 }
 
 function updateFontSize() {
   transcriptDisplay.style.fontSize = `${currentFontSize}px`;
   processedDisplay.style.fontSize = `${currentFontSize}px`;
+  highlightsDisplay.style.fontSize = `${currentFontSize}px`;
 }
+
+function setHighlightsTranscriptText() {
+  highlightsDisplay.textContent = highlightsPages[currentPageIndex] || "Highlights will appear here.";
+}
+
+//==============================================================================
+//                            EVENT HANDLERS
+//==============================================================================
 
 // Export the functions for testing purposes
 export {

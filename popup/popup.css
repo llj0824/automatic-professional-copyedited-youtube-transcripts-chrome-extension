@@ -75,7 +75,8 @@ h2, h3 {
 }
 
 #transcript-display,
-#processed-display {
+#processed-display,
+#highlights-display {
   white-space: pre-wrap;
   word-wrap: break-word;
   font-size: 12px; /* This will now be controlled dynamically */
@@ -98,7 +99,8 @@ h2, h3 {
   align-items: center;
 }
 
-#process-btn {
+#process-btn,
+#generate-highlights-btn {
   padding: 8px 16px;
   cursor: pointer;
   background-color: #2196F3;
@@ -109,15 +111,18 @@ h2, h3 {
   transition: background-color 0.2s;
 }
 
-#process-btn:hover {
+#process-btn:hover,
+#generate-highlights-btn:hover {
   background-color: #1976D2;
 }
 
-#process-btn:active {
+#process-btn:active,
+#generate-highlights-btn:active {
   background-color: #1565C0;
 }
 
-#process-btn:disabled {
+#process-btn:disabled,
+#generate-highlights-btn:disabled {
   background-color: #BDBDBD;
   cursor: not-allowed;
 }
@@ -195,4 +200,12 @@ h2, h3 {
 
 .font-controls button:hover {
   background-color: #e0e0e0;
+}
+
+/* Add any additional styles for the Highlights tab */
+
+/* Ensure the tab content takes full width */
+.tab-content {
+  /* ... existing styles ... */
+  width: 100%;
 }
