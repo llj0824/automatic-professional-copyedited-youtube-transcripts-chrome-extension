@@ -1,8 +1,11 @@
 import LLM_API_Utils from '../popup/llm_api_utils.js';
 import fs from 'fs';
 
-// Sample processed transcript segment
-export const processedTranscript = `
+// Sample processed transcripts with toggle flags
+export const TRANSCRIPTS = {
+  memecoinInterview: {
+    enabled: true,
+    content: `
 
 *** Background Context ***
 Title: Make Generational Wealth with Memecoins w/ Murad
@@ -181,7 +184,16 @@ At least with dog coins, it's like, "Oh yeah, it's a cute dog." But with an AI a
 Host:  
 Yeah, exactly. I think DeFi people love the AI coins.  
 
-`;
+`
+  },
+  // Add more transcripts here like:
+  otherInterview: {
+    enabled: false,
+    content: `
+    // Your other transcript content
+    `
+  }
+};
 
 describe('LLM Highlight Extraction Tests', () => {
   const llmUtils = new LLM_API_Utils();
@@ -192,113 +204,6 @@ describe('LLM Highlight Extraction Tests', () => {
   // Test different prompt variations to find the most effective one
   const PROMPT_VARIATIONS = [
     {
-      // human feedback: basically copied everything...
-      name: 'Basic Highlight Extraction',
-      prompt: `Please analyze this transcript and extract only the most important highlights. 
-      Focus on information that is either:
-      1. Worth verifying (factual claims, statistics, historical events)
-      2. Actionable insights (predictions, wisdom, current state observations)
-      
-      Format each highlight as:
-      [Timestamp] 
-      Highlight text
-      
-      
-      `
-    },
-    {
-      // human feedback: basically copied everything...
-      name: 'Structured Analysis',
-      prompt: `Review this transcript and identify key information in these categories:
-
-      VERIFIABLE CLAIMS:
-      - Historical data
-      - Statistics
-      - Market trends
-      - Industry facts
-      
-      ACTIONABLE INSIGHTS:
-      - Future predictions
-      - Strategic observations
-      - Current state analysis
-      - Wisdom/lessons learned
-      
-      For each highlight, include:
-      - Timestamp
-      - Speaker
-      - Category
-      - The specific claim/insight
-      - Why it's significant
-      
-      
-      `
-    },
-    {
-      name: 'Concise Bullet Points',
-      prompt: `Extract only the most significant information from this transcript that meets these criteria:
-
-      1. VERIFY if it's:
-         - A specific numerical claim
-         - A historical statement
-         - A market trend assertion
-         - An industry-wide observation
-      
-      2. ACTIONABLE if it's:
-         - A future prediction
-         - A strategic insight
-         - A current state assessment
-         - A transferable lesson
-      
-      Format as bullet points:
-      • [VERIFY/ACTIONABLE] [Timestamp] - Highlight
-      
-      Focus on quality over quantity. Only include truly significant points.
-      
-      
-      `
-    },
-    {
-      name: 'Twitter Thread Format',
-      prompt: `Extract the most engaging and shareable insights from this transcript, formatted for a Twitter thread.
-      
-      For each highlight:
-      1. Must be self-contained and interesting on its own
-      2. Should be tweetable (compelling, clear, concise)
-      3. Should provide value (insights, alpha, predictions, or key learnings)
-      
-      Format each highlight as:
-      [XX:XX -> YY:YY]
-      💡 Tweet-worthy insight here
-      
-      Keep each highlight under 280 characters. Focus on moments that would make readers want to engage/share.
-      
-      
-      `
-    },
-    {
-      // human feedback: Useful! - esp the Key Point 
-      name: 'Viral Moments',
-      prompt: `Identify the most viral-worthy moments from this transcript that would resonate on social media.
-      
-      Look for:
-      - Bold predictions
-      - Controversial takes
-      - "Alpha" insights
-      - Memorable quotes
-      - Mind-shifting perspectives
-      - Key market insights
-      
-      Format as:
-      [Timestamp Range]
-      🔥 KEY POINT: One-line summary
-      🎯 DETAILS: 1-2 sentences expanding on the point
-      #relevanthashtags
-      
-      
-      `
-    },
-    {
-      // # Useful!
       name: 'Growth Hacker Format',
       prompt: `Extract content optimized for maximum social media engagement. 
       
@@ -320,46 +225,6 @@ describe('LLM Highlight Extraction Tests', () => {
       
       
       `
-    },
-    {
-      // human feedback: my favorite one so far...
-      name: 'Alpha Leaks',
-      prompt: `Extract only the highest-value alpha and insights that crypto traders/investors would want to share.
-      
-      Focus on:
-      - Market predictions
-      - Trading insights
-      - Emerging trends
-      - Strategic frameworks
-      - Industry-shifting takes
-      
-      Format as:
-      [Timestamp]
-      🚨 ALPHA: One-line hook
-      📈 INSIGHT: Key details (2-3 bullets)
-      
-      Prioritize information that would make people stop scrolling and engage.
-      
-      
-      `
-    },
-    {
-      name: 'Personal Anecdotes and Stories',
-      prompt: `Identify moments in the transcript where the speaker shares personal anecdotes, experiences, or stories that are insightful or inspiring.
-
-Focus on:
-- Personal challenges overcome
-- Lessons learned from experience
-- Inspirational success stories
-- Humorous or relatable incidents
-
-Format each highlight as:
-[Timestamp]
-🗣️ Speaker: Brief description of the story
-📖 Story: Key details in 2-3 sentences
-
-
-`
     },
     {
       name: 'Deep Dive Technical Insights',
@@ -398,43 +263,6 @@ Format each highlight as:
 `
     },
     {
-      // // human feedback: really useful! My favorite one so far
-      name: 'Practical Tips and Best Practices',
-      prompt: `Identify actionable tips, best practices, or advice that the speaker provides, which the audience can apply directly.
-
-Look for:
-- Step-by-step guidelines
-- Practical recommendations
-- Do's and don'ts in the industry
-- Efficiency or productivity hacks
-
-Format each highlight as:
-[Timestamp]
-💡 Tip: Brief description
-🛠️ How-To: Instructions or advice in bullet points
-
-
-`
-    },
-    {
-      name: 'Lessons from Failures and Challenges',
-      prompt: `Extract moments where the speaker discusses failures, challenges faced, and the lessons learned from them.
-
-Focus on:
-- Mistakes made and their impact
-- Obstacles overcome
-- Key takeaways from difficult experiences
-- Advice on avoiding similar pitfalls
-
-Format each highlight as:
-[Timestamp]
-🛑 Challenge Faced: Brief description
-✅ Lesson Learned: Summary of the insight gained
-
-
-`
-    },
-    {
       name: 'Inspirational Quotes and Philosophy',
       prompt: `Find powerful quotes, philosophical reflections, or motivational statements made by the speaker that could inspire the audience.
 
@@ -448,82 +276,33 @@ Format each highlight as:
 [Timestamp]
 ✨ Quote: "Exact words from the speaker"
 🌟 Reflection: Brief explanation or context
-
-
 `
     },
     {
-      name: 'Emerging Trends and Future Outlooks',
-      prompt: `Identify segments where the speaker discusses emerging trends, future predictions, or the evolution of the industry.
+      name: 'Hook And Retain Insights',
+      prompt: `You are an expert content curator focused on extracting high-value insights that crypto/tech professionals would immediately stop scrolling for.
 
-Focus on:
-- Upcoming technologies or innovations
-- Market shifts and predictions
-- Vision for the future
-- Implications of current developments
+Focus on moments that are:
+- Contrarian or surprising alpha
+- Data-backed insights
+- Strategic frameworks
+- Industry-shifting predictions
 
-Format each highlight as:
-[Timestamp]
-🚀 Trend/Prediction: Brief summary
-🔭 Insight: Analysis or expected impact in 1-2 sentences
+For each highlight:
+[XX:XX -> YY:YY]
+🔥 HOOK: One-line attention grab (prioritize surprising/contrarian elements)
+💎 ALPHA: Key insight or prediction (2-3 bullet points max)
+🎯 WHY IT MATTERS: Single line on strategic importance
 
+Rules:
+- Lead with the most surprising/valuable element
+- Keep everything concise and punchy
+- Focus on source insights over commentary
+- Only include truly high-signal moments
+- Write for sophisticated traders/builders who want an edge
 
-`
+Aim to make each highlight feel like discovering insider knowledge.`
     },
-    {
-      name: 'Clarifying Complex Concepts',
-      prompt: `Extract moments where the speaker simplifies or clarifies complex concepts, making them accessible to a broader audience.
-
-Look for:
-- Simplified explanations of difficult ideas
-- Analogies or metaphors used
-- Clarification of jargon or technical terms
-- Step-by-step breakdowns
-
-Format each highlight as:
-[Timestamp]
-🔎 Concept: Name of the concept
-📣 Explanation: Simplified description in plain language
-
-
-`
-    },
-    {
-      name: 'Audience Engagement and Q&A',
-      prompt: `Identify interactions where the speaker responds to audience questions, providing valuable answers or engaging discussions.
-
-Focus on:
-- Direct responses to questions
-- Interactive discussions
-- Clarifications provided
-- Noteworthy audience contributions
-
-Format each highlight as:
-[Timestamp]
-❓ Question: Summary of the audience query
-💬 Answer: Key points from the speaker's response
-
-
-`
-    },
-    {
-      name: 'Ethical and Societal Implications',
-      prompt: `Highlight discussions about the ethical, social, or environmental implications of technology and industry developments.
-
-Look for:
-- Ethical dilemmas presented
-- Social impact considerations
-- Discussions on sustainability
-- Calls to action for responsibility
-
-Format each highlight as:
-[Timestamp]
-⚖️ Topic: Brief description
-🌍 Implication: Summary of the ethical or societal impact
-
-
-`
-    }
   ];
 
   beforeAll(async () => {
@@ -541,55 +320,62 @@ Format each highlight as:
 
     const startTime = Date.now();
     try {
-      // Run all prompt variations in parallel
-      const results = await Promise.all(PROMPT_VARIATIONS.map(async ({ name, prompt }) => {
-        try {
-          const extractedHighlights = await llmUtils.processTranscriptInParallel({
-            transcript: processedTranscript,
-            model_name: MODEL_NAME,
-            partitions: 1,
-            system_role: prompt  // Using the prompt variation as the system_role
-          });
-      
-          return {
-            name: name,
-            system_role: prompt,
-            success: true,
-            highlights: extractedHighlights
-          };
-        } catch (error) {
-          return {
-            name,
-            success: false,
-            error: error
-          };
+      // Process each enabled transcript
+      for (const [transcriptName, transcriptData] of Object.entries(TRANSCRIPTS)) {
+        if (!transcriptData.enabled) continue;
+
+        log(`\nProcessing transcript: ${transcriptName}`);
+        log('----------------------------------------');
+
+        // Run all prompt variations for this transcript
+        const results = await Promise.all(PROMPT_VARIATIONS.map(async ({ name, prompt }) => {
+          try {
+            const extractedHighlights = await llmUtils.processTranscriptInParallel({
+              transcript: transcriptData.content,
+              model_name: MODEL_NAME,
+              partitions: 1,
+              system_role: prompt
+            });
+        
+            return {
+              name: name,
+              system_role: prompt,
+              success: true,
+              highlights: extractedHighlights
+            };
+          } catch (error) {
+            return {
+              name,
+              success: false,
+              error: error
+            };
+          }
+        }));
+
+        // Log results for each prompt variation
+        for (const result of results) {
+          log(`\nResults for "${result.name}" prompt variation...`);
+          log(`\system_role used:`);
+          log(`${result.system_role}`); 
+          log('----------------------------------------');
+
+          if (result.success) {
+            log('\nExtracted Highlights:');
+            log(result.highlights);
+            log('\nMetrics:');
+            log(`- Highlight count: ${result.highlights.split('\n').filter(line => line.trim()).length}`);
+          } else {
+            log('\nError occurred during processing:');
+            log(`- Prompt variation: "${result.name}"`);
+            log(`- Error message: ${result.error.message}`);
+            log(`- Stack trace: ${result.error.stack}`);
+          }
+          log('\n----------------------------------------');
         }
-      }));
+      }
 
       const endTime = Date.now();
       const totalTime = ((endTime - startTime) / 1000).toFixed(2);
-
-      // Log results for each prompt variation
-      for (const result of results) {
-        log(`\nResults for "${result.name}" prompt variation...`);
-        log(`\system_role used:`);
-        log(`${result.system_role}`); 
-        log('----------------------------------------');
-
-        if (result.success) {
-          log('\nExtracted Highlights:');
-          log(result.highlights);
-          log('\nMetrics:');
-          log(`- Highlight count: ${result.highlights.split('\n').filter(line => line.trim()).length}`);
-        } else {
-          log('\nError occurred during processing:');
-          log(`- Prompt variation: "${result.name}"`);
-          log(`- Error message: ${result.error.message}`);
-          log(`- Stack trace: ${result.error.stack}`);
-        }
-        log('\n----------------------------------------');
-      }
-
       log(`\nTotal processing time for all variations: ${totalTime} seconds`);
     } catch (error) {
       log('\nFatal error occurred:');
@@ -598,7 +384,7 @@ Format each highlight as:
     }
 
     logStream.end();
-  }, 600000); // 10 minutes timeout
+  }, 600000);
 
   test('Placeholder test to satisfy jest', () => {
     expect(true).toBe(true);
