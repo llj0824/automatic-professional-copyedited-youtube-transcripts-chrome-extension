@@ -52,38 +52,6 @@ class LLM_API_Utils {
     - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue.
     - Never truncate the output or ask for permission to continue - process the entire input segment`
 
-    // System role for generating highlights
-    this.llm_highlights_system_role = `
-Extract segments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in philosophical reflections, or statements that could inspire thought, provides expert analysis on complex topics 
-
-Identify moments that are:
-- Highly quotable
-- Contrarian/surprising
-- Data-driven
-- Actionable
-- Story-driven
-
-Look for:
-- Unpopular or bold statements
-- Memorable one-liners
-- Counterarguments to common beliefs
-- Advanced strategies or methodologies
-- Clarification of common misconceptions
-- Confirmation of existing beliefs.
-
-Format each highlight as:
-[Timestamp]
-🔬 Topic: Brief title
-
-✨ Quote (if applicable) : "Exact words from the speaker"
-💎 Insight: Summary of the explanation or analysis
-🎯 TAKEAWAY: Why this matters
-📝 CONTEXT: Key supporting details
-
---- 
-
-Two sentence summary of highlight in viewpoint of the reader.
-`;
   }
   // Simple but sufficient for initial launch
   // the api_key has a limit of like ten dollars, so even if cracked, it's not a big deal.
@@ -198,7 +166,7 @@ Two sentence summary of highlight in viewpoint of the reader.
   splitTranscriptForProcessing(transcript, n) {
     // Split the transcript into lines
     const lines = transcript.split('\n');
-
+  
     // Find context and transcript sections
     const contextStartIndex = lines.findIndex(line =>
       line.includes(YoutubeTranscriptRetriever.CONTEXT_BEGINS_DELIMITER)
@@ -206,27 +174,34 @@ Two sentence summary of highlight in viewpoint of the reader.
     const transcriptStartIndex = lines.findIndex(line =>
       line.includes(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER)
     );
-
+  
     // Extract context section (will be added to each partition)
     const contextSection = lines.slice(contextStartIndex, transcriptStartIndex + 1).join('\n');
     const transcriptLines = lines.slice(transcriptStartIndex + 1);
-
+  
+    // Filter out empty lines and ensure we have valid timestamps
+    const validTranscriptLines = transcriptLines.filter(line => {
+      // Updated regex to handle HH:MM:SS format
+      const match = line.match(/\[(\d+):(\d+)(?::(\d+))?\]/);
+      return match && line.trim().length > 0;
+    });
+  
     // Calculate roughly equal-sized partitions
-    const linesPerPartition = Math.ceil(transcriptLines.length / n);
-
+    const linesPerPartition = Math.ceil(validTranscriptLines.length / n);
+    
     // Create partitions
     const partitions = [];
     for (let i = 0; i < n; i++) {
       const start = i * linesPerPartition;
-      const end = Math.min(start + linesPerPartition, transcriptLines.length);
-      const partition = transcriptLines.slice(start, end);
-
+      const end = Math.min(start + linesPerPartition, validTranscriptLines.length);
+      const partition = validTranscriptLines.slice(start, end);
+      
       // Only add partition if it contains content
       if (partition.length > 0) {
         partitions.push(contextSection + '\n' + partition.join('\n'));
       }
     }
-
+  
     return partitions;
   }
 
@@ -236,10 +211,9 @@ Two sentence summary of highlight in viewpoint of the reader.
    * @param {string} params.transcript - The transcript to process
    * @param {string} params.model_name - The model to use
    * @param {number} params.partitions - Number of partitions
-   * @param {string} [params.system_role] - Optional system role, defaults to this.llm_system_role
    * @returns {Promise<string>} Processed transcript
    */
-  async processTranscriptInParallel({ transcript, model_name, partitions = LLM_API_Utils.DEFAULT_PARTITIONS, system_role = this.llm_system_role }) {
+  async processTranscriptInParallel({ transcript, model_name, partitions = LLM_API_Utils.DEFAULT_PARTITIONS }) {
     // Split transcript into parts
     const parts = this.splitTranscriptForProcessing(transcript, partitions);
 
@@ -247,7 +221,6 @@ Two sentence summary of highlight in viewpoint of the reader.
     const promises = parts.map(part =>
       this.call_llm({
         model_name,
-        system_role: system_role,
         prompt: part
       })
     );
@@ -257,27 +230,6 @@ Two sentence summary of highlight in viewpoint of the reader.
 
     // Combine results
     return results.join('\n\n');
-  }
-
-  // Add the new method
-  async generateHighlights({ processedTranscript, model_name="chatgpt-4o-latest", max_tokens = 10000, temperature = 0.4 }) {
-    try {
-      const system_role = this.llm_highlights_system_role;
-
-      // Call the LLM with the processed transcript
-      const highlights = await this.call_llm({
-        model_name,
-        system_role,
-        prompt: processedTranscript,
-        max_tokens,
-        temperature,
-      });
-
-      return highlights;
-    } catch (error) {
-      console.error("Error generating highlights:", error);
-      throw error;
-    }
   }
 }
 
