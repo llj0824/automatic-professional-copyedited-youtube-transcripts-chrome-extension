@@ -67,10 +67,12 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     // this is allow for jest testing...lol
     transcriptDisplay = doc.getElementById('transcript-display');
     processedDisplay = doc.getElementById('processed-display');
+    highlightsDisplay = doc.getElementById('highlights-display');
     prevBtn = doc.getElementById('prev-btn');
     nextBtn = doc.getElementById('next-btn');
     pageInfo = doc.getElementById('page-info');
     processBtn = doc.getElementById('process-btn');
+    generateHighlightsBtn = doc.getElementById('generate-highlights-btn');
     loader = doc.getElementById('loader');
     tabButtons = doc.querySelectorAll('.tab-button');
     tabContents = doc.querySelectorAll('.tab-content');
@@ -81,10 +83,6 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     // Add new element declarations
     fontSizeDecrease = doc.getElementById('font-size-decrease');
     fontSizeIncrease = doc.getElementById('font-size-increase');
-
-    // Get references to the new elements
-    highlightsDisplay = doc.getElementById('highlights-display');
-    generateHighlightsBtn = doc.getElementById('generate-highlights-btn');
 
     setupTabs(doc, tabButtons, tabContents);
     setupProcessButton(processBtn, modelSelect, storageUtils);
@@ -899,6 +897,7 @@ function updatePageInfo() {
 function updateFontSize() {
   transcriptDisplay.style.fontSize = `${currentFontSize}px`;
   processedDisplay.style.fontSize = `${currentFontSize}px`;
+  highlightsDisplay.style.fontSize = `${currentFontSize}px`;
 }
 
 function setHighlightsTranscriptText() {

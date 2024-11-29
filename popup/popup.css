@@ -75,7 +75,8 @@ h2, h3 {
 }
 
 #transcript-display,
-#processed-display {
+#processed-display,
+#highlights-display {
   white-space: pre-wrap;
   word-wrap: break-word;
   font-size: 12px; /* This will now be controlled dynamically */
