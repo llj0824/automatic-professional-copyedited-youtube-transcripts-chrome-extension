@@ -52,6 +52,41 @@ class LLM_API_Utils {
     - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue.
     - Never truncate the output or ask for permission to continue - process the entire input segment`
 
+    // System role for generating highlights
+    this.llm_highlights_system_role = `
+Extract segments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in philosophical reflections, or statements that could inspire thought, provides expert analysis on complex topics 
+
+Identify moments that are:
+- Highly quotable
+- Contrarian/surprising
+- Data-driven
+- Actionable
+- Story-driven
+
+Look for:
+- Unpopular or bold statements
+- Memorable one-liners
+- Counterarguments to common beliefs
+- Advanced strategies or methodologies
+- Clarification of common misconceptions
+- Confirmation of existing beliefs.
+
+Format each highlight as:
+[Timestamp]
+🔬 Topic: Brief title
+
+✨ Quote (if applicable) : "Exact words from the speaker"
+
+💎 Insight: Summary of the explanation or analysis
+
+🎯 TAKEAWAY: Why this matters
+
+📝 CONTEXT: Key supporting details
+
+--- 
+
+Two sentence summary of highlight in viewpoint of the reader.
+`;
   }
   // Simple but sufficient for initial launch
   // the api_key has a limit of like ten dollars, so even if cracked, it's not a big deal.
@@ -225,6 +260,27 @@ class LLM_API_Utils {
 
     // Combine results
     return results.join('\n\n');
+  }
+
+  // Add the new method
+  async generateHighlights({ processedTranscript, model_name="chatgpt-4o-latest", max_tokens = 10000, temperature = 0.4 }) {
+    try {
+      const system_role = this.llm_highlights_system_role;
+
+      // Call the LLM with the processed transcript
+      const highlights = await this.call_llm({
+        model_name,
+        system_role,
+        prompt: processedTranscript,
+        max_tokens,
+        temperature,
+      });
+
+      return highlights;
+    } catch (error) {
+      console.error("Error generating highlights:", error);
+      throw error;
+    }
   }
 }
 

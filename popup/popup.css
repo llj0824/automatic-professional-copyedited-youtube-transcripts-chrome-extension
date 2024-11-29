@@ -196,3 +196,26 @@ h2, h3 {
 .font-controls button:hover {
   background-color: #e0e0e0;
 }
+
+/* Add any additional styles for the Highlights tab */
+
+/* Ensure the tab content takes full width */
+.tab-content {
+  /* ... existing styles ... */
+  width: 100%;
+}
+
+/* Optional: Style the generate highlights button */
+#generate-highlights-btn {
+  margin-left: 10px;
+  padding: 4px 8px;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+#generate-highlights-btn:hover {
+  background-color: #e0e0e0;
+}

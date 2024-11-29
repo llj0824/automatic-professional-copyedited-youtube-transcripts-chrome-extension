@@ -28,6 +28,12 @@ const logger = new Logger();
 let fontSizeDecrease, fontSizeIncrease;
 let currentFontSize = 12; // Default font size in px
 
+// Add these variables to the top-level declarations
+let highlightsDisplay, generateHighlightsBtn;
+
+// Add a variable to store highlights pages
+let highlightsPages = [];
+
 
 //==============================================================================
 //                         INITIALIZATION FUNCTIONS 
@@ -66,6 +72,10 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     fontSizeDecrease = doc.getElementById('font-size-decrease');
     fontSizeIncrease = doc.getElementById('font-size-increase');
 
+    // Get references to the new elements
+    highlightsDisplay = doc.getElementById('highlights-display');
+    generateHighlightsBtn = doc.getElementById('generate-highlights-btn');
+
     setupTabs(doc, tabButtons, tabContents);
     setupProcessButton(processBtn, modelSelect, storageUtils);
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
@@ -86,6 +96,16 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
     const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
 
+    // Load highlights for current page
+    try {
+      const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
+      if (savedHighlights) {
+        highlightsPages[currentPageIndex] = savedHighlights;
+      }
+    } catch (error) {
+      console.error('Error loading highlights:', error);
+    }
+
     paginateBothTranscripts(rawTranscript, processedTranscript);
 
     // handle showing UI elements based on auto-load transcript success status
@@ -96,6 +116,8 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     // Add new setup call
     setupFontSizeControls(fontSizeDecrease, fontSizeIncrease, storageUtils);
+
+    setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils);
 
   } catch (error) {
     console.error('Error initializing popup:', error);
@@ -141,11 +163,14 @@ function setupTabs(doc, tabButtons, tabContents) {
         tabContent.classList.remove('hidden');
       }
 
-      // Update the isRawTranscriptVisible state
+      // Update the visibility state
       isRawTranscriptVisible = (tab === 'raw');
+      isProcessedTranscriptVisible = (tab === 'processed');
+      isHighlightsVisible = (tab === 'highlights');
 
       // Update the display based on the new state
       setRawAndProcessedTranscriptText();
+      setHighlightsTranscriptText();
       updatePaginationButtons();
       updatePageInfo();
     });
@@ -252,6 +277,10 @@ function setupFontSizeControls(decreaseBtn, increaseBtn, storageUtils) {
   });
 }
 
+function setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils) {
+  generateHighlightsBtn.addEventListener('click', () => handleGenerateHighlightsClick(storageUtils));
+}
+
 //==============================================================================
 //                            EVENT HANDLERS
 //==============================================================================
@@ -315,8 +344,10 @@ function handlePrevClick() {
     });
     currentPageIndex--;
     setRawAndProcessedTranscriptText();
+    setHighlightsTranscriptText();
     updatePaginationButtons();
     updatePageInfo();
+    loadHighlightsForCurrentPage();
   }
 }
 
@@ -330,8 +361,10 @@ function handleNextClick() {
     });
     currentPageIndex++;
     setRawAndProcessedTranscriptText();
+    setHighlightsTranscriptText();
     updatePaginationButtons();
     updatePageInfo();
+    loadHighlightsForCurrentPage();
   }
 }
 
@@ -435,6 +468,83 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
     loader.classList.add('hidden');
   }
 }
+
+async function handleGenerateHighlightsClick(storageUtils) {
+  const videoId = await storageUtils.getCurrentYouTubeVideoId();
+
+  if (!videoId) {
+    alert('Unable to determine YouTube Video ID.');
+    return;
+  }
+
+  const selectedModel = modelSelect.value;
+  const currentProcessedPage = processedTranscriptPages[currentPageIndex];
+
+  if (!currentProcessedPage || currentProcessedPage.trim() === "") {
+    alert('No processed transcript available to generate highlights.');
+    return;
+  }
+
+  logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_START, {
+    [Logger.FIELDS.VIDEO_ID]: videoId,
+    [Logger.FIELDS.MODEL]: selectedModel,
+    [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+    [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentProcessedPage.length,
+  });
+
+  try {
+    loader.classList.remove('hidden');
+
+    const llmResponse = await llmUtils.generateHighlights({
+      transcript: currentProcessedPage,
+      model_name: selectedModel,
+    });
+
+    // Save highlights for current page
+    highlightsPages[currentPageIndex] = llmResponse;
+    highlightsDisplay.textContent = llmResponse;
+
+    // Save the highlights for this specific page
+    await storageUtils.saveHighlightsById(videoId, currentPageIndex, llmResponse);
+
+    logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_SUCCESS, {
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+      [Logger.FIELDS.HIGHLIGHTS_LENGTH]: llmResponse.length,
+    });
+
+    alert('Highlights generated successfully!');
+  } catch (error) {
+    logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_FAILURE, {
+      [Logger.FIELDS.ERROR_TYPE]: error.name,
+      [Logger.FIELDS.ERROR_MESSAGE]: error.message,
+      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+    });
+    console.error('Error generating highlights:', error);
+    alert('Failed to generate highlights for the current page.');
+  } finally {
+    loader.classList.add('hidden');
+  }
+}
+
+// Add a function to load highlights when changing pages
+async function loadHighlightsForCurrentPage() {
+  const videoId = await storageUtils.getCurrentYouTubeVideoId();
+  if (!videoId) return;
+
+  try {
+    const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
+    if (savedHighlights) {
+      highlightsPages[currentPageIndex] = savedHighlights;
+      setHighlightsTranscriptText();
+    }
+  } catch (error) {
+    console.error('Error loading highlights for current page:', error);
+  }
+}
+
 //==============================================================================
 //                            GETTERS & UTILITIES
 //==============================================================================
@@ -585,8 +695,6 @@ function paginateBothTranscripts(rawTranscript, processedTranscript) {
 
   return { rawTranscriptPages, processedTranscriptPages };
 }
-
-
 
 /**
  * Helper function to paginate a raw transcript
@@ -780,6 +888,11 @@ function updateFontSize() {
   transcriptDisplay.style.fontSize = `${currentFontSize}px`;
   processedDisplay.style.fontSize = `${currentFontSize}px`;
 }
+
+function setHighlightsTranscriptText() {
+  highlightsDisplay.textContent = highlightsPages[currentPageIndex] || "Highlights will appear here.";
+}
+
 //==============================================================================
 //                            EVENT HANDLERS
 //==============================================================================

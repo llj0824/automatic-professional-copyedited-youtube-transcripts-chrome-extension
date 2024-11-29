@@ -24,6 +24,7 @@
       <div class="tabs">
         <button class="tab-button active" data-tab="raw">Raw Transcript</button>
         <button class="tab-button" data-tab="processed">Processed Output</button>
+        <button class="tab-button" data-tab="highlights">Highlights</button>
       </div>
       <div class="font-controls">
         <button id="font-size-decrease" title="Decrease font size">A-</button>
@@ -39,7 +40,14 @@
         <div class="content-header">
           <button class="copy-btn" data-target="processed-display">📋 Copy Transcript</button>
         </div>
-        <pre id="processed-display">Processed output will appear here.</pre>
+        <pre id="processed-display">Professionally Caliber Transcript will appear here.</pre>
+      </div>
+      <div class="tab-content hidden" id="highlights">
+        <div class="content-header">
+          <button class="copy-btn" data-target="highlights-display">📋 Copy Highlights</button>
+          <button id="generate-highlights-btn">Generate Highlights</button>
+        </div>
+        <pre id="highlights-display">Highlights will appear here.</pre>
       </div>
     </div>
 
