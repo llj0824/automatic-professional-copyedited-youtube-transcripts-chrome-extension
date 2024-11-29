@@ -187,7 +187,7 @@ Yeah, exactly. I think DeFi people love the AI coins.
 `
   },
   // Add more transcripts here like:
-  otherInterview: {
+  tiktokGoldRush: {
     enabled: true,
     content: `
     *** Background Context ***
@@ -998,6 +998,7 @@ Format each highlight as:
 `
     },
     {
+      // This one so far seems consistently good - using this too!
       name: 'Inspirational Quotes and Philosophy',
       prompt: `Find powerful quotes, philosophical reflections, or motivational statements made by the speaker that could inspire the audience.
 
@@ -1014,6 +1015,7 @@ Format each highlight as:
 `
     },
     {
+      // Initial test results - use this! (and add one - two more).
       name: 'Leo System Prompt',
       prompt: `Extract segments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in philosophical reflections, or statements that could inspire thought, provides expert analysis on complex topics 
 
@@ -1039,9 +1041,9 @@ Format each highlight as:
 [Timestamp]
 🔬 Topic: Brief title
 
-💎 Insight: Summary of the explanation or analysis
-
 ✨ Quote (if applicable) : "Exact words from the speaker"
+
+💎 Insight: Summary of the explanation or analysis
 
 🎯 TAKEAWAY: Why this matters
 
@@ -1049,7 +1051,7 @@ Format each highlight as:
 
 --- 
 
-Two sentence summary of highlight.
+Two sentence summary of highlight in viewpoint of the reader.
 `
     }
   ];
