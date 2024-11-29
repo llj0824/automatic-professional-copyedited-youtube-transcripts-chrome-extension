@@ -17,7 +17,6 @@
         "service_worker": "background/service_worker.js"
       },
       "permissions": [
-        "scripting", 
         "storage",
         "sidePanel"
       ],
