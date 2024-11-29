@@ -23,8 +23,7 @@
     <div id="content-section">
       <div class="tabs">
         <button class="tab-button active" data-tab="raw">Raw Transcript</button>
-        <button class="tab-button" data-tab="processed"> Professional </button>
-        <button class="tab-button" data-tab="highlights"> Highlights </button>
+        <button class="tab-button" data-tab="processed">Processed Output</button>
       </div>
       <div class="font-controls">
         <button id="font-size-decrease" title="Decrease font size">A-</button>
@@ -40,20 +39,13 @@
         <div class="content-header">
           <button class="copy-btn" data-target="processed-display">📋 Copy Transcript</button>
         </div>
-        <pre id="processed-display">Professionally Caliber Transcript will appear here.</pre>
-      </div>
-      <div class="tab-content hidden" id="highlights">
-        <div class="content-header">
-          <button class="copy-btn" data-target="highlights-display">📋 Copy Highlights</button>
-        </div>
-        <pre id="highlights-display">Highlights will appear here.</pre>
+        <pre id="processed-display">Processed output will appear here.</pre>
       </div>
     </div>
 
     <!-- Actions -->
     <div id="actions">
-      <button id="process-btn" class="action-btn">Process with LLM</button>
-      <button id="generate-highlights-btn" class="action-btn hidden">Generate Highlights</button>
+      <button id="process-btn">Process with LLM</button>
       <div id="loader" class="hidden"></div>
     </div>
 
@@ -64,7 +56,7 @@
       <div id="model-selection">
         <label for="model-select">Select LLM Model:</label>
         <select id="model-select">
-          <option value="chatgpt-4o-latest" >OpenAI GPT-4o</option>
+          <option value="chatgpt-4o-latest" hidden>OpenAI GPT-4o</option>
           <option value="gpt-4o-mini" selected>OpenAI GPT</option>
           <option value="claude-3-5-sonnet-20241022" hidden>Anthropic Claude 3.5 Sonnet</option>
           <!-- Add more models as needed -->
