@@ -98,7 +98,8 @@ h2, h3 {
   align-items: center;
 }
 
-#process-btn {
+#process-btn,
+#generate-highlights-btn {
   padding: 8px 16px;
   cursor: pointer;
   background-color: #2196F3;
@@ -109,15 +110,18 @@ h2, h3 {
   transition: background-color 0.2s;
 }
 
-#process-btn:hover {
+#process-btn:hover,
+#generate-highlights-btn:hover {
   background-color: #1976D2;
 }
 
-#process-btn:active {
+#process-btn:active,
+#generate-highlights-btn:active {
   background-color: #1565C0;
 }
 
-#process-btn:disabled {
+#process-btn:disabled,
+#generate-highlights-btn:disabled {
   background-color: #BDBDBD;
   cursor: not-allowed;
 }
@@ -203,19 +207,4 @@ h2, h3 {
 .tab-content {
   /* ... existing styles ... */
   width: 100%;
-}
-
-/* Optional: Style the generate highlights button */
-#generate-highlights-btn {
-  margin-left: 10px;
-  padding: 4px 8px;
-  background-color: #fff;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-#generate-highlights-btn:hover {
-  background-color: #e0e0e0;
 }

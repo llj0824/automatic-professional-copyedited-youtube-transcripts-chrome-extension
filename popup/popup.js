@@ -13,6 +13,16 @@ import Logger from './logger.js';
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
 
+// Add this near other global variables
+const TabState = {
+  RAW: 'raw',
+  PROCESSED: 'processed',
+  HIGHLIGHTS: 'highlights'
+};
+
+// Replace the three boolean variables with a single state
+let currentTab = TabState.RAW;
+
 let isRawTranscriptVisible = true; // true for 'raw transcript', false for 'processed transcript'
 let rawTranscript = ""; // loaded from youtube automatically 
 let processedTranscript = ""; // loaded from storage
@@ -162,11 +172,14 @@ function setupTabs(doc, tabButtons, tabContents) {
       if (tabContent) {
         tabContent.classList.remove('hidden');
       }
-
-      // Update the visibility state
-      isRawTranscriptVisible = (tab === 'raw');
-      isProcessedTranscriptVisible = (tab === 'processed');
-      isHighlightsVisible = (tab === 'highlights');
+      // on processed tab show processBtn, on highlights tab show generateHighlightsBtn
+      const processBtn = doc.getElementById('process-btn');
+      const generateHighlightsBtn = doc.getElementById('generate-highlights-btn');
+      // Update visibility state
+      currentTab = tab;
+      
+      processBtn.classList.toggle('hidden', currentTab !== TabState.PROCESSED);
+      generateHighlightsBtn.classList.toggle('hidden', currentTab !== TabState.HIGHLIGHTS);
 
       // Update the display based on the new state
       setRawAndProcessedTranscriptText();
@@ -353,7 +366,7 @@ function handlePrevClick() {
 
 // Event handler for next button click
 function handleNextClick() {
-  const currentPages = getCurrentDisplayPages();
+  const currentPages = getCurrentDisplayPagesNumbers();
   if (currentPageIndex < currentPages.length - 1) {
     logger.logEvent(Logger.EVENTS.PAGE_NAVIGATION, {
       [Logger.FIELDS.NAVIGATION_DIRECTION]: 'next',
@@ -496,8 +509,7 @@ async function handleGenerateHighlightsClick(storageUtils) {
     loader.classList.remove('hidden');
 
     const llmResponse = await llmUtils.generateHighlights({
-      transcript: currentProcessedPage,
-      model_name: selectedModel,
+      processedTranscript: currentProcessedPage,
     });
 
     // Save highlights for current page
@@ -553,8 +565,8 @@ async function loadHighlightsForCurrentPage() {
  * Retrieves the current set of pages based on the active tab.
  * @returns {Array} Array of current display pages.
  */
-function getCurrentDisplayPages() {
-  return isRawTranscriptVisible ? rawTranscriptPages : processedTranscriptPages;
+function getCurrentDisplayPagesNumbers() {
+  return currentTab === TabState.RAW ? rawTranscriptPages : processedTranscriptPages;
 }
 
 
@@ -874,13 +886,13 @@ function setRawAndProcessedTranscriptText() {
  */
 function updatePaginationButtons() {
   prevBtn.disabled = currentPageIndex === 0;
-  nextBtn.disabled = currentPageIndex === (getCurrentDisplayPages().length - 1);
+  nextBtn.disabled = currentPageIndex === (getCurrentDisplayPagesNumbers().length - 1);
 }
 /**
  * Updates the page information display.
  */
 function updatePageInfo() {
-  const currentPages = getCurrentDisplayPages();
+  const currentPages = getCurrentDisplayPagesNumbers();
   pageInfo.textContent = `Page ${currentPageIndex + 1} of ${currentPages.length}`;
 }
 
