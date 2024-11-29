@@ -71,6 +71,8 @@ Look for:
 - Clarification of common misconceptions
 - Confirmation of existing beliefs.
 
+Note: Please return without any markdown syntax. 
+
 Format each highlight as:
 [Timestamp]
 🔬 Topic: Brief title
