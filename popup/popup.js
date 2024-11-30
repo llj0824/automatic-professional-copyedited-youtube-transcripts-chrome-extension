@@ -173,11 +173,27 @@ function setupTabs(doc, tabButtons, tabContents) {
       // on processed tab show processBtn, on highlights tab show generateHighlightsBtn
       const processBtn = doc.getElementById('process-btn');
       const generateHighlightsBtn = doc.getElementById('generate-highlights-btn');
+
       // Update visibility state
       currentTab = tab;
-      
-      processBtn.classList.toggle('hidden', currentTab !== TabState.PROCESSED);
-      generateHighlightsBtn.classList.toggle('hidden', currentTab !== TabState.HIGHLIGHTS);
+      const isProcessedPageExists = Boolean(processedTranscriptPages[currentPageIndex])
+      switch (currentTab) {
+        case TabState.RAW:
+          // Case 1: On Raw tab, show processBtn
+          processBtn.classList.remove('hidden');
+          generateHighlightsBtn.classList.add('hidden');
+          break;
+        case TabState.PROCESSED:
+          // Case 2: On Processed tab, show generateHighlightsBtn only if there's a processed page
+          processBtn.classList.remove('hidden');
+          generateHighlightsBtn.classList.toggle('hidden', !isProcessedPageExists);
+          break;
+        case TabState.HIGHLIGHTS:
+          // Case 3: on highlights tab, only show generateHighlightsBtn
+          processBtn.classList.add('hidden');
+          generateHighlightsBtn.classList.remove('hidden');
+          break;
+      }
 
       // Update the display based on the new state
       setRawAndProcessedTranscriptText();

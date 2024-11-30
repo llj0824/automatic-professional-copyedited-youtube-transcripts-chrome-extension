@@ -97,10 +97,13 @@ h2, h3 {
   margin-top: 10px;
   display: flex;
   align-items: center;
+  gap: 10px; /* Add spacing between buttons */
 }
 
 #process-btn,
 #generate-highlights-btn {
+  flex: 0 1 auto; /* Allow buttons to shrink but not grow */
+  min-width: 140px; /* Set a minimum width for buttons */
   padding: 8px 16px;
   cursor: pointer;
   background-color: #2196F3;
