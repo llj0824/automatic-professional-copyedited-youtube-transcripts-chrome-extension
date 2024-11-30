@@ -23,6 +23,7 @@ class Logger {
     VIDEO_TITLE: 'videoTitle',
     TRANSCRIPT_LENGTH: 'transcriptLength',
     PROCESSED_TRANSCRIPT: 'processedTranscript',
+    HIGHLIGHTS_GENERATION_RESULT: 'highlightsGeneration_esult',
     MODEL: 'model',
     PAGE_INDEX: 'pageIndex',
     ERROR: 'error',

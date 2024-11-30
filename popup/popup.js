@@ -481,6 +481,8 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
 }
 
 async function handleGenerateHighlightsClick(storageUtils) {
+  const currentRawPage = rawTranscriptPages[currentPageIndex];
+  const videoTitle = extractVideoTitle(currentRawPage);
   const videoId = await storageUtils.getCurrentYouTubeVideoId();
 
   if (!videoId) {
@@ -498,7 +500,6 @@ async function handleGenerateHighlightsClick(storageUtils) {
 
   logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_START, {
     [Logger.FIELDS.VIDEO_ID]: videoId,
-    [Logger.FIELDS.MODEL]: selectedModel,
     [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
     [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentProcessedPage.length,
   });
@@ -506,22 +507,23 @@ async function handleGenerateHighlightsClick(storageUtils) {
   try {
     loader.classList.remove('hidden');
 
-    const llmResponse = await llmUtils.generateHighlights({
+    const highlightForPage = await llmUtils.generateHighlights({
       processedTranscript: currentProcessedPage,
     });
 
     // Save highlights for current page
-    highlightsPages[currentPageIndex] = llmResponse;
-    highlightsDisplay.textContent = llmResponse;
+    highlightsPages[currentPageIndex] = highlightForPage;
+    highlightsDisplay.textContent = highlightForPage;
 
     // Save the highlights for this specific page
-    await storageUtils.saveHighlightsById(videoId, currentPageIndex, llmResponse);
+    await storageUtils.saveHighlightsById(videoId, currentPageIndex, highlightForPage);
 
     logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_SUCCESS, {
       [Logger.FIELDS.VIDEO_ID]: videoId,
-      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
+      [Logger.FIELDS.HIGHLIGHTS_GENERATION_RESULT]: highlightForPage,
       [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
-      [Logger.FIELDS.HIGHLIGHTS_LENGTH]: llmResponse.length,
+      [Logger.FIELDS.HIGHLIGHTS_LENGTH]: highlightForPage.length,
     });
 
     alert('Highlights generated successfully!');

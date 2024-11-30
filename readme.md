@@ -92,11 +92,13 @@ II. Debugging unit and integration tests on Cursor
 
 # TODOs
 ### backend system changes
+0. add good/bad examples for generate highlights llm_api_utils.js
 6. [website & database] make transcripts knowledge searchable
 7. [show remaining balance] show remaining balance in the popup, atleast some visual indicator why no longer able to process new segmnets.
     -> note: chrome extension description should have section explaining this.
 8. [prevent abuse] disable reprocessing if transcript alrdy exists
 9. [feedback form] add @llj0824 twitter [x] handle for users to tweet me their feedback lol.
+
 
 ### Features
 0. log raw & processed transcript in server/google sheets.

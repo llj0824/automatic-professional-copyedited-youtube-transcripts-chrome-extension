@@ -74,7 +74,7 @@ Look for:
 Note: Please return without any markdown syntax. 
 
 Format each highlight as:
-[Timestamp]
+[Time Range - i.e [01:00:06 -> 01:02:15]]
 🔬 Topic: Brief title
 
 ✨ Quote (if applicable) : "Exact words from the speaker"
@@ -207,7 +207,7 @@ Two sentence summary of highlight in viewpoint of the reader.
     );
     const transcriptStartIndex = lines.findIndex(line =>
       line.includes(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER)
-    );
+    ) || lines.length;
 
     // Extract context section (will be added to each partition)
     const contextSection = lines.slice(contextStartIndex, transcriptStartIndex + 1).join('\n');
@@ -264,15 +264,12 @@ Two sentence summary of highlight in viewpoint of the reader.
   // Add the new method
   async generateHighlights({ processedTranscript, model_name="chatgpt-4o-latest", max_tokens = 10000, temperature = 0.4 }) {
     try {
-      const system_role = this.llm_highlights_system_role;
-
-      // Call the LLM with the processed transcript
-      const highlights = await this.call_llm({
+      // Process the transcript in parallel using the existing method
+      const highlights = await this.processTranscriptInParallel({
+        transcript: processedTranscript,
         model_name,
-        system_role,
-        prompt: processedTranscript,
-        max_tokens,
-        temperature,
+        system_role: this.llm_highlights_system_role,
+        partitions: 3 // At 30 minutes per page, about 10 mins per call
       });
 
       return highlights;

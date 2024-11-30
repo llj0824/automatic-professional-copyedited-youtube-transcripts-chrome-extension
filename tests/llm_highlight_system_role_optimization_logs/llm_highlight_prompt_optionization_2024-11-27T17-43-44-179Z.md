@@ -8,7 +8,7 @@ Long Interview Highlights Extraction - Large Language Model System Role Iteratio
 ----------------------------------------
 ----------------------------------------
 
-## Feedback: No, the result is boring to read.
+## Human Feedback: No, the result is boring to read.
 Results for "Basic Highlight Extraction" prompt variation...
 system_role used:
 Please analyze this transcript and extract only the most important highlights. 
@@ -80,7 +80,7 @@ Metrics:
 
 ----------------------------------------
 
-## Feedback: No, it's also boring to read.
+## Human Feedback: No, it's also boring to read.
 Results for "Structured Analysis" prompt variation...
 system_role used:
 Review this transcript and identify key information in these categories:
@@ -198,7 +198,7 @@ Metrics:
 
 ----------------------------------------
 
-## Feedback: No, it's boring to read and not useful.
+## Human Feedback: No, it's boring to read and not useful.
 Results for "Concise Bullet Points" prompt variation...
 system_role used:
 Extract only the most significant information from this transcript that meets these criteria:
@@ -248,7 +248,7 @@ Metrics:
 
 ----------------------------------------
 
-## Feedback: no, it's not useful but approaching an ounce of interesting.
+## Human Feedback: no, it's not useful but approaching an ounce of interesting.
 Results for "Twitter Thread Format" prompt variation...
 system_role used:
 Extract the most engaging and shareable insights from this transcript, formatted for a Twitter thread.
@@ -311,7 +311,7 @@ Metrics:
 
 ----------------------------------------
 
-## Feedback: Key point has promise, verbage still off. Details too long - def no hashtags.
+## Human Feedback: Key point has promise, verbage still off. Details too long - def no hashtags.
 Results for "Viral Moments" prompt variation...
 system_role used:
 Identify the most viral-worthy moments from this transcript that would resonate on social media.
@@ -390,7 +390,7 @@ Metrics:
 
 ----------------------------------------
 
-## Feedback: Highlight is nice - verbage is decent just slight tweak needed. Takeaway is nice too. Ordering could be context last -> Hook is most important.
+## Human Feedback: Highlight is nice - verbage is decent just slight tweak needed. Takeaway is nice too. Ordering could be context last -> Hook is most important.
 Results for "Growth Hacker Format" prompt variation...
 system_role used:
 Extract content optimized for maximum social media engagement. 
@@ -489,7 +489,7 @@ Metrics:
 - Highlight count: 48
 
 ----------------------------------------
-## Feedback: Adding context of the audience -> crypto traders/investors may be really useful. Note to self...target a specific group first. BUT the content here isn't very good, certainly the presentation of it.
+## Human Feedback: Adding context of the audience -> crypto traders/investors may be really useful. Note to self...target a specific group first. BUT the content here isn't very good, certainly the presentation of it.
 Results for "Alpha Leaks" prompt variation...
 system_role used:
 Extract only the highest-value alpha and insights that crypto traders/investors would want to share.
@@ -559,7 +559,7 @@ Metrics:
 - Highlight count: 35
 
 ----------------------------------------
-## Feedback: boring and not very useful
+## Human Feedback: boring and not very useful
 Results for "Personal Anecdotes and Stories" prompt variation...
 system_role used:
 Identify moments in the transcript where the speaker shares personal anecdotes, experiences, or stories that are insightful or inspiring.
@@ -632,7 +632,7 @@ Metrics:
 - Highlight count: 31
 
 ----------------------------------------
-## Feedback: I think topic - well worded i like it. straight ot point, high quality & insight (contains good quality info but verbage/presentation is not enticing enough)
+## Human Feedback: I think topic - well worded i like it. straight ot point, high quality & insight (contains good quality info but verbage/presentation is not enticing enough)
 Results for "Deep Dive Technical Insights" prompt variation...
 system_role used:
 Extract segments where the speaker delves into technical details or provides expert analysis on complex topics.
@@ -697,7 +697,7 @@ Metrics:
 - Highlight count: 27
 
 ----------------------------------------
-## Feedback: The content of Controverisal point is really good. I think it doesn't need to be presented as "controverisal" more like alpha/move?. But worth keeping and absorbing into final prompt.
+## Human Feedback: The content of Controverisal point is really good. I think it doesn't need to be presented as "controverisal" more like alpha/move?. But worth keeping and absorbing into final prompt.
 Results for "Controversial Opinions and Debates" prompt variation...
 system_role used:
 Highlight moments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in a debate.
@@ -777,7 +777,7 @@ Metrics:
 
 ----------------------------------------
 
-## Feedback: boring and sets reader expectations too high...always better to set low but existing and over deliver on content quality.
+## Human Feedback: boring and sets reader expectations too high...always better to set low but existing and over deliver on content quality.
 Results for "Practical Tips and Best Practices" prompt variation...
 system_role used:
 Identify actionable tips, best practices, or advice that the speaker provides, which the audience can apply directly.
@@ -899,7 +899,7 @@ Metrics:
 
 ----------------------------------------
 
-## Feedback: not exciting or useful, just a wtf did a read 
+## Human Feedback: not exciting or useful, just a wtf did a read 
 Results for "Lessons from Failures and Challenges" prompt variation...
 system_role used:
 Extract moments where the speaker discusses failures, challenges faced, and the lessons learned from them.
@@ -973,7 +973,7 @@ Metrics:
 
 ----------------------------------------
 
-## Feedback: I will keep the memroable quote one-liners. Remember the signal source > signal forwarders. I mostly want to cite the source.
+## Human Feedback: I will keep the memroable quote one-liners. Remember the signal source > signal forwarders. I mostly want to cite the source.
 Results for "Inspirational Quotes and Philosophy" prompt variation...
 system_role used:
 Find powerful quotes, philosophical reflections, or motivational statements made by the speaker that could inspire the audience.
@@ -1064,7 +1064,7 @@ Metrics:
 - Highlight count: 43
 
 ----------------------------------------
-## Feedback: boring af and too vague to be useful.
+## Human Feedback: boring af and too vague to be useful.
 Results for "Emerging Trends and Future Outlooks" prompt variation...
 system_role used:
 Identify segments where the speaker discusses emerging trends, future predictions, or the evolution of the industry.
@@ -1143,7 +1143,7 @@ Metrics:
 - Highlight count: 35
 
 ----------------------------------------
-## Feedback: boring and only somewhat useful. 1) not existing enough to hook viewers which is 80% of the battle for getting viewers. 2) not enough value even upon reading to feel worthwhile which is 80% of battle for retaining viewers...
+## Human Feedback: boring and only somewhat useful. 1) not existing enough to hook viewers which is 80% of the battle for getting viewers. 2) not enough value even upon reading to feel worthwhile which is 80% of battle for retaining viewers...
 Results for "Clarifying Complex Concepts" prompt variation...
 system_role used:
 Extract moments where the speaker simplifies or clarifies complex concepts, making them accessible to a broader audience.
@@ -1226,7 +1226,7 @@ Metrics:
 - Highlight count: 39
 
 ----------------------------------------
-## Feedback: boring and low concentration of value in content
+## Human Feedback: boring and low concentration of value in content
 Results for "Audience Engagement and Q&A" prompt variation...
 system_role used:
 Identify interactions where the speaker responds to audience questions, providing valuable answers or engaging discussions.
@@ -1311,7 +1311,7 @@ Metrics:
 - Highlight count: 40
 
 ----------------------------------------
-## Feedback: just useless
+## Human Feedback: just useless
 Results for "Ethical and Societal Implications" prompt variation...
 system_role used:
 Highlight discussions about the ethical, social, or environmental implications of technology and industry developments.
