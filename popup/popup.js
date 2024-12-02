@@ -45,7 +45,7 @@ let highlightsDisplay, generateHighlightsBtn;
 let highlightsPages = [];
 
 // Add to global variables section
-let refreshTranscriptBtn;
+let resetTranscriptBtn;
 
 
 //==============================================================================
@@ -82,7 +82,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     modelSelect = doc.getElementById('model-select');
     transcriptInput = doc.getElementById('transcript-input');
     loadTranscriptBtn = doc.getElementById('load-transcript-btn');
-    refreshTranscriptBtn = doc.getElementById('refresh-transcript-btn');
+    resetTranscriptBtn = doc.getElementById('reset-transcript-btn');
 
     // Add new element declarations
     fontSizeDecrease = doc.getElementById('font-size-decrease');
@@ -131,7 +131,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils);
 
-    setupRefreshTranscriptButton(refreshTranscriptBtn, storageUtils,videoId);
+    setupClearTranscriptButton(resetTranscriptBtn, storageUtils,videoId);
 
   } catch (error) {
     console.error('Error initializing popup:', error);
@@ -314,8 +314,8 @@ function setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils) {
   generateHighlightsBtn.addEventListener('click', () => handleGenerateHighlightsClick(storageUtils));
 }
 
-function setupRefreshTranscriptButton(refreshTranscriptBtn, storageUtils, videoId) {
-  refreshTranscriptBtn.addEventListener('click', async () => {
+function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
+  resetTranscriptBtn.addEventListener('click', async () => {
     try {
       // Show loader
       loader.classList.remove('hidden');
