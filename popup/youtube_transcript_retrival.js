@@ -62,16 +62,10 @@ class YoutubeTranscriptRetriever {
 
       // Extract video details for context
       const videoDetails = initialData.videoDetails || {};
+      const contextBlock = this.parseTranscriptContext(videoDetails);
       
-      // Create context block with clear delimiters
-      // Note: Extracting just the first paragraph of the description. Moving forward may do RAG search w/ perplexity to hydrate with speaker background.
-      const contextBlock = `${this.CONTEXT_BEGINS_DELIMITER}
-Title: ${videoDetails.title || 'Unknown'}
-Description: ${(videoDetails.shortDescription && videoDetails.shortDescription.split('\n')[0]) || 'No description available'}
-${this.TRANSCRIPT_BEGINS_DELIMITER}
-`;
-        // Combine context and transcript
-        return contextBlock + parsedTranscript;
+      // Combine context and transcript
+      return contextBlock + parsedTranscript;
       } catch (error) {
         if (error.message === 'NO_CAPTIONS') {
           throw new Error('This video does not have captions available for automatic retrieval.');
@@ -186,6 +180,39 @@ ${this.TRANSCRIPT_BEGINS_DELIMITER}
     const urlRegex = /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/;
     const match = videoIdOrUrl.match(urlRegex);
     return match ? match[1] : null;
+  }
+
+  /**
+   * Parses and filters the video description to extract relevant content.
+   * 
+   * @param {object} videoDetails - The video details object from YouTube
+   * @returns {string} - Formatted context block with title and filtered description
+   */
+  static parseTranscriptContext(videoDetails) {
+    if (!videoDetails || !videoDetails.shortDescription) {
+      return `${this.CONTEXT_BEGINS_DELIMITER}
+Title: Unknown
+Description: No description available
+${this.TRANSCRIPT_BEGINS_DELIMITER}
+`;
+    }
+
+    // Get the first paragraph (text before first empty line)
+    const firstParagraph = videoDetails.shortDescription?.split('\n\n')[0];
+
+    // Extract timestamp lines
+    const chapterTimestamps = videoDetails.shortDescription?.split('\n')
+      .filter(line => /^\d+:\d+/.test(line.trim()))
+      .join('\n') || '';
+
+    // Combine first paragraph and timestamps
+    const description = `${firstParagraph}\n\nTimestamps:\n${chapterTimestamps}`;
+
+    return `${this.CONTEXT_BEGINS_DELIMITER}
+Title: ${videoDetails.title || 'Unknown'}
+Description: ${description}
+${this.TRANSCRIPT_BEGINS_DELIMITER}
+`;
   }
 }
 
