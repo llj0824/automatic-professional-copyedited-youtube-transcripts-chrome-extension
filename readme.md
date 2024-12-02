@@ -133,3 +133,4 @@ II. Debugging unit and integration tests on Cursor
     - [done] in llm_partition_optimization.test.js
 * [refactoring] rename segments to "pages" or "pagination" it's much more intuitive.
 * [quick] add gif tutorial/video of extension in action to readme/chrome extension (check ReadingAssist for example).  
+* [quick] add chapter timestamps (if avaliable to context)
