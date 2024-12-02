@@ -193,20 +193,33 @@ h2, h3 {
 .content-header {
   display: flex;
   justify-content: flex-start;
+  gap: 12px; /* Increased from 8px to 12px for more spacing between buttons */
   padding: 5px;
 }
 
-.copy-btn {
+.content-header button {
   background-color: #f0f0f0;
   border: 1px solid #ccc;
   border-radius: 4px;
   padding: 4px 8px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px; /* Slightly increased font size */
+  display: flex;
+  align-items: center;
+  gap: 6px; /* Space between emoji and text */
+  transition: all 0.2s ease;
+  color: #333; /* Added consistent text color */
+  font-weight: 500; /* Added consistent font weight */
 }
 
-.copy-btn:hover {
+.content-header button:hover {
   background-color: #e0e0e0;
+  border-color: #999; /* Darker border on hover */
+}
+
+.content-header button:active {
+  background-color: #d0d0d0;
+  transform: translateY(1px); /* Slight push effect when clicked */
 }
 
 /* Add these new styles */
