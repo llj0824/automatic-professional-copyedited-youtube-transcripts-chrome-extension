@@ -44,6 +44,9 @@ let highlightsDisplay, generateHighlightsBtn;
 // Add a variable to store highlights pages
 let highlightsPages = [];
 
+// Add to global variables section
+let resetTranscriptBtn;
+
 
 //==============================================================================
 //                         INITIALIZATION FUNCTIONS 
@@ -79,6 +82,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     modelSelect = doc.getElementById('model-select');
     transcriptInput = doc.getElementById('transcript-input');
     loadTranscriptBtn = doc.getElementById('load-transcript-btn');
+    resetTranscriptBtn = doc.getElementById('reset-transcript-btn');
 
     // Add new element declarations
     fontSizeDecrease = doc.getElementById('font-size-decrease');
@@ -126,6 +130,8 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     setupFontSizeControls(fontSizeDecrease, fontSizeIncrease, storageUtils);
 
     setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils);
+
+    setupClearTranscriptButton(resetTranscriptBtn, storageUtils,videoId);
 
   } catch (error) {
     console.error('Error initializing popup:', error);
@@ -306,6 +312,41 @@ function setupFontSizeControls(decreaseBtn, increaseBtn, storageUtils) {
 
 function setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils) {
   generateHighlightsBtn.addEventListener('click', () => handleGenerateHighlightsClick(storageUtils));
+}
+
+function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
+  resetTranscriptBtn.addEventListener('click', async () => {
+    try {
+      // Show loader
+      loader.classList.remove('hidden');
+
+      // Remove existing transcripts from storage
+      await storageUtils.removeTranscriptsById(videoId);
+
+      // Fetch fresh transcript from YouTube
+      const freshTranscript = await YoutubeTranscriptRetriever.fetchParsedTranscript(videoId);
+      
+      // Save new transcript
+      await storageUtils.saveRawTranscriptById(videoId, freshTranscript);
+
+      // Update UI
+      rawTranscript = freshTranscript;
+      processedTranscript = ""; // Reset processed transcript
+      
+      // Re-paginate and update display
+      paginateBothTranscripts(rawTranscript, processedTranscript);
+      setRawAndProcessedTranscriptText();
+      updatePaginationButtons();
+      updatePageInfo();
+
+      alert('Transcript refreshed successfully!');
+    } catch (error) {
+      console.error('Error refreshing transcript:', error);
+      alert(`Failed to refresh transcript: ${error.message}`);
+    } finally {
+      loader.classList.add('hidden');
+    }
+  });
 }
 
 //==============================================================================
