@@ -200,9 +200,13 @@ ${this.TRANSCRIPT_BEGINS_DELIMITER}
     // Get the first paragraph (text before first empty line)
     const firstParagraph = videoDetails.shortDescription?.split('\n\n')[0];
 
-    // Extract timestamp lines
+    // Extract timestamp lines - matches both (MM:SS) and MM:SS formats
     const chapterTimestamps = videoDetails.shortDescription?.split('\n')
-      .filter(line => /^\d+:\d+/.test(line.trim()))
+      .filter(line => {
+        const trimmedLine = line.trim();
+        // Match both (MM:SS) and MM:SS formats
+        return /^\(?(\d+:\d+)\)?/.test(trimmedLine);
+      })
       .join('\n') || '';
 
     // Combine first paragraph and timestamps

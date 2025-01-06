@@ -9,24 +9,64 @@ ZIP_NAME="youtube_professional_transcript_chrome_extension.zip"
 
 echo -e "${GREEN}🚀 Starting production build process...${NC}"
 
+# Check for required tools
+echo "🔍 Checking for required tools..."
+if ! command -v npm &> /dev/null; then
+    echo -e "${RED}❌ npm is not installed. Please install Node.js and npm first.${NC}"
+    exit 1
+fi
+
+# Install minification tools if not already installed
+echo "📦 Installing minification tools..."
+npm install -g terser html-minifier clean-css-cli
+
 # Create clean dist directory
 echo "📁 Creating clean dist directory..."
 rm -rf dist
-mkdir dist
-
-# Remove existing zip if it exists
-if [ -f "$ZIP_NAME" ]; then
-    echo "🗑️  Removing existing zip file..."
-    rm "$ZIP_NAME"
-fi
+mkdir -p dist/popup
 
 # Copy essential files
 echo "📋 Copying essential files..."
 cp manifest.json dist/
 cp -r background dist/
-cp -r popup dist/
-cp -r content.js dist/
 cp -r icons dist/
+cp content.js dist/
+
+# Minify JavaScript files
+echo "🔨 Minifying JavaScript files..."
+for js_file in popup/*.js; do
+    filename=$(basename "$js_file")
+    terser "$js_file" \
+        --compress \
+        --mangle \
+        --output "dist/popup/${filename}" \
+        --toplevel \
+        --format quote_style=1
+done
+
+# Minify CSS files
+echo "🎨 Minifying CSS files..."
+for css_file in popup/*.css; do
+    filename=$(basename "$css_file")
+    cleancss -o "dist/popup/${filename}" "$css_file"
+done
+
+# Minify HTML files
+echo "📄 Minifying HTML files..."
+for html_file in popup/*.html; do
+    filename=$(basename "$html_file")
+    html-minifier \
+        --collapse-whitespace \
+        --remove-comments \
+        --remove-optional-tags \
+        --remove-redundant-attributes \
+        --remove-script-type-attributes \
+        --remove-tag-whitespace \
+        --use-short-doctype \
+        --minify-css true \
+        --minify-js true \
+        "$html_file" -o "dist/popup/${filename}"
+done
 
 # Remove any development/test files from dist
 echo "🧹 Cleaning up development files..."
