@@ -142,23 +142,26 @@ class YoutubeTranscriptRetriever {
    * @returns {string} - The formatted transcript.
    */
   static parseTranscriptXml(xmlTranscript) {
-    // This is a more robust parser that handles timestamps and formatting
-    const lines = xmlTranscript.match(/<text.+?>.+?<\/text>/g) || [];
-    let currentTimestamp = 0;
-    const formattedTranscript = lines.map((line, index) => {
-      const startMatch = line.match(/start="([\d.]+)"/);
-      const start = startMatch ? parseFloat(startMatch[1]) : currentTimestamp;
-      currentTimestamp = start;
+    // First, decode HTML entities
+    const decoder = new DOMParser();
+    const decodedXml = decoder.parseFromString(xmlTranscript, 'text/xml');
+    
+    // Use proper XML parsing to get all text elements
+    const textElements = decodedXml.getElementsByTagName('text');
+    let formattedTranscript = '';
 
-      const text = line.replace(/<.+?>/, '').replace(/<\/text>/, '').trim();
+    for (let i = 0; i < textElements.length; i++) {
+      const element = textElements[i];
+      const start = parseFloat(element.getAttribute('start'));
+      const text = element.textContent.replace(/\n/g, ' ').trim();
       
       // Format timestamp as [M:SS]
       const minutes = Math.floor(start / 60);
       const seconds = Math.floor(start % 60);
       const formattedTime = `[${minutes}:${seconds.toString().padStart(2, '0')}]`;
 
-      return `${formattedTime} ${text}`;
-    }).join('\n');
+      formattedTranscript += `${formattedTime} ${text}\n`;
+    }
 
     return formattedTranscript;
   }
