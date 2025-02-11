@@ -114,12 +114,14 @@ Two sentence summary of highlight in viewpoint of the reader.
 
     let payload;
     if (isReasoningModel) {
-      // Reasoning models don't support system roles.
+      // Reasoning models don't support system messages, so combine system_role and prompt
+      const combinedPrompt = system_role ? `${prompt}\n\n${system_role}\n` : prompt;
       
       payload = {
         model: model,
+        
         messages: [
-          { role: "user", content: prompt }
+          { role: "user", content: combinedPrompt }
         ],
         reasoning_effort: "high" // Only parameter supported by o-series
       };
