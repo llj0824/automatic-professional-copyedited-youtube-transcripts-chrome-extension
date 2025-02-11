@@ -45,10 +45,36 @@
         <pre id="processed-display">Professionally Caliber Transcript will appear here.</pre>
       </div>
       <div class="tab-content hidden" id="highlights">
-        <div class="content-header">
-          <button class="copy-btn" data-target="highlights-display">📋 Copy Highlights</button>
+        <div class="content-sections">
+          <div class="highlight-actions">
+            <button id="generate-highlights-btn" class="action-btn">
+              Generate Highlights 💎
+            </button>
+          </div>
+          <!-- Results Section -->
+          <div class="highlight-section" id="results-section">
+            <div class="section-header">
+              <h4>Highlight Results</h4>
+            </div>
+            <textarea id="highlight-results" class="section-content" readonly></textarea>
+          </div>
+
+          <!-- Processed Transcript Section -->
+          <div class="highlight-section" id="processed-section">
+            <div class="section-header">
+              <h4>Processed Transcript</h4>
+            </div>
+            <textarea id="highlight-processed" class="section-content"></textarea>
+          </div>
+          
+          <!-- Prompt Section -->
+          <div class="highlight-section" id="prompt-section">
+            <div class="section-header">
+              <h4>Highlight Prompt</h4>
+            </div>
+            <textarea id="highlight-prompt" class="section-content"></textarea>
+          </div>
         </div>
-        <pre id="highlights-display">Highlights will appear here.</pre>
       </div>
     </div>
 
