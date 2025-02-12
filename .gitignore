@@ -5,6 +5,7 @@ dist/*
 # Environment variables and secrets
 .env
 .env.*
+keys.js
 
 # Dependencies
 node_modules/
