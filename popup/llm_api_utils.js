@@ -51,7 +51,7 @@ class LLM_API_Utils {
     # Example Input/Output Format
     Input:  
     [00:06] uh so um today were going to be talking about, uh, 
-    [00:12] mental health and, um, ideas of, uh, self with, um, 
+    [00:12] mental health and, um, ideas of, uh, 
     [00:15] Dr. Paul Conti. uh welcome."
     
     Output:  
@@ -63,7 +63,7 @@ class LLM_API_Utils {
     - If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc.
     - Break long segments into smaller time ranges, clearly identify when speakers change, even within the same time range.
     - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue.
-    - Never truncate the output or ask for permission to continue - process the entire input segment`
+    - Never truncate the output or ask for permission to continue - process the entire input segment`;
 
     // System role for generating highlights
     this.llm_highlights_system_role = `
