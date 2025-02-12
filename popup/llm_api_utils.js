@@ -5,6 +5,12 @@ import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 
 class LLM_API_Utils {
   static DEFAULT_PARTITIONS = 8; // Default number of partitions for parallel processing. 
+
+  static GPT_4o = "chatgpt-4o-latest";
+  static GPT_o3_mini = "o3-mini";
+  static GPT_4o_mini = "gpt-4o-mini"
+  static CLAUDE_SONNET_LATEST_MODEL = "claude-3-5-sonnet-latest";
+
   constructor() {
     this.openai_endpoint = "https://api.openai.com/v1/chat/completions";
     this.anthropic_endpoint = "https://api.anthropic.com/v1/complete";
@@ -57,7 +63,7 @@ class LLM_API_Utils {
 Extract segments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in philosophical reflections, or statements that could inspire thought, provides expert analysis on complex topics 
 
 Identify moments that are:
-- Highly quotable
+- Highly quotable (~2-3 sentences)
 - Contrarian/surprising
 - Data-driven
 - Actionable
@@ -104,20 +110,39 @@ Two sentence summary of highlight in viewpoint of the reader.
     return decrypted;
   }
 
-  async call_gpt4(system_role, prompt, model = "chatgpt-4o-latest", max_tokens = 10000, temperature = 0.1) {
+  async call_openai(system_role, prompt, model = "chatgpt-4o-latest", max_tokens = 10000, temperature = 0.1) {
     if (!this.openai_api_key) {
       throw new Error("OpenAI API key is not set.");
     }
 
-    const payload = {
-      model: model,
-      messages: [
-        { role: "system", content: system_role },
-        { role: "user", content: prompt }
-      ],
-      temperature: temperature,
-      max_tokens: max_tokens
-    };
+    // Check if it's a reasoning model (starts with 'o')
+    const isReasoningModel = model.startsWith('o');
+
+    let payload;
+    if (isReasoningModel) {
+      // Reasoning models don't support system messages, so combine system_role and prompt
+      const combinedPrompt = system_role ? `${prompt}\n\n${system_role}\n` : prompt;
+      
+      payload = {
+        model: model,
+        
+        messages: [
+          { role: "user", content: combinedPrompt }
+        ],
+        reasoning_effort: "high" // Only parameter supported by o-series
+      };
+    } else {
+      // Standard payload for non-reasoning models
+      payload = {
+        model: model,
+        messages: [
+          { role: "system", content: system_role },
+          { role: "user", content: prompt }
+        ],
+        temperature: temperature,
+        max_completion_tokens: max_tokens
+      };
+    }
 
     const response = await fetch(this.openai_endpoint, {
       method: "POST",
@@ -182,7 +207,7 @@ Two sentence summary of highlight in viewpoint of the reader.
       if (model_name?.toLowerCase().startsWith("claude")) {
         return await this.call_claude(system_role, prompt, model_name, max_tokens, temperature);
       } else {
-        return await this.call_gpt4(system_role, prompt, model_name, max_tokens, temperature);
+        return await this.call_openai(system_role, prompt, model_name, max_tokens, temperature);
       }
     } catch (error) {
       console.error("LLM API call error:", error);
@@ -262,14 +287,17 @@ Two sentence summary of highlight in viewpoint of the reader.
   }
 
   // Add the new method
-  async generateHighlights({ processedTranscript, model_name="chatgpt-4o-latest", max_tokens = 10000, temperature = 0.4 }) {
+  async generateHighlights({ processedTranscript, customPrompt, model_name="o3-mini"}) {
     try {
+      // Use custom prompt if provided, otherwise use default system role
+      const system_role = customPrompt || this.llm_highlights_system_role;
+      
       // Process the transcript in parallel using the existing method
       const highlights = await this.processTranscriptInParallel({
         transcript: processedTranscript,
         model_name,
-        system_role: this.llm_highlights_system_role,
-        partitions: 3 // At 30 minutes per page, about 10 mins per call
+        system_role: system_role,
+        partitions: 1 // At 30 minutes per page divided by num of partitions
       });
 
       return highlights;

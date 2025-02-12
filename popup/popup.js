@@ -39,7 +39,8 @@ let fontSizeDecrease, fontSizeIncrease;
 let currentFontSize = 12; // Default font size in px
 
 // Add these variables to the top-level declarations
-let highlightsDisplay, generateHighlightsBtn;
+let generateHighlightsBtn;
+let highlightsPromptDisplay, highlightsProcessedDisplay, highlightsResultsDisplay;
 
 // Add a variable to store highlights pages
 let highlightsPages = [];
@@ -70,7 +71,9 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     // this is allow for jest testing...lol
     transcriptDisplay = doc.getElementById('transcript-display');
     processedDisplay = doc.getElementById('processed-display');
-    highlightsDisplay = doc.getElementById('highlights-display');
+    highlightsPromptDisplay = doc.getElementById('highlight-prompt');
+    highlightsProcessedDisplay = doc.getElementById('highlight-processed');
+    highlightsResultsDisplay = doc.getElementById('highlight-results');
     prevBtn = doc.getElementById('prev-btn');
     nextBtn = doc.getElementById('next-btn');
     pageInfo = doc.getElementById('page-info');
@@ -132,6 +135,18 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils);
 
     setupClearTranscriptButton(resetTranscriptBtn, storageUtils,videoId);
+
+    // Initialize highlight prompt with default text from LLM API Utils
+    const highlightPromptTextarea = doc.getElementById('highlight-prompt');
+    if (highlightPromptTextarea) {
+      highlightPromptTextarea.value = llmUtils.llm_highlights_system_role;
+    }
+
+    // Initialize highlight processed textarea with processed display content
+    const highlightProcessedTextarea = doc.getElementById('highlight-processed');
+    if (highlightProcessedTextarea && processedDisplay) {
+      highlightProcessedTextarea.value = processedDisplay.textContent;
+    }
 
   } catch (error) {
     console.error('Error initializing popup:', error);
@@ -203,7 +218,6 @@ function setupTabs(doc, tabButtons, tabContents) {
 
       // Update the display based on the new state
       setRawAndProcessedTranscriptText();
-      setHighlightsTranscriptText();
       updatePaginationButtons();
       updatePageInfo();
     });
@@ -412,7 +426,6 @@ function handlePrevClick() {
     });
     currentPageIndex--;
     setRawAndProcessedTranscriptText();
-    setHighlightsTranscriptText();
     updatePaginationButtons();
     updatePageInfo();
     loadHighlightsForCurrentPage();
@@ -429,7 +442,6 @@ function handleNextClick() {
     });
     currentPageIndex++;
     setRawAndProcessedTranscriptText();
-    setHighlightsTranscriptText();
     updatePaginationButtons();
     updatePageInfo();
     loadHighlightsForCurrentPage();
@@ -536,7 +548,6 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
     loader.classList.add('hidden');
   }
 }
-
 async function handleGenerateHighlightsClick(storageUtils) {
   const currentRawPage = rawTranscriptPages[currentPageIndex];
   const videoTitle = extractVideoTitle(currentRawPage);
@@ -548,9 +559,10 @@ async function handleGenerateHighlightsClick(storageUtils) {
   }
 
   const selectedModel = modelSelect.value;
-  const currentProcessedPage = processedTranscriptPages[currentPageIndex];
+  const highlightPrompt = document.getElementById('highlight-prompt').value;
+  const highlightProcessed = document.getElementById('highlight-processed').value;
 
-  if (!currentProcessedPage || currentProcessedPage.trim() === "") {
+  if (!highlightProcessed || highlightProcessed.trim() === "") {
     alert('No processed transcript available to generate highlights.');
     return;
   }
@@ -558,19 +570,26 @@ async function handleGenerateHighlightsClick(storageUtils) {
   logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_START, {
     [Logger.FIELDS.VIDEO_ID]: videoId,
     [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
-    [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentProcessedPage.length,
+    [Logger.FIELDS.TRANSCRIPT_LENGTH]: highlightProcessed.length,
   });
 
   try {
     loader.classList.remove('hidden');
 
     const highlightForPage = await llmUtils.generateHighlights({
-      processedTranscript: currentProcessedPage,
+      processedTranscript: highlightProcessed,
+      customPrompt: highlightPrompt
     });
 
     // Save highlights for current page
     highlightsPages[currentPageIndex] = highlightForPage;
-    highlightsDisplay.textContent = highlightForPage;
+    
+    // Update both the processed textarea and results textarea
+    const highlightProcessedTextarea = document.getElementById('highlight-processed');
+    const highlightResultsTextarea = document.getElementById('highlight-results');
+    if (highlightResultsTextarea) {
+      highlightResultsTextarea.value = highlightForPage;
+    }
 
     // Save the highlights for this specific page
     await storageUtils.saveHighlightsById(videoId, currentPageIndex, highlightForPage);
@@ -607,7 +626,9 @@ async function loadHighlightsForCurrentPage() {
     const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
     if (savedHighlights) {
       highlightsPages[currentPageIndex] = savedHighlights;
-      setHighlightsTranscriptText();
+      if (highlightResultsTextarea) {
+        highlightsResultsDisplay.value = savedHighlights;
+      }
     }
   } catch (error) {
     console.error('Error loading highlights for current page:', error);
@@ -937,6 +958,12 @@ function setRawAndProcessedTranscriptText() {
   // Visibility is handled separately via CSS classes
   transcriptDisplay.textContent = rawTranscriptPages[currentPageIndex] || "No transcript available.";
   processedDisplay.textContent = processedTranscriptPages[currentPageIndex] || "Processed output will appear here.";
+  
+  // Add this line to sync the highlight's processed textarea
+  const highlightProcessedTextarea = document.getElementById('highlight-processed');
+  if (highlightProcessedTextarea) {
+    highlightProcessedTextarea.value = processedDisplay.textContent;
+  }
 }
 
 /**
@@ -957,12 +984,11 @@ function updatePageInfo() {
 function updateFontSize() {
   transcriptDisplay.style.fontSize = `${currentFontSize}px`;
   processedDisplay.style.fontSize = `${currentFontSize}px`;
-  highlightsDisplay.style.fontSize = `${currentFontSize}px`;
+  highlightsPromptDisplay.style.fontSize  = `${currentFontSize}px`;
+  highlightsProcessedDisplay.style.fontSize  = `${currentFontSize}px`;
+  highlightsResultsDisplay.style.fontSize  = `${currentFontSize}px`;
 }
 
-function setHighlightsTranscriptText() {
-  highlightsDisplay.textContent = highlightsPages[currentPageIndex] || "Highlights will appear here.";
-}
 
 //==============================================================================
 //                            EVENT HANDLERS
