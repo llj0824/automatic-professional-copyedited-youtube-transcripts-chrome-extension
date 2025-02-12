@@ -2,6 +2,7 @@
 
 // Class definition remains the same
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
+import { OPENAI_ENCRYPTED_API_KEY, ANTHROPIC_ENCRYPTED_API_KEY } from './keys.js'; // adjust the path as needed
 
 class LLM_API_Utils {
   static DEFAULT_PARTITIONS = 8; // Default number of partitions for parallel processing. 
@@ -9,17 +10,13 @@ class LLM_API_Utils {
     this.openai_endpoint = "https://api.openai.com/v1/chat/completions";
     this.anthropic_endpoint = "https://api.anthropic.com/v1/complete";
     
-    // Read encrypted API keys from environment variables
-    // Ensure that these variables are provided via the .env file or another secure mechanism
-    const openaiEncryptedKey = process.env.OPENAI_ENCRYPTED_API_KEY;
-    const anthropicEncryptedKey = process.env.ANTHROPIC_ENCRYPTED_API_KEY;
-    
-    if (!openaiEncryptedKey || !anthropicEncryptedKey) {
-      throw new Error("API keys are not set in the environment variables.");
+    // Use static constants from keys.js
+    if (!OPENAI_ENCRYPTED_API_KEY || !ANTHROPIC_ENCRYPTED_API_KEY) {
+      throw new Error("API keys are not set in keys.js.");
     }
     
-    this.openai_api_key = this.decryptApiKey(openaiEncryptedKey);
-    this.anthropic_api_key = this.decryptApiKey(anthropicEncryptedKey);
+    this.openai_api_key = this.decryptApiKey(OPENAI_ENCRYPTED_API_KEY);
+    this.anthropic_api_key = this.decryptApiKey(ANTHROPIC_ENCRYPTED_API_KEY);
 
     this.llm_system_role = `Take a raw video transcript and copyedit it into a world-class professionally copyedited transcript.  
     Attempt to identify the speaker from the context of the conversation.
@@ -48,7 +45,7 @@ class LLM_API_Utils {
     # Example Input/Output Format
     Input:  
     [00:06] uh so um today were going to be talking about, uh, 
-    [00:12] mental health and, um, ideas of, uh, 
+    [00:12] mental health and, um, ideas of, uh, self with, um, 
     [00:15] Dr. Paul Conti. uh welcome."
     
     Output:  
@@ -60,7 +57,7 @@ class LLM_API_Utils {
     - If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc.
     - Break long segments into smaller time ranges, clearly identify when speakers change, even within the same time range.
     - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue.
-    - Never truncate the output or ask for permission to continue - process the entire input segment`;
+    - Never truncate the output or ask for permission to continue - process the entire input segment`
 
     // System role for generating highlights
     this.llm_highlights_system_role = `
