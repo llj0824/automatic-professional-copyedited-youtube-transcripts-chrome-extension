@@ -626,6 +626,9 @@ async function loadHighlightsForCurrentPage() {
     const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
     if (savedHighlights) {
       highlightsPages[currentPageIndex] = savedHighlights;
+      if (highlightResultsTextarea) {
+        highlightsResultsDisplay.value = savedHighlights;
+      }
     }
   } catch (error) {
     console.error('Error loading highlights for current page:', error);

@@ -5,6 +5,12 @@ import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 
 class LLM_API_Utils {
   static DEFAULT_PARTITIONS = 8; // Default number of partitions for parallel processing. 
+
+  static GPT_4o = "chatgpt-4o-latest";
+  static GPT_o3_mini = "o3-mini";
+  static GPT_4o_mini = "gpt-4o-mini"
+  static CLAUDE_SONNET_LATEST_MODEL = "claude-3-5-sonnet-latest";
+
   constructor() {
     this.openai_endpoint = "https://api.openai.com/v1/chat/completions";
     this.anthropic_endpoint = "https://api.anthropic.com/v1/complete";
@@ -57,7 +63,7 @@ class LLM_API_Utils {
 Extract segments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in philosophical reflections, or statements that could inspire thought, provides expert analysis on complex topics 
 
 Identify moments that are:
-- Highly quotable
+- Highly quotable (~2-3 sentences)
 - Contrarian/surprising
 - Data-driven
 - Actionable
@@ -281,7 +287,7 @@ Two sentence summary of highlight in viewpoint of the reader.
   }
 
   // Add the new method
-  async generateHighlights({ processedTranscript, customPrompt, model_name="o3-mini", max_tokens = 10000, temperature = 0.4 }) {
+  async generateHighlights({ processedTranscript, customPrompt, model_name="o3-mini"}) {
     try {
       // Use custom prompt if provided, otherwise use default system role
       const system_role = customPrompt || this.llm_highlights_system_role;
@@ -291,7 +297,7 @@ Two sentence summary of highlight in viewpoint of the reader.
         transcript: processedTranscript,
         model_name,
         system_role: system_role,
-        partitions: 2 // At 30 minutes per page, about 10 mins per call
+        partitions: 1 // At 30 minutes per page divided by num of partitions
       });
 
       return highlights;
