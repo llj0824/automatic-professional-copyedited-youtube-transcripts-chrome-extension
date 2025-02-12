@@ -2,6 +2,7 @@
 
 // Class definition remains the same
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
+import { OPENAI_ENCRYPTED_API_KEY, ANTHROPIC_ENCRYPTED_API_KEY } from './keys.js'; // adjust the path as needed
 
 class LLM_API_Utils {
   static DEFAULT_PARTITIONS = 8; // Default number of partitions for parallel processing. 
@@ -14,9 +15,15 @@ class LLM_API_Utils {
   constructor() {
     this.openai_endpoint = "https://api.openai.com/v1/chat/completions";
     this.anthropic_endpoint = "https://api.anthropic.com/v1/complete";
-    // Initialize with embedded keys
-    this.openai_api_key = this.decryptApiKey("12185e1f1d010b5e5d373d3921303d2b431c5e04303b202b1508215039212a043910502e390b5c5d2b120b2f0a1f120536342b3f544c2b594425483b0e03343c22152556385d56470a1c563e35341a240116275a2509161e352f3e392e1025463d211758383e03062e3055310b110f0c2f0311182742132a033727223528203b352a20090521074129262f5200580d353a361d17301b390215093b2c133b0b20043c3032");
-    this.anthropic_api_key = this.decryptApiKey("12185e0e011a4c12190e554758112b305e41310e1a30240330273125015a33270e250c3a112a25373e0a3d03311f0a2c160b5e38052819464b16015838261c52560306023659043d3f26303b3f305b3f5d371e272f1d052d211c2227462f5010081826423837381e09052420");
+    
+    // Use static constants from keys.js
+    if (!OPENAI_ENCRYPTED_API_KEY || !ANTHROPIC_ENCRYPTED_API_KEY) {
+      throw new Error("API keys are not set in keys.js.");
+    }
+    
+    this.openai_api_key = this.decryptApiKey(OPENAI_ENCRYPTED_API_KEY);
+    this.anthropic_api_key = this.decryptApiKey(ANTHROPIC_ENCRYPTED_API_KEY);
+
     this.llm_system_role = `Take a raw video transcript and copyedit it into a world-class professionally copyedited transcript.  
     Attempt to identify the speaker from the context of the conversation.
     
