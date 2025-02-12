@@ -3,8 +3,6 @@ dist/
 dist/*
 
 # Environment variables and secrets
-.env
-.env.*
 
 # Dependencies
 node_modules/
