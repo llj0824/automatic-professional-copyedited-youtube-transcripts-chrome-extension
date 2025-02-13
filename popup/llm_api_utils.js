@@ -78,7 +78,7 @@ Identify moments that are:
 
 Look for:
 - Unpopular or bold statements
-- Memorable one-liners
+- Memorable Quotes
 - Counterarguments to common beliefs
 - Advanced strategies or methodologies
 - Clarification of common misconceptions
