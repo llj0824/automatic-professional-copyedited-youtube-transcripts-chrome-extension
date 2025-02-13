@@ -112,13 +112,17 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
 
     // Load highlights for current page
-    try {
-      const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
-      if (savedHighlights) {
-        highlightsPages[currentPageIndex] = savedHighlights;
+    const highlightResultsTextarea = doc.getElementById('highlight-results');
+    if (highlightResultsTextarea) {
+      try {
+        const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
+        if (savedHighlights) {
+          highlightsPages[currentPageIndex] = savedHighlights;
+          highlightResultsTextarea.value = savedHighlights;
+        }
+      } catch (error) {
+        console.error('Error loading highlights:', error);
       }
-    } catch (error) {
-      console.error('Error loading highlights:', error);
     }
 
     paginateBothTranscripts(rawTranscript, processedTranscript);
@@ -617,7 +621,7 @@ async function handleGenerateHighlightsClick(storageUtils) {
   }
 }
 
-// Add a function to load highlights when changing pages
+// Update loadHighlightsForCurrentPage to properly set the textarea value
 async function loadHighlightsForCurrentPage() {
   const videoId = await storageUtils.getCurrentYouTubeVideoId();
   if (!videoId) return;
@@ -626,8 +630,9 @@ async function loadHighlightsForCurrentPage() {
     const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
     if (savedHighlights) {
       highlightsPages[currentPageIndex] = savedHighlights;
+      const highlightResultsTextarea = document.getElementById('highlight-results');
       if (highlightResultsTextarea) {
-        highlightsResultsDisplay.value = savedHighlights;
+        highlightResultsTextarea.value = savedHighlights;
       }
     }
   } catch (error) {

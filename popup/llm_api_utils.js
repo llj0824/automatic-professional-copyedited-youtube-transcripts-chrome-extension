@@ -294,7 +294,7 @@ Two sentence summary of highlight in viewpoint of the reader.
   }
 
   // Add the new method
-  async generateHighlights({ processedTranscript, customPrompt, model_name="o3-mini"}) {
+  async generateHighlights({ processedTranscript, customPrompt, model_name=this.GPT_o3_mini}) {
     try {
       // Use custom prompt if provided, otherwise use default system role
       const system_role = customPrompt || this.llm_highlights_system_role;
