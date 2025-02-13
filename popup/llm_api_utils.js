@@ -70,7 +70,7 @@ class LLM_API_Utils {
 Extract segments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in philosophical reflections, or statements that could inspire thought, provides expert analysis on complex topics 
 
 Identify moments that are:
-- Highly quotable (~2-3 sentences)
+- Highly quotable (~3-5 sentences)
 - Contrarian/surprising
 - Data-driven
 - Actionable
