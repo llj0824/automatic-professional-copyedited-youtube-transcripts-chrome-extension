@@ -90,9 +90,8 @@ Format each highlight as:
 [Time Range - i.e [01:00:06 -> 01:02:15]]
 🔬 Topic: Brief title
 
-✨ Quote (if applicable) : "Exact words from the speaker"
+✨ Quote (~3-5 sentences): "Extract the most compelling quote from this segment, aiming for approximately 3-5 sentences to capture the core idea. Use the exact words."
 💎 Insight: Summary of the explanation or analysis
-🎯 TAKEAWAY: Why this matters
 📝 CONTEXT: Key supporting details
 
 --- 
