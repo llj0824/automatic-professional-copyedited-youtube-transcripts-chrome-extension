@@ -383,6 +383,76 @@ class StorageUtils {
       });
     });
   }
+
+  // --- Twitter OAuth Token Storage ---
+
+  /**
+   * Generates the storage key for Twitter OAuth tokens.
+   * @returns {string}
+   */
+  generateTwitterTokenKey() {
+    // Using a fixed key as tokens are not per-video
+    return 'twitter_oauth_tokens';
+  }
+
+  /**
+   * Saves Twitter OAuth tokens to local storage.
+   * @param {object} tokens - The tokens object (e.g., { oauth_token: '...', oauth_token_secret: '...' } for OAuth 1.0a)
+   * @returns {Promise<void>}
+   */
+  saveTwitterTokens(tokens) {
+    const storageKey = this.generateTwitterTokenKey();
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set({ [storageKey]: tokens }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error saving Twitter tokens:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log('Twitter tokens saved successfully.');
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Loads Twitter OAuth tokens from local storage.
+   * @returns {Promise<object|null>} - The retrieved tokens object or null if not found.
+   */
+  loadTwitterTokens() {
+    const storageKey = this.generateTwitterTokenKey();
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get([storageKey], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error loading Twitter tokens:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          const tokens = result[storageKey] || null;
+          console.log('Twitter tokens loaded:', tokens ? 'Tokens found' : 'No tokens found');
+          resolve(tokens);
+        }
+      });
+    });
+  }
+
+  /**
+   * Removes Twitter OAuth tokens from local storage.
+   * @returns {Promise<void>}
+   */
+  removeTwitterTokens() {
+    const storageKey = this.generateTwitterTokenKey();
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.remove([storageKey], () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error removing Twitter tokens:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log('Twitter tokens removed successfully.');
+          resolve();
+        }
+      });
+    });
+  }
 }
 
 export default StorageUtils;

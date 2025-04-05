@@ -50,7 +50,19 @@
             <button id="generate-highlights-btn" class="action-btn">
               Generate Highlights 💎
             </button>
+            <button id="push-to-twitter-btn" class="action-btn">
+              Push to Twitter 🐦
+            </button>
           </div>
+          <!-- Simple Twitter Login Form (Initially Hidden) -->
+          <div id="twitter-login-section" class="hidden twitter-login">
+             <h4>Twitter Login Required</h4>
+             <input type="text" id="twitter-username" placeholder="Twitter Username/Email" />
+             <input type="password" id="twitter-password" placeholder="Twitter Password" />
+             <button id="twitter-login-btn" class="action-btn">Login to Twitter</button>
+             <p id="twitter-login-status" class="status-message"></p>
+          </div>
+          
           <!-- Results Section -->
           <div class="highlight-section" id="results-section">
             <div class="section-header">
