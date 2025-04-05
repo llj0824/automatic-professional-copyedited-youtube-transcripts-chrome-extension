@@ -1,7 +1,11 @@
 // popup/twitterClient.js
 
-import { Scraper } from '../../agent-twitter-client/src/scraper'; // Adjust path if necessary
-import { Cookie } from '../../agent-twitter-client/src/types'; // Adjust path if necessary
+// Use standard package imports
+import { Scraper } from 'agent-twitter-client';
+// Assuming Cookie might not be directly exported or needed,
+// let's comment it out for now unless the scraper instance requires it explicitly.
+// If Cookie is needed, check how agent-twitter-client exports it.
+// import { Cookie } from 'agent-twitter-client'; 
 import StorageUtils from './storage_utils.js';
 
 // Key for storing cookies in chrome.storage.local
