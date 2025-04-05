@@ -111,7 +111,23 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
     const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
 
-    // Load highlights for current page
+    // First paginate the raw transcript
+    paginateRawTranscript(rawTranscript);
+
+    // Load processed pages individually
+    processedTranscriptPages = new Array(rawTranscriptPages.length).fill(""); // Initialize array
+    for (let i = 0; i < rawTranscriptPages.length; i++) {
+      try {
+        const page = await storageUtils.loadProcessedPageById(videoId, i);
+        if (page) {
+          processedTranscriptPages[i] = page;
+        }
+      } catch (error) {
+        console.error(`Error loading processed page ${i}:`, error);
+      }
+    }
+
+    // Load highlights for the initial current page (index 0)
     const highlightResultsTextarea = doc.getElementById('highlight-results');
     if (highlightResultsTextarea) {
       try {
@@ -124,8 +140,6 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
         console.error('Error loading highlights:', error);
       }
     }
-
-    paginateBothTranscripts(rawTranscript, processedTranscript);
 
     // handle showing UI elements based on auto-load transcript success status
     handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
@@ -352,7 +366,7 @@ function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
       processedTranscript = ""; // Reset processed transcript
       
       // Re-paginate and update display
-      paginateBothTranscripts(rawTranscript, processedTranscript);
+      paginateRawTranscript(rawTranscript);
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updatePageInfo();
@@ -522,15 +536,13 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
       [Logger.FIELDS.PROCESSED_TRANSCRIPT]: processedPage
     });
 
-    // Update the processed page
+    // Update the processed page in memory
     processedTranscriptPages[currentPageIndex] = processedPage;
-    processedDisplay.textContent = processedPage;
+    // Update the display directly with the new page content
+    // processedDisplay.textContent = processedPage; // This happens in setRawAndProcessedTranscriptText
 
-    // Combine all processed pages into a single text block
-    processedTranscript = processedTranscriptPages.join('\n');
-
-    // Save the full processed transcript
-    await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
+    // Save the current processed page individually
+    await storageUtils.saveProcessedPageById(videoId, currentPageIndex, processedPage);
 
     alert('Current page processed successfully!');
 
@@ -626,17 +638,34 @@ async function loadHighlightsForCurrentPage() {
   const videoId = await storageUtils.getCurrentYouTubeVideoId();
   if (!videoId) return;
 
+  const highlightResultsTextarea = document.getElementById('highlight-results');
+  if (!highlightResultsTextarea) {
+    console.warn('Highlight results textarea not found.');
+    return;
+  }
+
+  // Clear current highlights before loading new ones
+  highlightResultsTextarea.value = "";
+  // Clear memory as well
+  // highlightsPages[currentPageIndex] = ""; // Let's load first, then update
+
   try {
+    console.log(`Loading highlights for video ${videoId}, page ${currentPageIndex}`);
     const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
     if (savedHighlights) {
-      highlightsPages[currentPageIndex] = savedHighlights;
-      const highlightResultsTextarea = document.getElementById('highlight-results');
-      if (highlightResultsTextarea) {
-        highlightResultsTextarea.value = savedHighlights;
-      }
+      console.log(`Highlights found for page ${currentPageIndex}, updating display.`);
+      highlightsPages[currentPageIndex] = savedHighlights; // Update memory
+      highlightResultsTextarea.value = savedHighlights; // Update UI
+    } else {
+      console.log(`No highlights found in storage for page ${currentPageIndex}.`);
+       highlightsPages[currentPageIndex] = ""; // Ensure memory is cleared if nothing found
+       highlightResultsTextarea.value = ""; // Ensure UI is cleared
     }
   } catch (error) {
     console.error('Error loading highlights for current page:', error);
+    // Optionally clear UI/memory on error too
+     highlightsPages[currentPageIndex] = "";
+     highlightResultsTextarea.value = "";
   }
 }
 
@@ -739,7 +768,7 @@ async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils
   // First check if we have saved transcripts
   if (savedTranscripts.rawTranscript) {
     rawTranscript = savedTranscripts.rawTranscript;
-    processedTranscript = savedTranscripts.processedTranscript || "";
+    // processedTranscript = savedTranscripts.processedTranscript || ""; // REMOVED - will load per page
     return { isCached: true, isLoadedFromYoutube: false };
   }
 
@@ -749,7 +778,7 @@ async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils
     rawTranscript = decodeTranscript(fetchedRawTranscript);
     if (rawTranscript) {
       await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
-      processedTranscript = ""; // Reset processed transcript
+      // processedTranscript = ""; // Reset processed transcript // REMOVED - will load per page
       return { isCached: false, isLoadedFromYoutube: true };
     }
   } catch (ytError) {
@@ -960,15 +989,24 @@ function splitTranscriptPage(page) {
  * Displays the current page based on visibility state.
  */
 function setRawAndProcessedTranscriptText() {
-  // Visibility is handled separately via CSS classes
-  transcriptDisplay.textContent = rawTranscriptPages[currentPageIndex] || "No transcript available.";
-  processedDisplay.textContent = processedTranscriptPages[currentPageIndex] || "Processed output will appear here.";
-  
-  // Add this line to sync the highlight's processed textarea
+  if (!transcriptDisplay || !processedDisplay) return;
+
+  transcriptDisplay.textContent = rawTranscriptPages[currentPageIndex] || '';
+
+  // Set processed text from the loaded page, or empty if not available
+  processedDisplay.textContent = processedTranscriptPages[currentPageIndex] || '';
+
+  // Update highlights based on current tab visibility and processed content
   const highlightProcessedTextarea = document.getElementById('highlight-processed');
   if (highlightProcessedTextarea) {
     highlightProcessedTextarea.value = processedDisplay.textContent;
   }
+  
+  // Potentially update highlights results view if needed, though loadHighlightsForCurrentPage handles it
+  // const highlightResultsTextarea = document.getElementById('highlight-results');
+  // if (highlightResultsTextarea) {
+  //   highlightResultsTextarea.value = highlightsPages[currentPageIndex] || '';
+  // }
 }
 
 /**
@@ -982,8 +1020,13 @@ function updatePaginationButtons() {
  * Updates the page information display.
  */
 function updatePageInfo() {
-  const currentPages = getCurrentDisplayPagesNumbers();
-  pageInfo.textContent = `Page ${currentPageIndex + 1} of ${currentPages.length}`;
+  if (!pageInfo) return;
+  const totalPages = rawTranscriptPages.length; // Base pagination on raw pages
+  if (totalPages > 0) {
+    pageInfo.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`;
+  } else {
+    pageInfo.textContent = 'Page 0 of 0';
+  }
 }
 
 function updateFontSize() {

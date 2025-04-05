@@ -309,6 +309,80 @@ class StorageUtils {
       });
     });
   }
+
+  /**
+   * Generates a storage key for a specific page of a processed transcript.
+   * @param {string} videoId - The YouTube video ID.
+   * @param {number} pageNumber - The page number (0-indexed).
+   * @returns {string} - The formatted storage key.
+   */
+  generateProcessedPageKey(videoId, pageNumber) {
+    return `${this.KEY_PREFIX}${videoId}:${pageNumber}:processed`;
+  }
+
+  /**
+   * Saves a specific page of the processed transcript.
+   * @param {string} videoId - The YouTube video ID.
+   * @param {number} pageNumber - The page number (0-indexed).
+   * @param {string} processedPageText - The processed transcript text for the page.
+   * @returns {Promise<void>}
+   */
+  saveProcessedPageById(videoId, pageNumber, processedPageText) {
+    if (!videoId) {
+      console.error('Invalid video ID. Cannot save processed page.');
+      return Promise.reject('Invalid video ID.');
+    }
+    if (typeof pageNumber !== 'number' || pageNumber < 0) {
+      console.error('Invalid page number. Cannot save processed page.');
+      return Promise.reject('Invalid page number.');
+    }
+
+    const storageKey = this.generateProcessedPageKey(videoId, pageNumber);
+
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set({ [storageKey]: processedPageText }, () => {
+        if (chrome.runtime.lastError) {
+          console.error(`Error saving processed page ${pageNumber}:`, chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log(`Processed page ${pageNumber} saved successfully for Video ID: ${videoId}`);
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Loads a specific page of the processed transcript.
+   * @param {string} videoId - The YouTube video ID.
+   * @param {number} pageNumber - The page number (0-indexed).
+   * @returns {Promise<string|null>} - The retrieved processed page text or null if not found.
+   */
+  loadProcessedPageById(videoId, pageNumber) {
+    if (!videoId) {
+      console.error('Invalid video ID. Cannot load processed page.');
+      return Promise.reject('Invalid video ID.');
+    }
+     if (typeof pageNumber !== 'number' || pageNumber < 0) {
+      console.error('Invalid page number. Cannot load processed page.');
+      return Promise.reject('Invalid page number.');
+    }
+
+    const storageKey = this.generateProcessedPageKey(videoId, pageNumber);
+
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get([storageKey], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error(`Error loading processed page ${pageNumber}:`, chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          const processedPageText = result[storageKey] || null;
+          console.log(`Processed page ${pageNumber} loaded for Storage Key ${storageKey}:`, processedPageText ? processedPageText.substring(0, 50) + '...' : null); // Log snippet
+          resolve(processedPageText);
+        }
+      });
+    });
+  }
 }
 
 export default StorageUtils;
