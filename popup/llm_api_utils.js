@@ -312,6 +312,56 @@ Two sentence summary of highlight in viewpoint of the reader.
       throw error;
     }
   }
+
+  /**
+   * Takes generated highlights and summarizes them for a Twitter post.
+   * @param {string} highlightsText - The text containing generated highlights.
+   * @param {string} [videoTitle="this video"] - Optional title of the video.
+   * @param {string} [videoUrl=""] - Optional URL of the video.
+   * @param {string} [model_name="gpt-4o-mini"] - Optional model name.
+   * @returns {Promise<string>} - A tweet-ready summary.
+   */
+  async summarizeHighlightsForTwitter({ highlightsText, videoTitle = "this video", videoUrl = "", model_name = LLM_API_Utils.GPT_4o_mini }) {
+    const twitter_system_role = `You are a helpful assistant specialized in creating engaging Twitter posts from video highlights.
+    Your goal is to condense the provided highlights into a single, compelling tweet (max 280 characters).
+    Focus on the most interesting quotes and insights.
+    Include the video link if provided.
+    Use relevant hashtags.`;
+
+    const prompt = `Here are highlights from ${videoTitle}:
+
+${highlightsText}
+
+----
+
+Please create a concise and engaging tweet (max 280 characters) summarizing the key takeaways or most interesting points from these highlights. Include 1-3 relevant hashtags. If available, include this video link: ${videoUrl}`; 
+
+    console.log("Sending highlights to LLM for Twitter summary:", highlightsText.substring(0, 100) + "...");
+
+    try {
+      // Use call_llm which handles model selection (OpenAI/Claude)
+      const tweetSummary = await this.call_llm({
+        model_name: model_name,
+        system_role: twitter_system_role,
+        prompt: prompt,
+        max_tokens: 100, // Keep response short for a tweet
+        temperature: 0.5 // Allow some creativity
+      });
+
+      console.log("LLM generated tweet summary:", tweetSummary);
+      // Basic length check, although prompt requests max 280
+      if (tweetSummary.length > 280) {
+          console.warn("LLM generated summary exceeds 280 characters, attempting to truncate.");
+          // Simple truncation, could be smarter
+          return tweetSummary.substring(0, 277) + '...'; 
+      }
+      return tweetSummary;
+
+    } catch (error) {
+      console.error("Error summarizing highlights for Twitter:", error);
+      throw error;
+    }
+  }
 }
 
 // Export the LLM_API_Utils class

@@ -4,117 +4,101 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Automatic YouTube Transcript Professional Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transcript Professional</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 
 <body>
   <div class="container">
-    <h2>Automatic YouTube Transcript Professional Editor</h2>
-
-    <!-- Transcript Navigation -->
-    <div id="transcript-section" class="hidden">
-      <button id="prev-btn" disabled>&larr; </button>
-      <span id="page-info">Page 1</span>
-      <button id="next-btn" disabled> &rarr;</button>
+    <h1>Transcript Professional 📝💼</h1>
+    <div class="tabs">
+      <button class="tab-button active" data-tab="raw">Raw Transcript</button>
+      <button class="tab-button" data-tab="processed">Processed</button>
+      <button class="tab-button" data-tab="highlights">Highlights</button>
+    </div>
+    
+    <!-- Tab Content Area -->
+    <div id="raw" class="tab-content active">
+      <div class="transcript-section" id="transcript-section">
+        <div class="section-header">
+          <h2>Raw Transcript</h2>
+          <button id="reset-transcript-btn" class="action-btn small-btn">Reset</button>
+        </div>
+        <textarea id="transcript-display" readonly class="code-font"></textarea>
+      </div>
+      <!-- Pagination Controls -->
+      <div class="pagination-controls">
+        <button id="prev-btn" class="action-btn small-btn">&lt; Prev</button>
+        <span id="page-info">Page 1 of 1</span>
+        <button id="next-btn" class="action-btn small-btn">Next &gt;</button>
+      </div>
+      <div class="manual-load-section">
+        <h3>Manual Transcript Load</h3>
+        <textarea id="transcript-input" placeholder="Paste raw transcript here..."></textarea>
+        <button id="load-transcript-btn" class="action-btn small-btn">Load Manual Transcript</button>
+      </div>
+      <div id="transcript-status-message"></div>
+      <div id="existing-transcript-status-message"></div> 
     </div>
 
-    <!-- Content Display with Tabs -->
-    <div id="content-section">
-      <div class="tabs">
-        <button class="tab-button active" data-tab="raw">Raw Transcript</button>
-        <button class="tab-button" data-tab="processed"> Professional </button>
-        <button class="tab-button" data-tab="highlights"> Highlights </button>
+    <div id="processed" class="tab-content">
+      <div class="processed-section" id="processed-section">
+        <h2>Processed Transcript</h2>
+        <textarea id="processed-display" readonly class="code-font"></textarea>
       </div>
-      <div class="font-controls">
-        <button id="font-size-decrease" title="Decrease font size">A-</button>
-        <button id="font-size-increase" title="Increase font size">A+</button>
-      </div>
-      <div class="tab-content" id="raw">
-        <div class="content-header">
-          <button class="copy-btn" data-target="transcript-display">📋 Copy Transcript</button>
-          <!-- TODO: Find better place for reset button - rarely used but always visible -->
-          <button id="reset-transcript-btn">🔄️ Reset Transcript</button>
-        </div>
-        <pre id="transcript-display">Loading transcript...</pre>
-      </div>
-      <div class="tab-content hidden" id="processed">
-        <div class="content-header">
-          <button class="copy-btn" data-target="processed-display">📋 Copy Transcript</button>
-        </div>
-        <pre id="processed-display">Professionally Caliber Transcript will appear here.</pre>
-      </div>
-      <div class="tab-content hidden" id="highlights">
-        <div class="content-sections">
-          <div class="highlight-actions">
-            <button id="generate-highlights-btn" class="action-btn">
-              Generate Highlights 💎
-            </button>
-          </div>
-          <!-- Results Section -->
-          <div class="highlight-section" id="results-section">
-            <div class="section-header">
-              <h4>Highlight Results</h4>
-            </div>
-            <textarea id="highlight-results" class="section-content" readonly></textarea>
-          </div>
-
-          <!-- Processed Transcript Section -->
-          <div class="highlight-section" id="processed-section">
-            <div class="section-header">
-              <h4>Processed Transcript</h4>
-            </div>
-            <textarea id="highlight-processed" class="section-content"></textarea>
-          </div>
-          
-          <!-- Prompt Section -->
-          <div class="highlight-section" id="prompt-section">
-            <div class="section-header">
-              <h4>Highlight Prompt</h4>
-            </div>
-            <textarea id="highlight-prompt" class="section-content"></textarea>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Actions -->
-    <div id="actions">
-      <button id="process-btn" class="action-btn"> Professional Transcript ✨ </button>
-      <button id="generate-highlights-btn" class="action-btn hidden"> Generate Highlights 💎 </button>
-      <div id="loader" class="hidden"></div>
-    </div>
-
-    <!-- API Key and Model Selection -->
-    <div id="api-section" class="hidden">
-      <h3>LLM Configuration</h3>
-      <!-- Model Selection -->
-      <div id="model-selection">
-        <label for="model-select">Select LLM Model:</label>
+      <div class="model-selection">
+        <label for="model-select">Choose LLM:</label>
         <select id="model-select">
-          <option value="chatgpt-4o-latest" selected>OpenAI GPT-4o</option>
-          <option value="gpt-4o-mini">OpenAI GPT</option>
-          <option value="claude-3-5-sonnet-20241022" hidden>Anthropic Claude 3.5 Sonnet</option>
-          <!-- Add more models as needed -->
+          <!-- Options will be loaded dynamically -->
         </select>
       </div>
+      <div class="action-buttons">
+        <button id="process-btn" class="action-btn">Process Current Page</button>
+      </div>
     </div>
 
-    <!-- Transcript Input Section -->
-    <div id="transcript-input-section" class="hidden">
-      <h3>Load Transcript Manually</h3>
-      <textarea id="transcript-input" placeholder="Paste your transcript here..." rows="5" cols="50"></textarea>
-      <button id="load-transcript-btn">Load Transcript</button>
+    <div id="highlights" class="tab-content">
+      <h2>Highlights Generation</h2>
+      <div class="processed-input-section">
+        <h3>Processed Text (for Highlighting)</h3>
+        <textarea id="highlight-processed" placeholder="Processed text from the 'Processed' tab will appear here..." class="code-font"></textarea>
+      </div>
+      <div class="action-buttons">
+        <button id="generate-highlights-btn" class="action-btn">
+          Generate Highlights 💎
+        </button>
+        <button id="push-to-twitter-btn" class="action-btn">
+          Push to Twitter 🐦
+        </button>
+      </div>
+      <!-- Simple Twitter Login Form (Initially Hidden) -->
+      <div id="twitter-login-section" class="hidden twitter-login">
+         <h4>Twitter Login Required</h4>
+         <input type="text" id="twitter-username" placeholder="Twitter Username/Email" />
+         <input type="password" id="twitter-password" placeholder="Twitter Password" />
+         <button id="twitter-login-btn" class="action-btn">Login to Twitter</button>
+         <p id="twitter-login-status" class="status-message"></p>
+      </div>
+      
+      <!-- Results Section -->
+      <div class="highlight-section" id="results-section">
+        <div class="section-header">
+          <h3>Generated Highlights</h3>
+          <div class="font-size-controls">
+            <button id="font-size-decrease" class="action-btn small-btn">A-</button>
+            <button id="font-size-increase" class="action-btn small-btn">A+</button>
+          </div>
+        </div>
+        <textarea id="highlight-results" placeholder="Highlights will appear here..." class="code-font"></textarea>
+      </div>
     </div>
-    <!-- **End of Added Section** -->
 
+    <!-- Loader -->
+    <div id="loader" class="loader hidden"></div>
   </div>
-
-  <!-- Include JavaScript files as modules -->
-  <script type="module" src="llm_api_utils.js"></script>
-  <script type="module" src="storage_utils.js"></script>
-  <script type="module" src="popup.js"></script>
-  <script type="module" src="youtube_transcript_retrival.js"></script>
+  <!-- Point to the bundled popup script relative to popup.html in dist -->
+  <script src="popup.bundle.js" type="module"></script>
 </body>
 
 </html>

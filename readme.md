@@ -110,6 +110,7 @@ II. Debugging unit and integration tests on Cursor
 
 ### Bugs
 1. [top] for video, [AI Dev Day](https://www.youtube.com/watch?v=ArptLpQiKfI&list=PLx5pnFXdPTRzWla0RaOxALTSTnVq53fKL）, the 3 and 4th processed page doesn't get stored...keeps showing up blank.
+2. [top2] - highlights aren't being stored/retrieved per page. When i turn pages, the highlights don't change. 
 
 1. if no processed transcripts sets segments to 0, even when there is a raw transcript for that page.
 2. loading saved processed transcripts still not working

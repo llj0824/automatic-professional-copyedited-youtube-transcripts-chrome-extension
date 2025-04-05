@@ -4,6 +4,7 @@ import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 import Logger from './logger.js';
+import TwitterClient from './twitterClient.js';
 
 
 //==============================================================================
@@ -12,6 +13,7 @@ import Logger from './logger.js';
 
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
+let pushToTwitterBtn;
 
 // Add this near other global variables
 const TabState = {
@@ -48,6 +50,11 @@ let highlightsPages = [];
 // Add to global variables section
 let resetTranscriptBtn;
 
+const twitterClient = new TwitterClient();
+
+// Add Twitter Login UI elements
+let twitterLoginSection, twitterUsernameInput, twitterPasswordInput, twitterLoginBtn, twitterLoginStatus;
+
 
 //==============================================================================
 //                         INITIALIZATION FUNCTIONS 
@@ -67,6 +74,8 @@ if (typeof document !== 'undefined') {
  */
 async function initializePopup(doc = document, storageUtils = new StorageUtils()) {
   try {
+    await twitterClient.initialize(); // Initialize Twitter client and load session
+
     // Initialize the variables within the function using dependency injection
     // this is allow for jest testing...lol
     transcriptDisplay = doc.getElementById('transcript-display');
@@ -79,6 +88,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     pageInfo = doc.getElementById('page-info');
     processBtn = doc.getElementById('process-btn');
     generateHighlightsBtn = doc.getElementById('generate-highlights-btn');
+    pushToTwitterBtn = doc.getElementById('push-to-twitter-btn');
     loader = doc.getElementById('loader');
     tabButtons = doc.querySelectorAll('.tab-button');
     tabContents = doc.querySelectorAll('.tab-content');
@@ -91,10 +101,19 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     fontSizeDecrease = doc.getElementById('font-size-decrease');
     fontSizeIncrease = doc.getElementById('font-size-increase');
 
+    // Initialize Twitter Login UI elements
+    twitterLoginSection = doc.getElementById('twitter-login-section');
+    twitterUsernameInput = doc.getElementById('twitter-username');
+    twitterPasswordInput = doc.getElementById('twitter-password');
+    twitterLoginBtn = doc.getElementById('twitter-login-btn');
+    twitterLoginStatus = doc.getElementById('twitter-login-status');
+
     setupTabs(doc, tabButtons, tabContents);
     setupProcessButton(processBtn, modelSelect, storageUtils);
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
     setupPagination(prevBtn, nextBtn, pageInfo);
+    setupPushToTwitterButton(pushToTwitterBtn, storageUtils);
+    setupTwitterLoginButton(twitterLoginBtn);
 
     // Load existing transcripts if available
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
@@ -111,7 +130,23 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
     const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
 
-    // Load highlights for current page
+    // First paginate the raw transcript
+    paginateRawTranscript(rawTranscript);
+
+    // Load processed pages individually
+    processedTranscriptPages = new Array(rawTranscriptPages.length).fill(""); // Initialize array
+    for (let i = 0; i < rawTranscriptPages.length; i++) {
+      try {
+        const page = await storageUtils.loadProcessedPageById(videoId, i);
+        if (page) {
+          processedTranscriptPages[i] = page;
+        }
+      } catch (error) {
+        console.error(`Error loading processed page ${i}:`, error);
+      }
+    }
+
+    // Load highlights for the initial current page (index 0)
     const highlightResultsTextarea = doc.getElementById('highlight-results');
     if (highlightResultsTextarea) {
       try {
@@ -124,8 +159,6 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
         console.error('Error loading highlights:', error);
       }
     }
-
-    paginateBothTranscripts(rawTranscript, processedTranscript);
 
     // handle showing UI elements based on auto-load transcript success status
     handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
@@ -332,6 +365,14 @@ function setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils) {
   generateHighlightsBtn.addEventListener('click', () => handleGenerateHighlightsClick(storageUtils));
 }
 
+function setupPushToTwitterButton(button, storageUtils) {
+  if (button) {
+    button.addEventListener('click', () => handlePushToTwitterClick(storageUtils));
+  } else {
+    console.warn('Push to Twitter button not found during setup.');
+  }
+}
+
 function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
   resetTranscriptBtn.addEventListener('click', async () => {
     try {
@@ -352,7 +393,7 @@ function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
       processedTranscript = ""; // Reset processed transcript
       
       // Re-paginate and update display
-      paginateBothTranscripts(rawTranscript, processedTranscript);
+      paginateRawTranscript(rawTranscript);
       setRawAndProcessedTranscriptText();
       updatePaginationButtons();
       updatePageInfo();
@@ -365,6 +406,15 @@ function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
       loader.classList.add('hidden');
     }
   });
+}
+
+// Add setup function for Twitter login button
+function setupTwitterLoginButton(button) {
+   if (button) {
+       button.addEventListener('click', handleTwitterLoginClick);
+   } else {
+       console.warn('Twitter login button not found during setup.');
+   }
 }
 
 //==============================================================================
@@ -522,15 +572,13 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
       [Logger.FIELDS.PROCESSED_TRANSCRIPT]: processedPage
     });
 
-    // Update the processed page
+    // Update the processed page in memory
     processedTranscriptPages[currentPageIndex] = processedPage;
-    processedDisplay.textContent = processedPage;
+    // Update the display directly with the new page content
+    // processedDisplay.textContent = processedPage; // This happens in setRawAndProcessedTranscriptText
 
-    // Combine all processed pages into a single text block
-    processedTranscript = processedTranscriptPages.join('\n');
-
-    // Save the full processed transcript
-    await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
+    // Save the current processed page individually
+    await storageUtils.saveProcessedPageById(videoId, currentPageIndex, processedPage);
 
     alert('Current page processed successfully!');
 
@@ -626,17 +674,34 @@ async function loadHighlightsForCurrentPage() {
   const videoId = await storageUtils.getCurrentYouTubeVideoId();
   if (!videoId) return;
 
+  const highlightResultsTextarea = document.getElementById('highlight-results');
+  if (!highlightResultsTextarea) {
+    console.warn('Highlight results textarea not found.');
+    return;
+  }
+
+  // Clear current highlights before loading new ones
+  highlightResultsTextarea.value = "";
+  // Clear memory as well
+  // highlightsPages[currentPageIndex] = ""; // Let's load first, then update
+
   try {
+    console.log(`Loading highlights for video ${videoId}, page ${currentPageIndex}`);
     const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
     if (savedHighlights) {
-      highlightsPages[currentPageIndex] = savedHighlights;
-      const highlightResultsTextarea = document.getElementById('highlight-results');
-      if (highlightResultsTextarea) {
-        highlightResultsTextarea.value = savedHighlights;
-      }
+      console.log(`Highlights found for page ${currentPageIndex}, updating display.`);
+      highlightsPages[currentPageIndex] = savedHighlights; // Update memory
+      highlightResultsTextarea.value = savedHighlights; // Update UI
+    } else {
+      console.log(`No highlights found in storage for page ${currentPageIndex}.`);
+       highlightsPages[currentPageIndex] = ""; // Ensure memory is cleared if nothing found
+       highlightResultsTextarea.value = ""; // Ensure UI is cleared
     }
   } catch (error) {
     console.error('Error loading highlights for current page:', error);
+    // Optionally clear UI/memory on error too
+     highlightsPages[currentPageIndex] = "";
+     highlightResultsTextarea.value = "";
   }
 }
 
@@ -739,7 +804,7 @@ async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils
   // First check if we have saved transcripts
   if (savedTranscripts.rawTranscript) {
     rawTranscript = savedTranscripts.rawTranscript;
-    processedTranscript = savedTranscripts.processedTranscript || "";
+    // processedTranscript = savedTranscripts.processedTranscript || ""; // REMOVED - will load per page
     return { isCached: true, isLoadedFromYoutube: false };
   }
 
@@ -749,7 +814,7 @@ async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils
     rawTranscript = decodeTranscript(fetchedRawTranscript);
     if (rawTranscript) {
       await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
-      processedTranscript = ""; // Reset processed transcript
+      // processedTranscript = ""; // Reset processed transcript // REMOVED - will load per page
       return { isCached: false, isLoadedFromYoutube: true };
     }
   } catch (ytError) {
@@ -960,15 +1025,24 @@ function splitTranscriptPage(page) {
  * Displays the current page based on visibility state.
  */
 function setRawAndProcessedTranscriptText() {
-  // Visibility is handled separately via CSS classes
-  transcriptDisplay.textContent = rawTranscriptPages[currentPageIndex] || "No transcript available.";
-  processedDisplay.textContent = processedTranscriptPages[currentPageIndex] || "Processed output will appear here.";
-  
-  // Add this line to sync the highlight's processed textarea
+  if (!transcriptDisplay || !processedDisplay) return;
+
+  transcriptDisplay.textContent = rawTranscriptPages[currentPageIndex] || '';
+
+  // Set processed text from the loaded page, or empty if not available
+  processedDisplay.textContent = processedTranscriptPages[currentPageIndex] || '';
+
+  // Update highlights based on current tab visibility and processed content
   const highlightProcessedTextarea = document.getElementById('highlight-processed');
   if (highlightProcessedTextarea) {
     highlightProcessedTextarea.value = processedDisplay.textContent;
   }
+  
+  // Potentially update highlights results view if needed, though loadHighlightsForCurrentPage handles it
+  // const highlightResultsTextarea = document.getElementById('highlight-results');
+  // if (highlightResultsTextarea) {
+  //   highlightResultsTextarea.value = highlightsPages[currentPageIndex] || '';
+  // }
 }
 
 /**
@@ -982,8 +1056,13 @@ function updatePaginationButtons() {
  * Updates the page information display.
  */
 function updatePageInfo() {
-  const currentPages = getCurrentDisplayPagesNumbers();
-  pageInfo.textContent = `Page ${currentPageIndex + 1} of ${currentPages.length}`;
+  if (!pageInfo) return;
+  const totalPages = rawTranscriptPages.length; // Base pagination on raw pages
+  if (totalPages > 0) {
+    pageInfo.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`;
+  } else {
+    pageInfo.textContent = 'Page 0 of 0';
+  }
 }
 
 function updateFontSize() {
@@ -999,6 +1078,110 @@ function updateFontSize() {
 //                            EVENT HANDLERS
 //==============================================================================
 
+// Add event handler for Push to Twitter button click
+async function handlePushToTwitterClick(storageUtils) {
+  logger.logEvent(Logger.EVENTS.TWITTER_SHARE_START, { [Logger.FIELDS.PAGE_INDEX]: currentPageIndex });
+  
+  try {
+      const authenticated = await twitterClient.isAuthenticated();
+      if (!authenticated) {
+          // Show login form instead of proceeding
+          alert('Please log in to Twitter to post.');
+          if (twitterLoginSection) {
+              twitterLoginSection.classList.remove('hidden');
+          } else {
+              console.error("Twitter login section not found in the DOM.");
+              alert("Error: Could not display Twitter login form.");
+          }
+          return; // Stop processing the push action
+      }
+
+      // --- User is authenticated, proceed with posting --- 
+      loader.classList.remove('hidden'); // Show loader
+
+      // 2. Get Highlights and Context
+      const highlightsText = highlightsPages[currentPageIndex] || document.getElementById('highlight-results').value;
+      if (!highlightsText || highlightsText.trim() === "") {
+          logger.logEvent(Logger.EVENTS.TWITTER_SHARE_FAILURE, { [Logger.FIELDS.ERROR_TYPE]: 'no_highlights' });
+          alert('No highlights available for the current page to share.');
+          loader.classList.add('hidden');
+          return;
+      }
+
+      const currentRawPage = rawTranscriptPages[currentPageIndex];
+      const videoTitle = extractVideoTitle(currentRawPage) || "this video";
+      const videoId = await storageUtils.getCurrentYouTubeVideoId();
+      const videoUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : "";
+
+      // 3. Summarize Highlights for Twitter using LLM
+      alert('Summarizing highlights for Twitter... This may take a moment.');
+      const tweetSummary = await llmUtils.summarizeHighlightsForTwitter({
+          highlightsText,
+          videoTitle,
+          videoUrl,
+          // model_name: // Optional: specify model if needed
+      });
+
+      // 4. Post Tweet
+      const userConfirmed = confirm(`Ready to post this to Twitter?\n\n${tweetSummary}`);
+      if (!userConfirmed) {
+          logger.logEvent(Logger.EVENTS.TWITTER_SHARE_CANCELLED);
+          alert('Tweet posting cancelled.');
+          loader.classList.add('hidden');
+          return;
+      }
+
+      const postResult = await twitterClient.postTweet(tweetSummary);
+      logger.logEvent(Logger.EVENTS.TWITTER_SHARE_SUCCESS, { [Logger.FIELDS.TWEET_ID]: postResult?.data?.id });
+      alert('Tweet posted successfully!');
+
+  } catch (error) {
+      console.error('Error during Push to Twitter:', error);
+      logger.logEvent(Logger.EVENTS.TWITTER_SHARE_FAILURE, { [Logger.FIELDS.ERROR_TYPE]: 'post_error', [Logger.FIELDS.ERROR_MESSAGE]: error.message });
+      alert(`Failed to push to Twitter: ${error.message}`);
+  } finally {
+      // Ensure loader is hidden regardless of outcome (unless login form is shown)
+      if (loader && !twitterLoginSection?.classList.contains('hidden')) {
+           // Don't hide loader if login form became visible
+      } else if (loader) {
+           loader.classList.add('hidden'); // Hide loader
+      }
+  }
+}
+
+// Add event handler for Twitter Login button click
+async function handleTwitterLoginClick() {
+    const username = twitterUsernameInput.value.trim();
+    const password = twitterPasswordInput.value;
+
+    if (!username || !password) {
+        twitterLoginStatus.textContent = 'Username and Password are required.';
+        return;
+    }
+
+    twitterLoginStatus.textContent = 'Logging in...';
+    loader.classList.remove('hidden'); // Show loader
+
+    try {
+        const success = await twitterClient.authenticate(username, password);
+        if (success) {
+            twitterLoginStatus.textContent = 'Login successful!';
+            twitterLoginSection.classList.add('hidden'); // Hide login form on success
+            // Optionally, trigger the post action again or notify user
+            alert('Login successful. You can now push to Twitter.');
+        } else {
+            // Error message is usually shown via alert in twitterClient.authenticate
+            twitterLoginStatus.textContent = 'Login failed. See alert message.';
+        }
+    } catch (error) { // Should be caught within authenticate, but just in case
+        console.error("Unexpected error during login handling:", error);
+        twitterLoginStatus.textContent = 'Login failed. An unexpected error occurred.';
+        alert(`Login failed: ${error.message}`);
+    } finally {
+        loader.classList.add('hidden'); // Hide loader
+    }
+}
+
 // Export the functions for testing purposes
 export {
   initializePopup,
@@ -1007,8 +1190,13 @@ export {
   paginateProcessedTranscript,
   handlePrevClick,
   handleNextClick,
+  handleProcessTranscriptClick,
+  handleGenerateHighlightsClick,
+  handlePushToTwitterClick,
   setupProcessButton,
   setupLoadTranscriptButton,
+  setupGenerateHighlightsButton,
+  setupPushToTwitterButton,
   splitTranscriptPage,
   setupPopup
 };
