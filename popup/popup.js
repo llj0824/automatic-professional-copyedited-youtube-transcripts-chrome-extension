@@ -154,8 +154,9 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
         console.log('Using newly fetched transcript from YouTube.');
         finalRawTranscript = fetchedResult.rawTranscript;
         finalProcessedTranscript = ''; // Clear processed transcript as raw one changed
-        // Save the newly fetched transcript
-        await storageUtils.saveTranscript(videoId, finalRawTranscript, finalProcessedTranscript);
+        // Save the newly fetched transcript using the correct separate methods
+        await storageUtils.saveRawTranscriptById(videoId, finalRawTranscript);
+        await storageUtils.saveProcessedTranscriptById(videoId, finalProcessedTranscript); 
          logger.logEvent(Logger.EVENTS.TRANSCRIPT_FETCHED_FROM_YOUTUBE, { [Logger.FIELDS.VIDEO_ID]: videoId });
         // Update status message if we overwrote cache
         if (existingTranscriptStatus === '✅') {
