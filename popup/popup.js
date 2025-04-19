@@ -12,6 +12,13 @@ import Logger from './logger.js';
 
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
+// Add clip buttons to global scope
+let clipBtnRaw, clipBtnProcessed;
+// Add status div
+let clipStatusDiv;
+
+// Max clip duration (e.g., 10 minutes)
+const MAX_CLIP_DURATION_SECONDS = 10 * 60;
 
 // Add this near other global variables
 const TabState = {
@@ -91,6 +98,13 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     fontSizeDecrease = doc.getElementById('font-size-decrease');
     fontSizeIncrease = doc.getElementById('font-size-increase');
 
+    // Assign clip buttons
+    clipBtnRaw = doc.getElementById('clip-btn-raw');
+    clipBtnProcessed = doc.getElementById('clip-btn-processed');
+
+    // Assign status div
+    clipStatusDiv = doc.getElementById('clip-status-message');
+
     setupTabs(doc, tabButtons, tabContents);
     setupProcessButton(processBtn, modelSelect, storageUtils);
     setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
@@ -140,6 +154,9 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     setupClearTranscriptButton(resetTranscriptBtn, storageUtils,videoId);
 
+    // Add setup for clip buttons
+    setupClipButtons(doc, transcriptDisplay, processedDisplay, clipBtnRaw, clipBtnProcessed);
+
     // Initialize highlight prompt with default text from LLM API Utils
     const highlightPromptTextarea = doc.getElementById('highlight-prompt');
     if (highlightPromptTextarea) {
@@ -152,6 +169,39 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
       highlightProcessedTextarea.value = processedDisplay.textContent;
     }
 
+    // Add message listener for feedback from background script
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('Received message in popup:', message);
+      if (message.type === 'CLIP_COMPLETE') {
+        showClipStatusMessage(`Clip ready! Download started for ${message.payload.filename}.`, false);
+        // Find the correct button to reset (assuming only one clip runs at a time)
+        const buttonToReset = document.getElementById('clip-btn-raw') || document.getElementById('clip-btn-processed');
+        if (buttonToReset) {
+          buttonToReset.textContent = "Clip ▶︎";
+          // Re-enable based on current selection state
+          handleTextSelection(document.getElementById('transcript-display'), document.getElementById('processed-display'), document.getElementById('clip-btn-raw'), document.getElementById('clip-btn-processed'));
+        }
+        sendResponse({ status: 'Message received by popup' });
+      } else if (message.type === 'CLIP_ERROR') {
+        showClipStatusMessage(`Error creating clip: ${message.payload.error}`, true);
+        const buttonToReset = document.getElementById('clip-btn-raw') || document.getElementById('clip-btn-processed');
+        if (buttonToReset) {
+          buttonToReset.textContent = "Clip ▶︎";
+          // Re-enable based on current selection state
+          handleTextSelection(document.getElementById('transcript-display'), document.getElementById('processed-display'), document.getElementById('clip-btn-raw'), document.getElementById('clip-btn-processed'));
+        }
+         sendResponse({ status: 'Error message received by popup' });
+      } else if (message.type === 'CLIP_PROGRESS') { // Optional: Handle progress later
+          showClipStatusMessage(`Clipping in progress: ${message.payload.status || 'Processing...'}`, false);
+          // Keep button disabled during progress
+           sendResponse({ status: 'Progress message received by popup' });
+      }
+      // Important: Return true to indicate you wish to send a response asynchronously
+      // (if you were planning to sendResponse later)
+      // However, for simple acknowledgements, sending synchronously is fine.
+      return false; 
+    });
+
   } catch (error) {
     console.error('Error initializing popup:', error);
     transcriptDisplay.textContent = 'Error initializing popup.';
@@ -159,7 +209,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 }
 
 //==============================================================================
-//                             SETUP FUNCTIONS
+//                         SETUP FUNCTIONS
 //==============================================================================
 
 function setupPopup() {
@@ -221,7 +271,7 @@ function setupTabs(doc, tabButtons, tabContents) {
       }
 
       // Update the display based on the new state
-      setRawAndProcessedTranscriptText();
+      paginateBothTranscripts(); // Use existing pagination function to update display
       updatePaginationButtons();
       updatePageInfo();
     });
@@ -240,7 +290,7 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
 
 // Setup load transcript button event
 function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils) {
-  loadTranscriptBtn.addEventListener('click', handleLoadTranscriptClick.bind(null, transcriptInput, storageUtils));
+  loadTranscriptBtn.addEventListener('click', () => handleLoadTranscriptClick(transcriptInput, storageUtils)); // Fixed: Ensure handler exists
 }
 
 /**
@@ -367,276 +417,220 @@ function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
   });
 }
 
-//==============================================================================
-//                            EVENT HANDLERS
-//==============================================================================
+/**
+ * Sets up clip button event listeners and initial state.
+ * @param {Document} doc - The Document object.
+ * @param {HTMLElement} rawDisplay - The raw transcript display element.
+ * @param {HTMLElement} processedDisplay - The processed transcript display element.
+ * @param {HTMLElement} rawBtn - The raw transcript clip button.
+ * @param {HTMLElement} processedBtn - The processed transcript clip button.
+ */
+function setupClipButtons(doc, rawDisplay, processedDisplay, rawBtn, processedBtn) {
+  const storageUtils = new StorageUtils(); // Need storage utils for video ID
 
+  // Initial check
+  handleTextSelection(rawDisplay, processedDisplay, rawBtn, processedBtn);
 
-function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingStatus, existingMessage) {
-  const statusMessage = `YouTube Transcript: ${youtubeStatus} ${youtubeMessage}\nExisting Transcript: ${existingStatus} ${existingMessage}`;
-  window.alert(statusMessage);
+  // Check selection on mouseup within the popup
+  doc.addEventListener('mouseup', () => {
+    handleTextSelection(rawDisplay, processedDisplay, rawBtn, processedBtn);
+  });
 
-  if (youtubeStatus === '✅' || existingStatus === '✅') {
-    // Hide manual load transcript section
-    document.getElementById('transcript-input-section').classList.add('hidden');
-
-    // Show other sections
-    document.getElementById('transcript-section').classList.remove('hidden');
-    document.getElementById('content-section').classList.remove('hidden');
-    document.getElementById('actions').classList.remove('hidden'); // TODO: if processed transcripts is avaliable, hide process button
-
-    // update UI
-    setRawAndProcessedTranscriptText();
-    updatePaginationButtons();
-    updatePageInfo();
-  } else {
-    // Show manual load transcript section only if both auto-load methods failed
-    document.getElementById('transcript-input-section').classList.remove('hidden');
-    window.alert("Unable to auto-load transcript. Please load manually.");
-  }
-}
-
-// Update handleLoadTranscriptClick to remove formatting step
-async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
-  rawTranscript = transcriptInput.value.trim();
-  if (!rawTranscript) {
-    console.warn('No transcript entered.');
-    alert('Please enter a transcript.');
-    return;
-  }
-
-  paginateRawTranscript(rawTranscript);
-  setRawAndProcessedTranscriptText();
-  updatePaginationButtons();
-
-  const videoId = await storageUtils.getCurrentYouTubeVideoId();
-  if (videoId) {
-    try {
-      await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
-      alert('Transcript loaded and saved successfully!');
-    } catch (error) {
-      console.error('Error saving raw transcript:', error);
-      alert('Failed to save the raw transcript.');
-    }
-  }
-}
-
-// Event handler for previous button click
-function handlePrevClick() {
-  if (currentPageIndex > 0) {
-    logger.logEvent(Logger.EVENTS.PAGE_NAVIGATION, {
-      [Logger.FIELDS.NAVIGATION_DIRECTION]: 'prev',
-      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex - 1
+  // Also check when switching tabs, as selection might persist but apply to the newly visible tab
+  doc.querySelectorAll('.tab-button').forEach(button => {
+    button.addEventListener('click', () => {
+      // Use a small delay to allow tab switch to complete
+      setTimeout(() => handleTextSelection(rawDisplay, processedDisplay, rawBtn, processedBtn), 50);
     });
-    currentPageIndex--;
-    setRawAndProcessedTranscriptText();
-    updatePaginationButtons();
-    updatePageInfo();
-    loadHighlightsForCurrentPage();
-  }
-}
+  });
 
-// Event handler for next button click
-function handleNextClick() {
-  const currentPages = getCurrentDisplayPagesNumbers();
-  if (currentPageIndex < currentPages.length - 1) {
-    logger.logEvent(Logger.EVENTS.PAGE_NAVIGATION, {
-      [Logger.FIELDS.NAVIGATION_DIRECTION]: 'next',
-      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex + 1
-    });
-    currentPageIndex++;
-    setRawAndProcessedTranscriptText();
-    updatePaginationButtons();
-    updatePageInfo();
-    loadHighlightsForCurrentPage();
+  // Add click listener for the raw clip button
+  if (rawBtn) {
+    rawBtn.addEventListener('click', () => handleClipButtonClick(rawBtn, storageUtils));
   }
-}
 
+  // Placeholder for processed button click listener (if needed later)
+  // if (processedBtn) {
+  //   processedBtn.addEventListener('click', () => { /* ... */ });
+  // }
+}
 
 /**
- * Handles processing the transcript when the process button is clicked.
- * @param {HTMLElement} modelSelect - The model selection element.
- * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ * Handles enabling/disabling clip buttons based on text selection within transcript areas.
+ * Refines logic for raw transcript to check duration.
+ * @param {HTMLElement} rawDisplay - The raw transcript display element.
+ * @param {HTMLElement} processedDisplay - The processed transcript display element.
+ * @param {HTMLElement} rawBtn - The raw transcript clip button.
+ * @param {HTMLElement} processedBtn - The processed transcript clip button.
  */
-async function handleProcessTranscriptClick(modelSelect, storageUtils) {
-  const selectedModel = modelSelect.value;
+function handleTextSelection(rawDisplay, processedDisplay, rawBtn, processedBtn) {
+  const selection = window.getSelection();
+  const selectedText = selection.toString().trim();
+  let isSelectionInRaw = false;
+  let isSelectionInProcessed = false;
+  let startTime = null;
+  let endTime = null;
+  let durationOk = false;
+  let errorMessage = "Select text in the transcript to enable clipping"; // Default title
 
-  const currentRawPage = rawTranscriptPages[currentPageIndex];
-  const videoTitle = extractVideoTitle(currentRawPage);
-  const videoId = await storageUtils.getCurrentYouTubeVideoId();
+  if (selectedText.length > 0 && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
 
-  // Log process attempt
-  logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_START, {
-    [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
-    [Logger.FIELDS.VIDEO_ID]: videoId,
-    [Logger.FIELDS.MODEL]: selectedModel,
-    [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
-    [Logger.FIELDS.TRANSCRIPT_LENGTH]: rawTranscriptPages[currentPageIndex].length
-  });
+    // Check if selection is within the raw transcript display
+    if (rawDisplay.contains(range.startContainer) && rawDisplay.contains(range.endContainer)) {
+      isSelectionInRaw = true;
 
-  if (!videoId) {
-    logger.logEvent(Logger.EVENTS.ERROR, {
-      [Logger.FIELDS.ERROR_TYPE]: 'missing_video_id',
-      [Logger.FIELDS.ERROR_MESSAGE]: 'Unable to determine YouTube Video ID'
-    });
-    alert('Unable to determine YouTube Video ID.');
-    return;
-  }
+      // Attempt to find start and end timestamps within the raw display's *current* page content
+      const pageContent = rawDisplay.textContent;
+      const selectionStartIndex = pageContent.indexOf(selectedText);
+      const selectionEndIndex = selectionStartIndex + selectedText.length;
 
-  try {
-    const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
-    if (!savedTranscripts.rawTranscript) {
-      alert('No raw transcript available to process.');
-      return;
+      if (selectionStartIndex !== -1) {
+         // Find the last timestamp *before* or *at* the start of the selection
+         const textBeforeSelection = pageContent.substring(0, selectionStartIndex);
+         const startMatches = [...textBeforeSelection.matchAll(/\[(\d{1,2}:)?\d{1,2}:\d{2}\]/g)];
+         if (startMatches.length > 0) {
+            startTime = parseTimeToSeconds(startMatches[startMatches.length - 1][0]);
+         }
+
+         // Find the last timestamp *before* or *at* the end of the selection
+         const textUpToEndOfSelection = pageContent.substring(0, selectionEndIndex);
+         const endMatches = [...textUpToEndOfSelection.matchAll(/\[(\d{1,2}:)?\d{1,2}:\d{2}\]/g)];
+         if (endMatches.length > 0) {
+            endTime = parseTimeToSeconds(endMatches[endMatches.length - 1][0]);
+         }
+
+         // If timestamps are valid, check duration
+         if (startTime !== null && endTime !== null && endTime >= startTime) {
+            const duration = endTime - startTime;
+            if (duration <= MAX_CLIP_DURATION_SECONDS) {
+               durationOk = true;
+               errorMessage = `Clip selection (${formatTime(startTime)} - ${formatTime(endTime)})`;
+            } else {
+               errorMessage = `Clip duration (${formatTime(duration)}) exceeds maximum (${formatTime(MAX_CLIP_DURATION_SECONDS)})`;
+            }
+         } else {
+            errorMessage = "Could not determine valid start/end times for selection";
+         }
+      } else {
+        errorMessage = "Error finding selection within transcript content";
+      }
+
+    } else if (processedDisplay.contains(range.startContainer) && processedDisplay.contains(range.endContainer)) {
+      // Keep processed transcript logic simple for now
+      isSelectionInProcessed = true;
     }
-
-    const loader = document.getElementById('loader');
-    loader.classList.remove('hidden');
-
-    // Get the current raw page
-    const currentRawPage = rawTranscriptPages[currentPageIndex];
-
-    const startTime = Date.now();
-    const processedPage = await llmUtils.processTranscriptInParallel({
-      transcript: currentRawPage,
-      model_name: selectedModel,
-      partitions: llmUtils.DEFAULT_PARTITIONS
-    });
-    const processingTime = Date.now() - startTime;
-
-    // Log successful processing
-    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_SUCCESS, {
-      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
-      [Logger.FIELDS.VIDEO_ID]: videoId,
-      [Logger.FIELDS.MODEL]: selectedModel,
-      [Logger.FIELDS.PROCESSING_TIME]: processingTime,
-      [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentRawPage.length,
-      [Logger.FIELDS.RESPONSE_LENGTH]: processedPage.length,
-    });
-
-    // Log processed transcript result
-    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_RESULT, {
-      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
-      [Logger.FIELDS.VIDEO_ID]: videoId,
-      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
-      [Logger.FIELDS.PROCESSED_TRANSCRIPT]: processedPage
-    });
-
-    // Update the processed page
-    processedTranscriptPages[currentPageIndex] = processedPage;
-    processedDisplay.textContent = processedPage;
-
-    // Combine all processed pages into a single text block
-    processedTranscript = processedTranscriptPages.join('\n');
-
-    // Save the full processed transcript
-    await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
-
-    alert('Current page processed successfully!');
-
-    // Update the display
-    setRawAndProcessedTranscriptText();
-    updatePaginationButtons();
-    updatePageInfo();
-  } catch (error) {
-    logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_FAILURE, {
-      [Logger.FIELDS.ERROR_TYPE]: error.name,
-      [Logger.FIELDS.ERROR_MESSAGE]: error.message,
-      [Logger.FIELDS.MODEL]: selectedModel,
-      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
-      [Logger.FIELDS.VIDEO_ID]: videoId,
-    });
-    console.error('Error processing transcript:', error);
-    alert('Failed to process the current page.');
-  } finally {
-    loader.classList.add('hidden');
-  }
-}
-async function handleGenerateHighlightsClick(storageUtils) {
-  const currentRawPage = rawTranscriptPages[currentPageIndex];
-  const videoTitle = extractVideoTitle(currentRawPage);
-  const videoId = await storageUtils.getCurrentYouTubeVideoId();
-
-  if (!videoId) {
-    alert('Unable to determine YouTube Video ID.');
-    return;
   }
 
-  const selectedModel = modelSelect.value;
-  const highlightPrompt = document.getElementById('highlight-prompt').value;
-  const highlightProcessed = document.getElementById('highlight-processed').value;
+  // Enable/disable raw clip button
+  if (rawBtn) {
+    rawBtn.disabled = !(isSelectionInRaw && durationOk);
+    rawBtn.title = isSelectionInRaw ? errorMessage : "Select text in the raw transcript to enable clipping";
 
-  if (!highlightProcessed || highlightProcessed.trim() === "") {
-    alert('No processed transcript available to generate highlights.');
-    return;
-  }
-
-  logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_START, {
-    [Logger.FIELDS.VIDEO_ID]: videoId,
-    [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
-    [Logger.FIELDS.TRANSCRIPT_LENGTH]: highlightProcessed.length,
-  });
-
-  try {
-    loader.classList.remove('hidden');
-
-    const highlightForPage = await llmUtils.generateHighlights({
-      processedTranscript: highlightProcessed,
-      customPrompt: highlightPrompt
-    });
-
-    // Save highlights for current page
-    highlightsPages[currentPageIndex] = highlightForPage;
-    
-    // Update both the processed textarea and results textarea
-    const highlightProcessedTextarea = document.getElementById('highlight-processed');
-    const highlightResultsTextarea = document.getElementById('highlight-results');
-    if (highlightResultsTextarea) {
-      highlightResultsTextarea.value = highlightForPage;
+    // Store valid start/end times in dataset if duration is ok
+    if (isSelectionInRaw && durationOk) {
+      rawBtn.dataset.startTime = startTime;
+      rawBtn.dataset.endTime = endTime;
+    } else {
+      delete rawBtn.dataset.startTime;
+      delete rawBtn.dataset.endTime;
     }
+  }
 
-    // Save the highlights for this specific page
-    await storageUtils.saveHighlightsById(videoId, currentPageIndex, highlightForPage);
-
-    logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_SUCCESS, {
-      [Logger.FIELDS.VIDEO_ID]: videoId,
-      [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
-      [Logger.FIELDS.HIGHLIGHTS_GENERATION_RESULT]: highlightForPage,
-      [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
-      [Logger.FIELDS.HIGHLIGHTS_LENGTH]: highlightForPage.length,
-    });
-
-    alert('Highlights generated successfully!');
-  } catch (error) {
-    logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_FAILURE, {
-      [Logger.FIELDS.ERROR_TYPE]: error.name,
-      [Logger.FIELDS.ERROR_MESSAGE]: error.message,
-      [Logger.FIELDS.MODEL]: selectedModel,
-      [Logger.FIELDS.VIDEO_ID]: videoId,
-    });
-    console.error('Error generating highlights:', error);
-    alert('Failed to generate highlights for the current page.');
-  } finally {
-    loader.classList.add('hidden');
+  // Enable/disable processed clip button
+  if (processedBtn) {
+     // Currently, just checks if selection is within processed display
+    processedBtn.disabled = !(isSelectionInProcessed && selectedText.length > 0);
+    processedBtn.title = isSelectionInProcessed && selectedText.length > 0 ? "Clip ▶︎" : "Select text in the processed transcript to enable clipping"; // Basic title
   }
 }
 
-// Update loadHighlightsForCurrentPage to properly set the textarea value
-async function loadHighlightsForCurrentPage() {
+/**
+ * Handles the click event for the Clip button.
+ * @param {HTMLElement} button - The button element that was clicked.
+ * @param {StorageUtils} storageUtils - Instance of StorageUtils.
+ */
+async function handleClipButtonClick(button, storageUtils) {
   const videoId = await storageUtils.getCurrentYouTubeVideoId();
-  if (!videoId) return;
+  const startTime = button.dataset.startTime;
+  const endTime = button.dataset.endTime;
 
-  try {
-    const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
-    if (savedHighlights) {
-      highlightsPages[currentPageIndex] = savedHighlights;
-      const highlightResultsTextarea = document.getElementById('highlight-results');
-      if (highlightResultsTextarea) {
-        highlightResultsTextarea.value = savedHighlights;
+  if (!videoId) {
+    console.error("Clip Error: Could not get video ID.");
+    alert("Error: Could not determine the video ID for clipping.");
+    return;
+  }
+
+  if (startTime === undefined || endTime === undefined) {
+    console.error("Clip Error: Start or end time not found in button dataset.");
+    alert("Error: Could not retrieve start/end times for clipping. Please reselect text.");
+    return;
+  }
+
+  // Basic feedback: Disable button and change text
+  button.disabled = true;
+  button.textContent = "Clipping...";
+  showClipStatusMessage("Clipping started...", false); // Show initial status
+
+  console.log(`Sending MAKE_CLIP: videoId=${videoId}, start=${startTime}, end=${endTime}`);
+  logger.logEvent(Logger.EVENTS.CLIP_START, {
+    [Logger.FIELDS.VIDEO_ID]: videoId,
+    [Logger.FIELDS.CLIP_START_TIME]: startTime,
+    [Logger.FIELDS.CLIP_END_TIME]: endTime
+  });
+
+  // Send message to background script
+  chrome.runtime.sendMessage(
+    { 
+      type: 'MAKE_CLIP', 
+      payload: { 
+        videoId: videoId, 
+        start: parseFloat(startTime),
+        end: parseFloat(endTime)
+      }
+    },
+    (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error sending MAKE_CLIP message:', chrome.runtime.lastError);
+        logger.logEvent(Logger.EVENTS.CLIP_ERROR, {
+            [Logger.FIELDS.VIDEO_ID]: videoId,
+            [Logger.FIELDS.ERROR_TYPE]: 'sendMessage',
+            [Logger.FIELDS.ERROR_MESSAGE]: chrome.runtime.lastError.message
+        });
+        alert(`Error initiating clip: ${chrome.runtime.lastError.message}`);
+        // Reset button state on error
+        button.textContent = "Clip ▶︎";
+        // Re-enable based on current selection state (might need re-evaluation)
+        handleTextSelection(document.getElementById('transcript-display'), document.getElementById('processed-display'), document.getElementById('clip-btn-raw'), document.getElementById('clip-btn-processed'));
+      } else {
+        console.log('MAKE_CLIP message sent successfully, response:', response);
+        // Background script will handle further feedback (CLIP_COMPLETE/CLIP_ERROR)
+        // Button state will be reset by feedback handling later
       }
     }
-  } catch (error) {
-    console.error('Error loading highlights for current page:', error);
+  );
+}
+
+/**
+ * Displays a status message related to the clipping process.
+ * @param {string} message - The message to display.
+ * @param {boolean} isError - True if the message represents an error.
+ */
+function showClipStatusMessage(message, isError) {
+  if (clipStatusDiv) {
+    clipStatusDiv.textContent = message;
+    clipStatusDiv.className = isError ? 'status-message error' : 'status-message success'; // Use classes for styling
+    clipStatusDiv.classList.remove('hidden'); // Make sure it's visible
+
+    // Optional: Auto-hide after a delay for non-error messages
+    if (!isError) {
+      setTimeout(() => {
+        if (clipStatusDiv.textContent === message) { // Only hide if message hasn't changed
+           clipStatusDiv.classList.add('hidden');
+           clipStatusDiv.textContent = '';
+        }
+      }, 5000); // Hide after 5 seconds
+    }
   }
 }
 
@@ -645,371 +639,239 @@ async function loadHighlightsForCurrentPage() {
 //==============================================================================
 
 /**
- * Retrieves the current set of pages based on the active tab.
- * @returns {Array} Array of current display pages.
+ * Parses time string HH:MM:SS or MM:SS into seconds.
+ * @param {string} timeString - The time string (e.g., "[1:23:45]" or "[59:10]").
+ * @returns {number|null} Total seconds or null if invalid format.
  */
-function getCurrentDisplayPagesNumbers() {
-  // note: let's always use number of raw pages.
-  return rawTranscriptPages
-}
+function parseTimeToSeconds(timeString) {
+  if (!timeString) return null;
+  // Remove brackets
+  const cleanedTimeString = timeString.replace(/\[|\]/g, '');
+  const parts = cleanedTimeString.split(':').map(Number);
 
-
-function getTranscriptStatus(isCached, isLoadedFromYoutube) {
-  let youtubeTranscriptStatus = '⏭️';
-  let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
-  let existingTranscriptStatus = '❌';
-  let existingTranscriptMessage = 'No existing transcript found.';
-
-  if (isCached) {
-    existingTranscriptStatus = '✅';
-    existingTranscriptMessage = 'Existing transcript loaded from storage.';
-  } else if (isLoadedFromYoutube) {
-    youtubeTranscriptStatus = '✅';
-    youtubeTranscriptMessage = 'Transcript automatically retrieved from YouTube.';
-  } else {
-    youtubeTranscriptStatus = '❌';
-    youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
+  try {
+    if (parts.length === 3) {
+      // HH:MM:SS
+      const [h, m, s] = parts;
+      if (isNaN(h) || isNaN(m) || isNaN(s)) return null;
+      return h * 3600 + m * 60 + s;
+    } else if (parts.length === 2) {
+      // MM:SS
+      const [m, s] = parts;
+       if (isNaN(m) || isNaN(s)) return null;
+      return m * 60 + s;
+    } else {
+      return null; // Invalid format
+    }
+  } catch (error) {
+    console.error(`Error parsing time string "${timeString}":`, error);
+    return null;
   }
-
-  return {
-    youtubeTranscriptStatus,
-    youtubeTranscriptMessage,
-    existingTranscriptStatus,
-    existingTranscriptMessage
-  };
 }
-
 
 /**
- * Extracts the video title from a transcript page's context block
- * @param {string} rawTranscriptPage - The transcript page containing the context block
- * @returns {string} The extracted title or an error message
+ * Formats time in seconds to a string in the format MM:SS or HH:MM:SS.
+ * @param {number} seconds - The time in seconds.
+ * @returns {string} The formatted time string.
  */
-function extractVideoTitle(rawTranscriptPage) {
-  try {
-    if (!rawTranscriptPage || typeof rawTranscriptPage !== 'string') {
-      throw new Error(`Invalid transcript page: ${typeof rawTranscriptPage}`);
-    }
-
-    // The regex pattern breakdown:
-    // Title:          - Matches the literal text "Title:"
-    // \s*            - Matches zero or more whitespace characters (spaces, tabs, newlines)
-    // ([^*\n]+)      - Capture group that matches:
-    //                  [^*\n] = any character that is NOT an asterisk or newline
-    //                  + = one or more of these characters
-    //                  This ensures we stop at the next section (marked by ***) or next line
-    const titleMatch = rawTranscriptPage.match(/Title:\s*([^*\n]+)/);
-    if (!titleMatch) {
-      throw new Error('No title pattern found in context block');
-    }
-
-    return titleMatch[1];
-  } catch (error) {
-    return `Failed to retrieve title - ${error.message}`;
-  }
-}
-
-// Format time from seconds to mm:ss or hh:mm:ss with two digits for each unit
 function formatTime(seconds) {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-  const secs = (seconds % 60).toString().padStart(2, '0');
+  if (isNaN(seconds) || seconds < 0) {
+    return "00:00";
+  }
+  const totalSeconds = Math.round(seconds);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
 
-  return hrs > 0 ? `${hrs}:${mins}:${secs}` : `${mins}:${secs}`;
+  const paddedS = String(s).padStart(2, '0');
+  const paddedM = String(m).padStart(2, '0');
+
+  if (h > 0) {
+    const paddedH = String(h).padStart(2, '0');
+    return `${paddedH}:${paddedM}:${paddedS}`;
+  }
+  return `${paddedM}:${paddedS}`;
 }
 
 //==============================================================================
 //                            TRANSCRIPT PROCESSING
-//==============================================================================
 
-
-
-async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils) {
-  // Inner function to handle all transcript cleaning/decoding html verbage
-  const decodeTranscript = (text) => {
-    return text
-      .replace(/&amp;/g, '&')
-      .replace(/&#39;/g, "'")
-      .replace(/&quot;/g, '"')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&nbsp;/g, ' ');
-  };
-
-  // First check if we have saved transcripts
-  if (savedTranscripts.rawTranscript) {
-    rawTranscript = savedTranscripts.rawTranscript;
-    processedTranscript = savedTranscripts.processedTranscript || "";
-    return { isCached: true, isLoadedFromYoutube: false };
+/**
+ * Handles the click event for the load transcript button.
+ * Fetches transcript based on user input (URL or Video ID).
+ * @param {HTMLInputElement} transcriptInput - The input element for URL/ID.
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ */
+async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
+  const inputValue = transcriptInput.value.trim();
+  if (!inputValue) {
+    alert('Please enter a YouTube Video ID or URL.');
+    return;
   }
 
-  // If no saved transcript, try to fetch from YouTube
+  let videoId = null;
   try {
-    const fetchedRawTranscript = await YoutubeTranscriptRetriever.fetchParsedTranscript(videoId);
-    rawTranscript = decodeTranscript(fetchedRawTranscript);
-    if (rawTranscript) {
-      await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
-      processedTranscript = ""; // Reset processed transcript
-      return { isCached: false, isLoadedFromYoutube: true };
-    }
-  } catch (ytError) {
-    console.error('Error automatically retrieving transcript from YouTube:', ytError);
-  }
-
-  return { isCached: false, isLoadedFromYoutube: false };
-}
-
-
-/**
- * Paginate the transcript into pages based on PAGE_DURATION.
- * 
- * This function divides both raw and processed transcripts into smaller pages based on a predefined duration.
- * It updates the global rawTranscriptPages and processedTranscriptPages arrays, ensuring each page is 
- * properly formatted with timestamps and text.
- * 
- * @param {Array} rawTranscript - Array of objects with timestamp and text for raw transcript
- * @param {string} processedTranscript - Full processed transcript string
- * @returns {Object} An object containing rawTranscriptPages and processedTranscriptPages
- */
-function paginateBothTranscripts(rawTranscript, processedTranscript) {
-  rawTranscriptPages = paginateRawTranscript(rawTranscript);
-  processedTranscriptPages = paginateProcessedTranscript(processedTranscript);
-
-  // If no pages were created, add a default message
-  if (rawTranscriptPages.length === 0) {
-    rawTranscriptPages.push("No raw transcript available.");
-  }
-  if (processedTranscriptPages.length === 0) {
-    processedTranscriptPages.push("No processed transcript available.");
-  }
-
-  // Reset the current page index and update UI
-  currentPageIndex = 0;
-  updatePageInfo();
-  setRawAndProcessedTranscriptText();
-  updatePaginationButtons();
-
-  return { rawTranscriptPages, processedTranscriptPages };
-}
-
-/**
- * Helper function to paginate a raw transcript
- * 
- * @param {string} transcript - String transcript with timestamps [MM:SS]
- * @returns {Array} Array of paginated transcript pages
- */
-function paginateRawTranscript(transcript) {
-  // Then handle pagination logic with clean text
-  const [contextBlock = "", transcriptContent = transcript] =
-    transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
-
-  // Parse the transcript content into array of objects with timestamp and text
-  const parsedTranscript = (function parseTranscript(rawTranscript) {
-    return rawTranscript.split('\n').map(line => {
-      // Handle timestamps in format [mm:ss] or [hh:mm:ss]
-      const match = line.match(/\[(?:(\d+):)?(\d+):(\d+)\]\s*(.*)/);
-      if (match) {
-        const hours = parseInt(match[1] || '0', 10);
-        const minutes = parseInt(match[2], 10);
-        const seconds = parseInt(match[3], 10);
-        return {
-          timestamp: hours * 3600 + minutes * 60 + seconds,
-          text: match[4]
-        };
+    // Try parsing as URL
+    if (inputValue.includes('youtube.com') || inputValue.includes('youtu.be')) {
+      const url = new URL(inputValue);
+      if (url.hostname === 'youtu.be') {
+        videoId = url.pathname.substring(1);
+      } else if (url.hostname.includes('youtube.com')) {
+        videoId = url.searchParams.get('v');
       }
-      return null;
-    }).filter(item => item !== null);
-  })(transcriptContent);
-
-  // Paginate into pages based on PAGE_DURATION
-  const pages = [];
-  let currentPage = '';
-  let pageStartTime = 0;
-  let pageEndTime = PAGE_DURATION;
-
-  parsedTranscript.forEach(item => {
-    if (item.timestamp < pageEndTime) {
-      currentPage += `[${formatTime(item.timestamp)}] ${item.text}\n`;
     } else {
-      if (currentPage) {
-        // Add context block to each page
-        pages.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentPage.trim()}`);
+      // Assume it's a video ID if not a recognizable URL
+      // Basic validation: YT IDs are typically 11 chars, but let's be lenient
+      if (inputValue.length > 5 && !inputValue.includes(' ')) { 
+        videoId = inputValue;
       }
-      pageStartTime = Math.floor(item.timestamp / PAGE_DURATION) * PAGE_DURATION;
-      pageEndTime = pageStartTime + PAGE_DURATION;
-      currentPage = `[${formatTime(item.timestamp)}] ${item.text}\n`;
     }
-  });
-
-  if (currentPage) {
-    // Add context block to final page
-    pages.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentPage.trim()}`);
+  } catch (error) {
+    console.error('Error parsing video ID/URL:', error);
+    alert('Invalid YouTube URL or Video ID provided.');
+    return;
   }
 
-  return pages;
+  if (!videoId) {
+    alert('Could not extract Video ID from the input.');
+    return;
+  }
+
+  console.log(`Attempting to load transcript for manually entered Video ID: ${videoId}`);
+  logger.logEvent(Logger.EVENTS.MANUAL_TRANSCRIPT_LOAD_ATTEMPT, { [Logger.FIELDS.VIDEO_ID]: videoId });
+
+  // Show loader or processing state
+  const loader = document.getElementById('loader');
+  if (loader) loader.classList.remove('hidden');
+  transcriptDisplay.textContent = 'Loading transcript...';
+  processedDisplay.textContent = '';
+  if (clipStatusDiv) clipStatusDiv.classList.add('hidden'); // Hide clip status
+
+  try {
+    // Reset current state before loading new transcript
+    rawTranscript = '';
+    processedTranscript = '';
+    rawTranscriptPages = [];
+    processedTranscriptPages = [];
+    currentPageIndex = 0;
+
+    // Try loading from storage first
+    const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
+
+    // Then try loading from YouTube
+    const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
+    const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
+
+    // Update UI after loading
+    paginateBothTranscripts();
+    handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
+    updatePaginationButtons();
+    updatePageInfo();
+
+    logger.logEvent(Logger.EVENTS.MANUAL_TRANSCRIPT_LOAD_SUCCESS, { [Logger.FIELDS.VIDEO_ID]: videoId });
+
+  } catch (error) {
+    console.error('Error loading transcript manually:', error);
+    transcriptDisplay.textContent = `Error loading transcript: ${error.message}`;
+    processedDisplay.textContent = '';
+    handleTranscriptLoadingStatus(false, `Error: ${error.message}`, false, ''); // Show error status
+    logger.logEvent(Logger.EVENTS.MANUAL_TRANSCRIPT_LOAD_ERROR, { 
+        [Logger.FIELDS.VIDEO_ID]: videoId,
+        [Logger.FIELDS.ERROR_MESSAGE]: error.message
+    });
+  } finally {
+    if (loader) loader.classList.add('hidden');
+  }
 }
 
+//==============================================================================
+//                         SETUP FUNCTIONS
+//==============================================================================
+
 /**
- * Helper function to paginate a processed transcript
- * 
- * @param {string} processedTranscript - Full processed transcript string
- * @returns {Array} Array of paginated processed transcript pages
- */
-function paginateProcessedTranscript(processedTranscript) {
-  const lines = processedTranscript.split('\n');
-  const paginated = [];
-  let currentPage = '';
-  let segmentStartTime = 0;
-  let segmentEndTime = PAGE_DURATION;
+ * Handles the click event for the load transcript button.
+ * Fetches transcript based on user input (URL or Video ID).
+ * @param {HTMLInputElement} transcriptInput - The input element for URL/ID.
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ */ 
+async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
+  const inputValue = transcriptInput.value.trim();
+  if (!inputValue) {
+    alert('Please enter a YouTube Video ID or URL.');
+    return;
+  }
 
-  lines.forEach(line => {
-    const match = line.match(/\[(\d+):(\d+) -> (\d+):(\d+)\]/);
-    if (match) {
-      const startMinutes = parseInt(match[1], 10);
-      const startSeconds = parseInt(match[2], 10);
-      const startTime = startMinutes * 60 + startSeconds;
-
-      if (startTime >= segmentEndTime) {
-        if (currentPage) {
-          paginated.push(currentPage.trim());
-        }
-        // Update the segment window
-        segmentStartTime = Math.floor(startTime / PAGE_DURATION) * PAGE_DURATION;
-        segmentEndTime = segmentStartTime + PAGE_DURATION;
-        currentPage = '';
+  let videoId = null;
+  try {
+    // Try parsing as URL
+    if (inputValue.includes('youtube.com') || inputValue.includes('youtu.be')) {
+      const url = new URL(inputValue);
+      if (url.hostname === 'youtu.be') {
+        videoId = url.pathname.substring(1);
+      } else if (url.hostname.includes('youtube.com')) {
+        videoId = url.searchParams.get('v');
       }
-
-      currentPage += `${line}\n`;
     } else {
-      currentPage += `${line}\n`;
-    }
-  });
-
-  if (currentPage.trim().length > 0) {
-    paginated.push(currentPage.trim());
-  }
-
-  return paginated;
-}
-
-
-/**
- * TODO: parameterize number of  partitions, n
- * Splits a transcript page into two roughly equal parts, ensuring timestamps are not split.
- * @param {string} page - The transcript page to split
- * @returns {{firstHalf: string, secondHalf: string}} The split pages
- */
-function splitTranscriptPage(page) {
-  // Split the page into lines
-  const lines = page.split('\n');
-
-  // Find the context section and transcript delimiter
-  const contextStartIndex = lines.findIndex(line =>
-    line.includes(YoutubeTranscriptRetriever.CONTEXT_BEGINS_DELIMITER)
-  );
-  const transcriptStartIndex = lines.findIndex(line =>
-    line.includes(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER)
-  );
-
-  // Extract context section
-  const contextSection = lines.slice(contextStartIndex, transcriptStartIndex + 1).join('\n');
-
-  // Get just the transcript lines
-  const transcriptLines = lines.slice(transcriptStartIndex + 1);
-
-  // Find the middle timestamp
-  const timestamps = transcriptLines
-    .map(line => {
-      const match = line.match(/\[(\d+):(\d+)\]/);
-      if (match) {
-        return parseInt(match[1]) * 60 + parseInt(match[2]);
+      // Assume it's a video ID if not a recognizable URL
+      // Basic validation: YT IDs are typically 11 chars, but let's be lenient
+      if (inputValue.length > 5 && !inputValue.includes(' ')) { 
+        videoId = inputValue;
       }
-      return null;
-    })
-    .filter(time => time !== null);
-
-  const totalDuration = Math.max(...timestamps);
-  const midPoint = totalDuration / 2;
-
-  // Find the line index closest to the midpoint
-  let splitIndex = transcriptLines.findIndex(line => {
-    const match = line.match(/\[(\d+):(\d+)\]/);
-    if (match) {
-      const time = parseInt(match[1]) * 60 + parseInt(match[2]);
-      return time >= midPoint;
     }
-    return false;
-  });
+  } catch (error) {
+    console.error('Error parsing video ID/URL:', error);
+    alert('Invalid YouTube URL or Video ID provided.');
+    return;
+  }
 
-  // Create the two halves, including context in both
-  const firstHalf = contextSection + '\n' +
-    transcriptLines.slice(0, splitIndex).join('\n');
+  if (!videoId) {
+    alert('Could not extract Video ID from the input.');
+    return;
+  }
 
-  const secondHalf = contextSection + '\n' +
-    transcriptLines.slice(splitIndex).join('\n');
+  console.log(`Attempting to load transcript for manually entered Video ID: ${videoId}`);
+  logger.logEvent(Logger.EVENTS.MANUAL_TRANSCRIPT_LOAD_ATTEMPT, { [Logger.FIELDS.VIDEO_ID]: videoId });
 
-  return { firstHalf, secondHalf };
-}
+  // Show loader or processing state
+  const loader = document.getElementById('loader');
+  if (loader) loader.classList.remove('hidden');
+  transcriptDisplay.textContent = 'Loading transcript...';
+  processedDisplay.textContent = '';
+  if (clipStatusDiv) clipStatusDiv.classList.add('hidden'); // Hide clip status
 
-//==============================================================================
-//                            UI UPDATES
-//==============================================================================
+  try {
+    // Reset current state before loading new transcript
+    rawTranscript = '';
+    processedTranscript = '';
+    rawTranscriptPages = [];
+    processedTranscriptPages = [];
+    currentPageIndex = 0;
 
+    // Try loading from storage first
+    const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
 
-/**
- * Displays the current page based on visibility state.
- */
-function setRawAndProcessedTranscriptText() {
-  // Visibility is handled separately via CSS classes
-  transcriptDisplay.textContent = rawTranscriptPages[currentPageIndex] || "No transcript available.";
-  processedDisplay.textContent = processedTranscriptPages[currentPageIndex] || "Processed output will appear here.";
-  
-  // Add this line to sync the highlight's processed textarea
-  const highlightProcessedTextarea = document.getElementById('highlight-processed');
-  if (highlightProcessedTextarea) {
-    highlightProcessedTextarea.value = processedDisplay.textContent;
+    // Then try loading from YouTube
+    const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
+    const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
+
+    // Update UI after loading
+    paginateBothTranscripts();
+    handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
+    updatePaginationButtons();
+    updatePageInfo();
+
+    logger.logEvent(Logger.EVENTS.MANUAL_TRANSCRIPT_LOAD_SUCCESS, { [Logger.FIELDS.VIDEO_ID]: videoId });
+
+  } catch (error) {
+    console.error('Error loading transcript manually:', error);
+    transcriptDisplay.textContent = `Error loading transcript: ${error.message}`;
+    processedDisplay.textContent = '';
+    handleTranscriptLoadingStatus(false, `Error: ${error.message}`, false, ''); // Show error status
+    logger.logEvent(Logger.EVENTS.MANUAL_TRANSCRIPT_LOAD_ERROR, { 
+        [Logger.FIELDS.VIDEO_ID]: videoId,
+        [Logger.FIELDS.ERROR_MESSAGE]: error.message
+    });
+  } finally {
+    if (loader) loader.classList.add('hidden');
   }
 }
-
-/**
- * Updates the state of pagination buttons.
- */
-function updatePaginationButtons() {
-  prevBtn.disabled = currentPageIndex === 0;
-  nextBtn.disabled = currentPageIndex === (getCurrentDisplayPagesNumbers().length - 1);
-}
-/**
- * Updates the page information display.
- */
-function updatePageInfo() {
-  const currentPages = getCurrentDisplayPagesNumbers();
-  pageInfo.textContent = `Page ${currentPageIndex + 1} of ${currentPages.length}`;
-}
-
-function updateFontSize() {
-  transcriptDisplay.style.fontSize = `${currentFontSize}px`;
-  processedDisplay.style.fontSize = `${currentFontSize}px`;
-  highlightsPromptDisplay.style.fontSize  = `${currentFontSize}px`;
-  highlightsProcessedDisplay.style.fontSize  = `${currentFontSize}px`;
-  highlightsResultsDisplay.style.fontSize  = `${currentFontSize}px`;
-}
-
-
-//==============================================================================
-//                            EVENT HANDLERS
-//==============================================================================
-
-// Export the functions for testing purposes
-export {
-  initializePopup,
-  paginateBothTranscripts,
-  paginateRawTranscript,
-  paginateProcessedTranscript,
-  handlePrevClick,
-  handleNextClick,
-  setupProcessButton,
-  setupLoadTranscriptButton,
-  splitTranscriptPage,
-  setupPopup
-};
-

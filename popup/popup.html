@@ -33,6 +33,7 @@
       <div class="tab-content" id="raw">
         <div class="content-header">
           <button class="copy-btn" data-target="transcript-display">📋 Copy Transcript</button>
+          <button id="clip-btn-raw" class="clip-btn" disabled title="Select text in the transcript to enable clipping">Clip ▶︎</button>
           <!-- TODO: Find better place for reset button - rarely used but always visible -->
           <button id="reset-transcript-btn">🔄️ Reset Transcript</button>
         </div>
@@ -41,6 +42,7 @@
       <div class="tab-content hidden" id="processed">
         <div class="content-header">
           <button class="copy-btn" data-target="processed-display">📋 Copy Transcript</button>
+          <button id="clip-btn-processed" class="clip-btn" disabled title="Select text in the transcript to enable clipping">Clip ▶︎</button>
         </div>
         <pre id="processed-display">Professionally Caliber Transcript will appear here.</pre>
       </div>
@@ -84,6 +86,9 @@
       <button id="generate-highlights-btn" class="action-btn hidden"> Generate Highlights 💎 </button>
       <div id="loader" class="hidden"></div>
     </div>
+
+    <!-- Clip Status Message -->
+    <div id="clip-status-message" class="status-message"></div>
 
     <!-- API Key and Model Selection -->
     <div id="api-section" class="hidden">
