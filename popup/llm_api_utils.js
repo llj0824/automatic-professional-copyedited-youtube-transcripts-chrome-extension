@@ -7,7 +7,7 @@ import { OPENAI_ENCRYPTED_API_KEY, ANTHROPIC_ENCRYPTED_API_KEY } from './keys.js
 class LLM_API_Utils {
   static DEFAULT_PARTITIONS = 8; // Default number of partitions for parallel processing. 
 
-  static GPT_4o = "chatgpt-4o-latest";
+  static GPT_4o = "gpt-4.1";
   static GPT_o3_mini = "o3-mini";
   static GPT_4o_mini = "gpt-4o-mini"
   static CLAUDE_SONNET_LATEST_MODEL = "claude-3-5-sonnet-latest";
@@ -293,7 +293,7 @@ Two sentence summary of highlight in viewpoint of the reader.
   }
 
   // Add the new method
-  async generateHighlights({ processedTranscript, customPrompt, model_name=this.GPT_o3_mini}) {
+  async generateHighlights({ processedTranscript, customPrompt, model_name=this.GPT_4o}) {
     try {
       // Use custom prompt if provided, otherwise use default system role
       const system_role = customPrompt || this.llm_highlights_system_role;
