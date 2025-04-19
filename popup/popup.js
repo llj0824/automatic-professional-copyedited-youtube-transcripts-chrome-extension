@@ -135,6 +135,9 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
       }
     }
 
+    // Add new setup call for font size controls **before** pagination
+    setupFontSizeControls(fontSizeDecrease, fontSizeIncrease, storageUtils);
+
     paginateBothTranscripts(rawTranscript, processedTranscript);
 
     // handle showing UI elements based on auto-load transcript success status
@@ -142,9 +145,6 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     // Add copy button functionality
     setupCopyButtons(doc);
-
-    // Add new setup call
-    setupFontSizeControls(fontSizeDecrease, fontSizeIncrease, storageUtils);
 
     setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils);
 
@@ -1094,4 +1094,3 @@ function updatePageInfo() {
 //==============================================================================
 //                            EVENT HANDLERS
 //==============================================================================
-

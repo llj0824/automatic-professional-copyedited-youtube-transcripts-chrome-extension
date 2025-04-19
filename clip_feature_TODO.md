@@ -2,6 +2,19 @@
 
 Implement the ability for users to select text within the transcript, generate a corresponding video clip using an external API, and download it as an MP4 file.
 
+## Current Status (as of 2025-04-19)
+
+*   **Extension Loading:** The extension is currently **not** loading/running correctly when installed locally. Opening the popup likely results in errors.
+*   **Recent Debugging:** Significant effort was spent fixing multiple `ReferenceError` issues in `popup.js`. These were caused by missing function definitions that were likely lost during previous refactoring/edits. Key functions re-added include:
+    *   `retrieveAndSetTranscripts`
+    *   `splitTranscriptIntoPages`
+    *   `getTranscriptStatus`
+    *   `handleTranscriptLoadingStatus`
+    *   `paginateBothTranscripts`
+    *   `updatePaginationButtons`
+    *   `updatePageInfo`
+*   **Next Step:** Continue debugging `popup.js` or other components to resolve the loading issue and ensure all necessary functions are present and correctly integrated.
+
 **Reference Plan:** See feedback provided on 2025-04-19.
 
 ## Checkpoint 1: Core Clipping Functionality
@@ -124,7 +137,6 @@ Implement the ability for users to select text within the transcript, generate a
 
 *   [ ] **Advanced Progress:** Implement polling or WebSocket/SSE for more granular progress updates (e.g., 0-100%) if the API supports it.
 *   [ ] **Settings Page:** Add "Enable local clip download (beta)" toggle with TOS disclaimer.
-*   [ ] **Auto-copy Timestamped Link:** Add toggle in settings.
 *   [ ] **UI Polish:** Improve look and feel of the clip button and progress notifications.
 *   [ ] **Auto Highlight Discovery:** Implement LLM scoring as per the plan.
 *   [ ] **Direct Upload (X/Twitter):** Integrate with relevant APIs.
