@@ -108,20 +108,88 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     // Load existing transcripts if available
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
+    if (!videoId) {
+      transcriptDisplay.textContent = "Could not get YouTube Video ID.";
+      // Hide sections that require a video ID
+      doc.getElementById('transcript-input-section').classList.remove('hidden');
+      doc.getElementById('content-section').classList.add('hidden');
+      return; // Exit if no video ID
+    }
 
     console.log(`Current YouTube Video ID: ${videoId}`);
     logger.logEvent(Logger.EVENTS.EXTENSION_OPENED, {
       [Logger.FIELDS.VIDEO_ID]: videoId
     });
 
-    // First try to load from storage
+    // === Transcript Loading Logic ===
+    let finalRawTranscript = '';
+    let finalProcessedTranscript = '';
+    let existingTranscriptStatus = '❌';
+    let existingTranscriptMessage = '';
+    let youtubeStatus = '❌';
+    let youtubeMessage = '';
+
+    // 1. Try loading from storage first
     const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
+    if (savedTranscripts && savedTranscripts.rawTranscript) {
+      console.log('Loading transcript from cache for video ID:', videoId);
+      finalRawTranscript = savedTranscripts.rawTranscript;
+      finalProcessedTranscript = savedTranscripts.processedTranscript || '';
+      existingTranscriptStatus = '✅';
+      existingTranscriptMessage = 'Transcript loaded from cache.';
+      logger.logEvent(Logger.EVENTS.TRANSCRIPT_LOADED_FROM_CACHE, { [Logger.FIELDS.VIDEO_ID]: videoId });
+    } else {
+      existingTranscriptMessage = 'No transcript found in cache.';
+    }
 
-    // Then try to load from YouTube if needed
-    const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
-    const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
+    // 2. Try fetching from YouTube
+    const fetchedResult = await retrieveAndSetTranscripts(videoId, storageUtils);
+    youtubeStatus = fetchedResult.youtubeStatus;
+    youtubeMessage = fetchedResult.youtubeMessage;
 
-    // Load highlights for current page
+    // 3. Decide which transcript to use and potentially save
+    if (youtubeStatus === '✅') {
+      if (!finalRawTranscript || finalRawTranscript !== fetchedResult.rawTranscript) {
+        // Use the newly fetched transcript if it's different or nothing was cached
+        console.log('Using newly fetched transcript from YouTube.');
+        finalRawTranscript = fetchedResult.rawTranscript;
+        finalProcessedTranscript = ''; // Clear processed transcript as raw one changed
+        // Save the newly fetched transcript
+        await storageUtils.saveTranscript(videoId, finalRawTranscript, finalProcessedTranscript);
+         logger.logEvent(Logger.EVENTS.TRANSCRIPT_FETCHED_FROM_YOUTUBE, { [Logger.FIELDS.VIDEO_ID]: videoId });
+        // Update status message if we overwrote cache
+        if (existingTranscriptStatus === '✅') {
+             existingTranscriptMessage += ' (Overwritten by fresh YouTube fetch)';
+        }
+      } else {
+        console.log('Fetched transcript identical to cached version. Using cache.');
+         youtubeMessage = 'Fetched transcript matched cached version.'; // Adjust message
+      }
+    } else {
+       // YouTube fetch failed, rely solely on cache (if loaded)
+       if (!finalRawTranscript) {
+          // No cache AND YouTube failed
+          finalRawTranscript = youtubeMessage; // Show error in display
+          finalProcessedTranscript = '';
+          logger.logEvent(Logger.EVENTS.TRANSCRIPT_FETCH_FAILED, { 
+            [Logger.FIELDS.VIDEO_ID]: videoId,
+            [Logger.FIELDS.REASON]: youtubeMessage
+        });
+       }
+    }
+
+    // 4. Assign to global variables for pagination and other functions
+    rawTranscript = finalRawTranscript;
+    processedTranscript = finalProcessedTranscript;
+
+    // === NEW: Split the final transcripts into pages ===
+    rawTranscriptPages = rawTranscript ? splitTranscriptIntoPages(rawTranscript) : [];
+    processedTranscriptPages = processedTranscript ? splitTranscriptIntoPages(processedTranscript) : [];
+    currentPageIndex = 0; // Reset page index when transcripts are set/updated
+    highlightsPages = []; // Also reset highlights pages
+    // ===================================================
+
+    // 5. Load highlights for current page (needs to happen *after* transcripts are set)
     const highlightResultsTextarea = doc.getElementById('highlight-results');
     if (highlightResultsTextarea) {
       try {
@@ -135,13 +203,14 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
       }
     }
 
-    // Add new setup call for font size controls **before** pagination
+    // 6. Setup font size controls **before** pagination
     setupFontSizeControls(fontSizeDecrease, fontSizeIncrease, storageUtils);
 
-    paginateBothTranscripts(rawTranscript, processedTranscript);
+    // 7. Paginate using the final global transcript variables
+    paginateBothTranscripts(); // Now this should work as page arrays are populated
 
-    // handle showing UI elements based on auto-load transcript success status
-    handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
+    // 8. Update UI status message
+    handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingTranscriptStatus, existingTranscriptMessage);
 
     // Add copy button functionality
     setupCopyButtons(doc);
@@ -200,7 +269,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
   } catch (error) {
     console.error('Error initializing popup:', error);
-    transcriptDisplay.textContent = 'Error initializing popup.';
+    if (transcriptDisplay) transcriptDisplay.textContent = `Error initializing popup: ${error.message}`;
   }
 }
 
@@ -765,56 +834,27 @@ function splitTranscriptIntoPages(transcriptText) {
  * @param {string} videoId - The YouTube video ID.
  * @param {object|null} savedTranscripts - Transcripts loaded from storage ({ rawTranscript, processedTranscript }).
  * @param {StorageUtils} storageUtils - The StorageUtils instance.
- * @returns {Promise<{isCached: boolean, isLoadedFromYoutube: boolean}>} Status indicators.
+ * @returns {Promise<{rawTranscript: string, youtubeStatus: boolean, youtubeMessage: string}>} Transcript and status.
  */
 async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils) {
-  let isCached = false;
-  let isLoadedFromYoutube = false;
+  let rawTranscript = null;
+  let youtubeStatus = '❌';
+  let youtubeMessage = '';
 
-  if (savedTranscripts && savedTranscripts.rawTranscript) {
-    console.log('Loading transcript from cache for video ID:', videoId);
-    rawTranscript = savedTranscripts.rawTranscript;
-    processedTranscript = savedTranscripts.processedTranscript || ''; // Use saved processed or empty
-    isCached = true;
-    logger.logEvent(Logger.EVENTS.TRANSCRIPT_LOADED_FROM_CACHE, { [Logger.FIELDS.VIDEO_ID]: videoId });
-  } else {
-    console.log('No cached transcript found, attempting to fetch from YouTube for video ID:', videoId);
-    try {
-      rawTranscript = await youtubeTranscriptRetriever.getTranscript(videoId);
-      if (rawTranscript) {
-        console.log('Successfully fetched transcript from YouTube.');
-        isLoadedFromYoutube = true;
-        processedTranscript = ''; // Reset processed transcript when fetching new raw one
-        // Save the fetched transcript
-        await storageUtils.saveTranscript(videoId, rawTranscript, processedTranscript);
-        logger.logEvent(Logger.EVENTS.TRANSCRIPT_FETCHED_FROM_YOUTUBE, { [Logger.FIELDS.VIDEO_ID]: videoId });
-      } else {
-        console.log('Transcript not available from YouTube.');
-        rawTranscript = 'Transcript not available for this video.';
-        processedTranscript = '';
-        logger.logEvent(Logger.EVENTS.TRANSCRIPT_FETCH_FAILED, { 
-            [Logger.FIELDS.VIDEO_ID]: videoId,
-            [Logger.FIELDS.REASON]: 'Not available from YouTube API'
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching transcript from YouTube:', error);
-      rawTranscript = `Error fetching transcript: ${error.message}`;
-      processedTranscript = '';
-      logger.logEvent(Logger.EVENTS.ERROR, { 
-          [Logger.FIELDS.ERROR_TYPE]: 'youtube_fetch_error',
-          [Logger.FIELDS.ERROR_MESSAGE]: error.message,
-          [Logger.FIELDS.VIDEO_ID]: videoId
-      });
-      // Optionally, re-throw or handle differently if needed
-    }
+  try {
+    console.log(`Attempting to fetch transcript for video ID: ${videoId}`);
+    // Use the static method directly on the class
+    rawTranscript = await YoutubeTranscriptRetriever.fetchParsedTranscript(videoId);
+    console.log('Successfully fetched transcript from YouTube.');
+    youtubeStatus = '✅';
+    youtubeMessage = 'Successfully retrieved transcript from YouTube.';
+  } catch (error) {
+    console.error('Error fetching transcript from YouTube:', error);
+    youtubeMessage = `Failed to automatically retrieve transcript from YouTube. Reason: ${error.message}`; // Include reason
+    rawTranscript = null; // Ensure rawTranscript is null on error
   }
 
-  // Update global page arrays (important to do AFTER setting rawTranscript/processedTranscript)
-  rawTranscriptPages = rawTranscript ? splitTranscriptIntoPages(rawTranscript) : [];
-  processedTranscriptPages = processedTranscript ? splitTranscriptIntoPages(processedTranscript) : [];
-
-  return { isCached, isLoadedFromYoutube };
+  return { rawTranscript, youtubeStatus, youtubeMessage };
 }
 
 /**
@@ -880,12 +920,12 @@ async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
     const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
 
     // Then try loading from YouTube
-    const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
-    const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
+    const { rawTranscript, youtubeStatus, youtubeMessage } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
+    const { existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(savedTranscripts, rawTranscript);
 
     // Update UI after loading
-    paginateBothTranscripts();
-    handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
+    paginateBothTranscripts(rawTranscript, processedTranscript);
+    handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingTranscriptStatus, existingTranscriptMessage);
     updatePaginationButtons();
     updatePageInfo();
 
@@ -949,36 +989,20 @@ function handleNextClick() {
 
 /**
  * Determines status messages based on how transcripts were loaded.
- * @param {boolean} isCached - Was the transcript loaded from storage?
- * @param {boolean} isLoadedFromYoutube - Was the transcript fetched from YouTube?
+ * @param {object|null} savedTranscripts - Transcripts loaded from storage ({ rawTranscript, processedTranscript }).
+ * @param {string} rawTranscript - The raw transcript fetched from YouTube.
  * @returns {object} Status messages for UI.
  */
-function getTranscriptStatus(isCached, isLoadedFromYoutube) {
-    let youtubeTranscriptStatus = false;
-    let youtubeTranscriptMessage = '';
+function getTranscriptStatus(savedTranscripts, rawTranscript) {
     let existingTranscriptStatus = false;
     let existingTranscriptMessage = '';
 
-    if (isLoadedFromYoutube) {
-        youtubeTranscriptStatus = true;
-        youtubeTranscriptMessage = 'Transcript fetched from YouTube.';
-    } else if (!isCached && !isLoadedFromYoutube) {
-         // Case where fetch failed or no transcript available
-         youtubeTranscriptStatus = false;
-         // Use the actual transcript content if it indicates an error/status
-         if (rawTranscript && (rawTranscript.startsWith('Error') || rawTranscript.includes('not available'))) {
-            youtubeTranscriptMessage = rawTranscript;
-         } else {
-            youtubeTranscriptMessage = 'Could not fetch transcript from YouTube.';
-         }
-    }
-
-    if (isCached) {
+    if (savedTranscripts) {
         existingTranscriptStatus = true;
         existingTranscriptMessage = 'Transcript loaded from cache.';
     }
 
-    return { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage };
+    return { existingTranscriptStatus, existingTranscriptMessage };
 }
 
 /**
@@ -1024,7 +1048,7 @@ function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingSt
 /**
  * Updates the text content of the transcript display areas based on the current page.
  */
-function paginateBothTranscripts() {
+function paginateBothTranscripts(rawTranscript, processedTranscript) {
     const rawPageContent = rawTranscriptPages[currentPageIndex] || '';
     const processedPageContent = processedTranscriptPages[currentPageIndex] || '';
 
@@ -1091,6 +1115,38 @@ function updatePageInfo() {
   }
 }
 
+/**
+ * Applies the current font size to all relevant text display areas.
+ */
+function updateFontSize() {
+  if (!transcriptDisplay || !processedDisplay) return; // Ensure elements exist
+
+  transcriptDisplay.style.fontSize = `${currentFontSize}px`;
+  processedDisplay.style.fontSize = `${currentFontSize}px`;
+  
+  // Also update highlight-related text areas if they exist
+  const highlightPromptTextarea = document.getElementById('highlight-prompt');
+  const highlightResultsTextarea = document.getElementById('highlight-results');
+
+  if (highlightPromptTextarea) {
+      highlightPromptTextarea.style.fontSize = `${currentFontSize}px`;
+  }
+   if (highlightResultsTextarea) {
+      highlightResultsTextarea.style.fontSize = `${currentFontSize}px`;
+  }
+
+  // You might need to add other elements here if their font size should also change
+}
 //==============================================================================
 //                            EVENT HANDLERS
 //==============================================================================
+
+// Export the functions for testing purposes
+export {
+  initializePopup,
+  paginateBothTranscripts,
+  handlePrevClick,
+  handleNextClick,
+  setupLoadTranscriptButton,
+  setupPopup
+};
