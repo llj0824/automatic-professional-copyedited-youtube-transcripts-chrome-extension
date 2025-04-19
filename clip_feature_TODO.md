@@ -3,7 +3,7 @@
 Implement the ability for users to select text within the transcript, generate a corresponding video clip using an external API, and download it as an MP4 file.
 
 ## Current Status (as of 2025-04-19)
-
+NOTE: could consider reunning - the edits to popup included many refactors that left the codebase radically different.
 *   **Extension Loading:** The extension is currently **not** loading/running correctly when installed locally. Opening the popup likely results in errors.
 *   **Recent Debugging:** Significant effort was spent fixing multiple `ReferenceError` issues in `popup.js`. These were caused by missing function definitions that were likely lost during previous refactoring/edits. Key functions re-added include:
     *   `retrieveAndSetTranscripts`

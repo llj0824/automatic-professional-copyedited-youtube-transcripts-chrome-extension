@@ -345,13 +345,84 @@ function setupTabs(doc, tabButtons, tabContents) {
 }
 
 /**
+ * Handles the click event for the process transcript button.
+ * @param {HTMLElement} modelSelect - The model selection element.
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ */
+async function handleProcessClick(modelSelect, storageUtils) {
+  const selectedModel = modelSelect.value;
+  const videoId = await storageUtils.getCurrentYouTubeVideoId(); // Get current video ID
+
+  if (!rawTranscript) {
+    alert('No raw transcript available to process.');
+    return;
+  }
+  if (!videoId) {
+    alert('Could not determine Video ID.');
+    return;
+  }
+
+  console.log(`Processing transcript for Video ID: ${videoId} using model: ${selectedModel}`);
+  logger.logEvent(Logger.EVENTS.TRANSCRIPT_PROCESS_STARTED, { 
+      [Logger.FIELDS.VIDEO_ID]: videoId, 
+      [Logger.FIELDS.MODEL_NAME]: selectedModel 
+  });
+
+  loader.style.display = 'block'; // Show loader
+  processBtn.disabled = true;
+  const startTime = Date.now();
+
+  try {
+    // Call the LLM utility to process the transcript
+    processedTranscript = await llmUtils.process_transcript_in_batches(rawTranscript, selectedModel, {
+      partitions: llmUtils.DEFAULT_PARTITIONS // Use default partitions
+    });
+    const processingTime = Date.now() - startTime;
+
+    console.log('Transcript processed successfully.');
+    logger.logEvent(Logger.EVENTS.TRANSCRIPT_PROCESS_COMPLETED, {
+        [Logger.FIELDS.VIDEO_ID]: videoId,
+        [Logger.FIELDS.MODEL_NAME]: selectedModel,
+        [Logger.FIELDS.PROCESSING_TIME_MS]: processingTime
+    });
+
+    // Save the processed transcript
+    await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
+    console.log('Processed transcript saved.');
+
+    // Update pagination for the processed transcript
+    processedTranscriptPages = splitTranscriptIntoPages(processedTranscript);
+    currentPageIndex = 0; // Go to first page of processed transcript
+    
+    // Refresh display
+    paginateBothTranscripts();
+
+    // Switch to the 'Processed' tab automatically
+    switchTab(document.querySelector('.tab-button[data-tab="processed"]')); // Assumes switchTab function exists
+
+  } catch (error) {
+    console.error('Error processing transcript:', error);
+    alert(`Error processing transcript: ${error.message}`);
+     logger.logEvent(Logger.EVENTS.ERROR, { 
+      [Logger.FIELDS.ERROR_TYPE]: 'processing_error',
+      [Logger.FIELDS.ERROR_MESSAGE]: error.message,
+      [Logger.FIELDS.VIDEO_ID]: videoId,
+      [Logger.FIELDS.MODEL_NAME]: selectedModel
+    });
+  } finally {
+    loader.style.display = 'none'; // Hide loader
+    processBtn.disabled = false;
+  }
+}
+
+/**
  * Sets up the process button event listener.
  * @param {HTMLElement} processBtn - The process button element.
  * @param {HTMLElement} modelSelect - The model selection element.
  * @param {StorageUtils} storageUtils - The StorageUtils instance.
  */
 function setupProcessButton(processBtn, modelSelect, storageUtils) {
-  processBtn.addEventListener('click', () => handleProcessTranscriptClick(modelSelect, storageUtils));
+  processBtn.addEventListener('click', () => handleProcessClick(modelSelect, storageUtils)); // Corrected function name
 }
 
 // Setup load transcript button event
