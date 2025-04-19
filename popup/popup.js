@@ -5,12 +5,13 @@ import StorageUtils from './storage_utils.js';
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 import Logger from './logger.js';
 
+// Instantiate utilities
+const llmUtils = new LLM_API_Utils();
+const storageUtils = new StorageUtils();
+const youtubeTranscriptRetriever = new YoutubeTranscriptRetriever(); // Instantiate retriever
+const logger = new Logger(storageUtils); 
 
-//==============================================================================
-//                              GLOBAL VARIABLES
-//==============================================================================
-
-// Declare the variables in a higher scope
+// Global variables for DOM elements and state
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
 // Add clip buttons to global scope
 let clipBtnRaw, clipBtnProcessed;
@@ -38,9 +39,6 @@ let processedTranscriptPages = []; // paginated from processed transcript
 let currentPageIndex = 0;
 let PAGE_DURATION = 30 * 60; // seconds (modifiable)
 
-const llmUtils = new LLM_API_Utils();
-const logger = new Logger();
-
 // Add these variables to the top-level declarations
 let fontSizeDecrease, fontSizeIncrease;
 let currentFontSize = 12; // Default font size in px
@@ -55,11 +53,9 @@ let highlightsPages = [];
 // Add to global variables section
 let resetTranscriptBtn;
 
-
 //==============================================================================
 //                         INITIALIZATION FUNCTIONS 
 //==============================================================================
-
 
 // Call it immediately in browser environment
 if (typeof document !== 'undefined') {
@@ -693,8 +689,133 @@ function formatTime(seconds) {
   return `${paddedM}:${paddedS}`;
 }
 
+
+
 //==============================================================================
 //                            TRANSCRIPT PROCESSING
+//==============================================================================
+
+/**
+ * Splits the transcript into pages based on a time duration.
+ * Very basic implementation: Assumes lines start with timestamps like [HH:MM:SS].
+ * Needs refinement for accurate time parsing and handling lines without timestamps.
+ * @param {string} transcriptText - The full transcript text.
+ * @returns {string[]} An array of strings, each representing a page.
+ */
+function splitTranscriptIntoPages(transcriptText) {
+    if (!transcriptText) return [];
+
+    const lines = transcriptText.trim().split('\n');
+    const pages = [];
+    let currentPageLines = [];
+    let currentPageStartTime = -1;
+    const timeRegex = /\[(\d{1,2}):(\d{1,2}):(\d{1,2})\.?\d*\]/; // Basic HH:MM:SS format - Correctly escaped
+
+    for (const line of lines) {
+        const match = line.match(timeRegex);
+        let lineTime = -1;
+
+        if (match) {
+            const hours = parseInt(match[1], 10);
+            const minutes = parseInt(match[2], 10);
+            const seconds = parseInt(match[3], 10);
+            lineTime = hours * 3600 + minutes * 60 + seconds;
+        }
+
+        // Start a new page if this line has a timestamp and either:
+        // 1. It's the first line with a timestamp.
+        // 2. It exceeds the page duration relative to the page's start time.
+        if (lineTime !== -1) {
+            if (currentPageStartTime === -1) {
+                currentPageStartTime = lineTime;
+                currentPageLines.push(line);
+            } else if (lineTime >= currentPageStartTime + PAGE_DURATION) {
+                // Finalize the current page
+                pages.push(currentPageLines.join('\n'));
+                // Start a new page
+                currentPageLines = [line];
+                currentPageStartTime = lineTime;
+            } else {
+                currentPageLines.push(line);
+            }
+        } else {
+            // Add lines without timestamps to the current page if one has started
+            if (currentPageStartTime !== -1) {
+                 currentPageLines.push(line);
+            }
+            // Handle lines before the first timestamp if necessary
+        }
+    }
+
+    // Add the last page if it has content
+    if (currentPageLines.length > 0) {
+        pages.push(currentPageLines.join('\n'));
+    }
+    
+    // If no timestamps were found, return the whole transcript as one page
+    if (pages.length === 0 && lines.length > 0) {
+        return [transcriptText];
+    }
+
+    return pages;
+}
+
+/**
+ * Retrieves transcripts from storage or YouTube, updates global state, and saves if fetched.
+ * @param {string} videoId - The YouTube video ID.
+ * @param {object|null} savedTranscripts - Transcripts loaded from storage ({ rawTranscript, processedTranscript }).
+ * @param {StorageUtils} storageUtils - The StorageUtils instance.
+ * @returns {Promise<{isCached: boolean, isLoadedFromYoutube: boolean}>} Status indicators.
+ */
+async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils) {
+  let isCached = false;
+  let isLoadedFromYoutube = false;
+
+  if (savedTranscripts && savedTranscripts.rawTranscript) {
+    console.log('Loading transcript from cache for video ID:', videoId);
+    rawTranscript = savedTranscripts.rawTranscript;
+    processedTranscript = savedTranscripts.processedTranscript || ''; // Use saved processed or empty
+    isCached = true;
+    logger.logEvent(Logger.EVENTS.TRANSCRIPT_LOADED_FROM_CACHE, { [Logger.FIELDS.VIDEO_ID]: videoId });
+  } else {
+    console.log('No cached transcript found, attempting to fetch from YouTube for video ID:', videoId);
+    try {
+      rawTranscript = await youtubeTranscriptRetriever.getTranscript(videoId);
+      if (rawTranscript) {
+        console.log('Successfully fetched transcript from YouTube.');
+        isLoadedFromYoutube = true;
+        processedTranscript = ''; // Reset processed transcript when fetching new raw one
+        // Save the fetched transcript
+        await storageUtils.saveTranscript(videoId, rawTranscript, processedTranscript);
+        logger.logEvent(Logger.EVENTS.TRANSCRIPT_FETCHED_FROM_YOUTUBE, { [Logger.FIELDS.VIDEO_ID]: videoId });
+      } else {
+        console.log('Transcript not available from YouTube.');
+        rawTranscript = 'Transcript not available for this video.';
+        processedTranscript = '';
+        logger.logEvent(Logger.EVENTS.TRANSCRIPT_FETCH_FAILED, { 
+            [Logger.FIELDS.VIDEO_ID]: videoId,
+            [Logger.FIELDS.REASON]: 'Not available from YouTube API'
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching transcript from YouTube:', error);
+      rawTranscript = `Error fetching transcript: ${error.message}`;
+      processedTranscript = '';
+      logger.logEvent(Logger.EVENTS.ERROR, { 
+          [Logger.FIELDS.ERROR_TYPE]: 'youtube_fetch_error',
+          [Logger.FIELDS.ERROR_MESSAGE]: error.message,
+          [Logger.FIELDS.VIDEO_ID]: videoId
+      });
+      // Optionally, re-throw or handle differently if needed
+    }
+  }
+
+  // Update global page arrays (important to do AFTER setting rawTranscript/processedTranscript)
+  rawTranscriptPages = rawTranscript ? splitTranscriptIntoPages(rawTranscript) : [];
+  processedTranscriptPages = processedTranscript ? splitTranscriptIntoPages(processedTranscript) : [];
+
+  return { isCached, isLoadedFromYoutube };
+}
 
 /**
  * Handles the click event for the load transcript button.
@@ -785,93 +906,192 @@ async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
 }
 
 //==============================================================================
-//                         SETUP FUNCTIONS
+//                            EVENT HANDLERS
 //==============================================================================
 
 /**
- * Handles the click event for the load transcript button.
- * Fetches transcript based on user input (URL or Video ID).
- * @param {HTMLInputElement} transcriptInput - The input element for URL/ID.
- * @param {StorageUtils} storageUtils - The StorageUtils instance.
- */ 
-async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
-  const inputValue = transcriptInput.value.trim();
-  if (!inputValue) {
-    alert('Please enter a YouTube Video ID or URL.');
-    return;
-  }
-
-  let videoId = null;
-  try {
-    // Try parsing as URL
-    if (inputValue.includes('youtube.com') || inputValue.includes('youtu.be')) {
-      const url = new URL(inputValue);
-      if (url.hostname === 'youtu.be') {
-        videoId = url.pathname.substring(1);
-      } else if (url.hostname.includes('youtube.com')) {
-        videoId = url.searchParams.get('v');
-      }
-    } else {
-      // Assume it's a video ID if not a recognizable URL
-      // Basic validation: YT IDs are typically 11 chars, but let's be lenient
-      if (inputValue.length > 5 && !inputValue.includes(' ')) { 
-        videoId = inputValue;
-      }
-    }
-  } catch (error) {
-    console.error('Error parsing video ID/URL:', error);
-    alert('Invalid YouTube URL or Video ID provided.');
-    return;
-  }
-
-  if (!videoId) {
-    alert('Could not extract Video ID from the input.');
-    return;
-  }
-
-  console.log(`Attempting to load transcript for manually entered Video ID: ${videoId}`);
-  logger.logEvent(Logger.EVENTS.MANUAL_TRANSCRIPT_LOAD_ATTEMPT, { [Logger.FIELDS.VIDEO_ID]: videoId });
-
-  // Show loader or processing state
-  const loader = document.getElementById('loader');
-  if (loader) loader.classList.remove('hidden');
-  transcriptDisplay.textContent = 'Loading transcript...';
-  processedDisplay.textContent = '';
-  if (clipStatusDiv) clipStatusDiv.classList.add('hidden'); // Hide clip status
-
-  try {
-    // Reset current state before loading new transcript
-    rawTranscript = '';
-    processedTranscript = '';
-    rawTranscriptPages = [];
-    processedTranscriptPages = [];
-    currentPageIndex = 0;
-
-    // Try loading from storage first
-    const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
-
-    // Then try loading from YouTube
-    const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
-    const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
-
-    // Update UI after loading
+ * Handles the click event for the 'Previous' pagination button.
+ */
+function handlePrevClick() {
+  if (currentPageIndex > 0) {
+    currentPageIndex--;
     paginateBothTranscripts();
-    handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
     updatePaginationButtons();
     updatePageInfo();
-
-    logger.logEvent(Logger.EVENTS.MANUAL_TRANSCRIPT_LOAD_SUCCESS, { [Logger.FIELDS.VIDEO_ID]: videoId });
-
-  } catch (error) {
-    console.error('Error loading transcript manually:', error);
-    transcriptDisplay.textContent = `Error loading transcript: ${error.message}`;
-    processedDisplay.textContent = '';
-    handleTranscriptLoadingStatus(false, `Error: ${error.message}`, false, ''); // Show error status
-    logger.logEvent(Logger.EVENTS.MANUAL_TRANSCRIPT_LOAD_ERROR, { 
-        [Logger.FIELDS.VIDEO_ID]: videoId,
-        [Logger.FIELDS.ERROR_MESSAGE]: error.message
-    });
-  } finally {
-    if (loader) loader.classList.add('hidden');
+    logger.logEvent(Logger.EVENTS.PAGINATION_PREV, { [Logger.FIELDS.PAGE_NUMBER]: currentPageIndex + 1 });
   }
 }
+
+/**
+ * Handles the click event for the 'Next' pagination button.
+ */
+function handleNextClick() {
+  // Determine the total number of pages based on the currently active tab
+  let totalPages = 0;
+  if (currentTab === TabState.RAW || currentTab === TabState.PROCESSED) {
+    totalPages = Math.max(rawTranscriptPages.length, processedTranscriptPages.length);
+  } else if (currentTab === TabState.HIGHLIGHTS) {
+    totalPages = highlightsPages.length;
+    // Note: If highlights are not yet generated, totalPages will be 0.
+    // The updatePaginationButtons function should handle disabling 'Next' correctly.
+  }
+
+  if (currentPageIndex < totalPages - 1) {
+    currentPageIndex++;
+    paginateBothTranscripts(); // Handles raw/processed display
+    // If on highlights tab, might need specific update logic if paginateBothTranscripts isn't sufficient
+    // For now, assume highlights display updates are handled elsewhere or within paginateBothTranscripts implicitly
+    updatePaginationButtons();
+    updatePageInfo();
+    logger.logEvent(Logger.EVENTS.PAGINATION_NEXT, { [Logger.FIELDS.PAGE_NUMBER]: currentPageIndex + 1 });
+  }
+}
+
+/**
+ * Determines status messages based on how transcripts were loaded.
+ * @param {boolean} isCached - Was the transcript loaded from storage?
+ * @param {boolean} isLoadedFromYoutube - Was the transcript fetched from YouTube?
+ * @returns {object} Status messages for UI.
+ */
+function getTranscriptStatus(isCached, isLoadedFromYoutube) {
+    let youtubeTranscriptStatus = false;
+    let youtubeTranscriptMessage = '';
+    let existingTranscriptStatus = false;
+    let existingTranscriptMessage = '';
+
+    if (isLoadedFromYoutube) {
+        youtubeTranscriptStatus = true;
+        youtubeTranscriptMessage = 'Transcript fetched from YouTube.';
+    } else if (!isCached && !isLoadedFromYoutube) {
+         // Case where fetch failed or no transcript available
+         youtubeTranscriptStatus = false;
+         // Use the actual transcript content if it indicates an error/status
+         if (rawTranscript && (rawTranscript.startsWith('Error') || rawTranscript.includes('not available'))) {
+            youtubeTranscriptMessage = rawTranscript;
+         } else {
+            youtubeTranscriptMessage = 'Could not fetch transcript from YouTube.';
+         }
+    }
+
+    if (isCached) {
+        existingTranscriptStatus = true;
+        existingTranscriptMessage = 'Transcript loaded from cache.';
+    }
+
+    return { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage };
+}
+
+/**
+ * Updates the UI based on the transcript loading status.
+ * @param {boolean} youtubeStatus - Success status of YouTube fetch.
+ * @param {string} youtubeMessage - Message related to YouTube fetch.
+ * @param {boolean} existingStatus - Success status of loading from cache.
+ * @param {string} existingMessage - Message related to cache load.
+ */
+function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingStatus, existingMessage) {
+    const statusElement = document.getElementById('transcript-status');
+    if (!statusElement) return;
+
+    let finalMessage = '';
+    if (existingStatus) {
+        finalMessage = existingMessage;
+    } else if (youtubeStatus) {
+        finalMessage = youtubeMessage;
+    } else {
+        finalMessage = youtubeMessage || 'Transcript status unknown.'; // Fallback message
+    }
+
+    statusElement.textContent = finalMessage;
+    statusElement.className = (existingStatus || youtubeStatus) ? 'status-message status-success' : 'status-message status-error'; 
+    statusElement.classList.remove('hidden');
+
+    // Show/hide buttons based on whether a valid transcript is loaded
+    const transcriptAvailable = (existingStatus || youtubeStatus) && rawTranscript && !rawTranscript.startsWith('Error') && !rawTranscript.includes('not available');
+    if (processBtn) processBtn.style.display = transcriptAvailable ? 'inline-block' : 'none';
+    // Only show highlights button if processed transcript exists
+    if (generateHighlightsBtn) generateHighlightsBtn.style.display = transcriptAvailable && processedTranscript ? 'inline-block' : 'none'; 
+    if (resetTranscriptBtn) resetTranscriptBtn.style.display = transcriptAvailable ? 'inline-block' : 'none';
+    // Hide manual load elements if transcript is available
+    if (transcriptInput) transcriptInput.style.display = transcriptAvailable ? 'none' : 'inline-block'; 
+    if (loadTranscriptBtn) loadTranscriptBtn.style.display = transcriptAvailable ? 'none' : 'inline-block';
+    // Show pagination if transcript available and paginated
+    const paginationControls = document.getElementById('pagination-controls');
+    if (paginationControls) {
+        paginationControls.classList.toggle('hidden', !(transcriptAvailable && Math.max(rawTranscriptPages.length, processedTranscriptPages.length) > 1));
+    }
+}
+
+/**
+ * Updates the text content of the transcript display areas based on the current page.
+ */
+function paginateBothTranscripts() {
+    const rawPageContent = rawTranscriptPages[currentPageIndex] || '';
+    const processedPageContent = processedTranscriptPages[currentPageIndex] || '';
+
+    if (transcriptDisplay) {
+        transcriptDisplay.textContent = rawPageContent;
+    }
+    if (processedDisplay) {
+        processedDisplay.textContent = processedPageContent;
+    }
+    // Handle highlights pagination 
+    const highlightResultsTextarea = document.getElementById('highlight-results');
+    if (highlightResultsTextarea && currentTab === TabState.HIGHLIGHTS) {
+       highlightResultsTextarea.value = highlightsPages[currentPageIndex] || '';
+    }
+    // Update other UI elements dependent on pagination
+    updatePaginationButtons();
+    updatePageInfo();
+    updateFontSize(); // Apply font size to new content
+}
+
+/**
+ * Updates the enabled/disabled state of pagination buttons.
+ */
+function updatePaginationButtons() {
+  if (!prevBtn || !nextBtn) return;
+
+  let totalPages = 0;
+   if (currentTab === TabState.RAW || currentTab === TabState.PROCESSED) {
+        totalPages = Math.max(rawTranscriptPages.length, processedTranscriptPages.length);
+   } else if (currentTab === TabState.HIGHLIGHTS) {
+        totalPages = highlightsPages.length;
+   }
+
+  prevBtn.disabled = currentPageIndex <= 0;
+  nextBtn.disabled = currentPageIndex >= totalPages - 1;
+
+   // Hide controls entirely if only one page or zero pages
+   const paginationControls = document.getElementById('pagination-controls');
+   if (paginationControls) {
+       paginationControls.classList.toggle('hidden', totalPages <= 1);
+   }
+}
+
+
+/**
+ * Updates the page information display (e.g., "Page 1 of 3").
+ */
+function updatePageInfo() {
+  if (!pageInfo) return;
+
+  let totalPages = 0;
+   if (currentTab === TabState.RAW || currentTab === TabState.PROCESSED) {
+        totalPages = Math.max(rawTranscriptPages.length, processedTranscriptPages.length);
+   } else if (currentTab === TabState.HIGHLIGHTS) {
+        totalPages = highlightsPages.length;
+   }
+
+  if (totalPages > 0) {
+    pageInfo.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`;
+    pageInfo.classList.remove('hidden'); 
+  } else {
+    pageInfo.textContent = ''; 
+    pageInfo.classList.add('hidden');
+  }
+}
+
+//==============================================================================
+//                            EVENT HANDLERS
+//==============================================================================
+
