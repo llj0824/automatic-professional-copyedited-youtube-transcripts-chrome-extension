@@ -1,4 +1,20 @@
 // jest.config.cjs
+// Override OS temp dir for Jest haste-map to a project-local directory
+const path = require('path');
+const fs = require('fs');
+ // Disable haste-map persistence to avoid writing to system temp
+ try {
+   const hasteMapMod = require('jest-haste-map');
+   const HasteMap = hasteMapMod.default || hasteMapMod;
+  if (HasteMap && HasteMap.prototype) {
+    HasteMap.prototype._persist = () => {};
+  }
+} catch {}
+const os = require('os');
+const localTmp = path.join(__dirname, 'tmp', 'jest_dx');
+if (!fs.existsSync(localTmp)) fs.mkdirSync(localTmp, { recursive: true });
+// Override os.tmpdir() so jest-haste-map writes to project-local temp
+os.tmpdir = () => localTmp;
 
 // Handles the actual code transformation
 // Converts syntax between module systems
@@ -6,6 +22,8 @@
 
 // note the .cjs file extension explicity declares this as CommonJS
 const config = {
+  // Directory for Jest to store its cache (overrides default OS temp dir)
+  cacheDirectory: '<rootDir>/tmp/jest_cache',
   // Tells Jest to use jsdom to simulate browser APIs (like document, window)
   // Necessary when testing code that uses browser APIs
   testEnvironment: 'jsdom',
