@@ -82,7 +82,16 @@
     <div id="actions">
       <button id="process-btn" class="action-btn"> Professional Transcript ✨ </button>
       <button id="generate-highlights-btn" class="action-btn hidden"> Generate Highlights 💎 </button>
+      <button id="clip-btn" class="action-btn hidden"> Clip Video ✂️ </button>
       <div id="loader" class="hidden"></div>
+    </div>
+    <!-- Clip Form -->
+    <div id="clip-form" class="hidden">
+      <label for="clip-start">Start: <input id="clip-start" type="text" placeholder="HH:MM:SS"></label>
+      <label for="clip-end">End: <input id="clip-end" type="text" placeholder="HH:MM:SS"></label>
+      <button id="clip-submit" class="action-btn">Clip</button>
+      <span id="clip-error" class="error-message hidden"></span>
+      <div id="clip-loader" class="hidden"></div>
     </div>
 
     <!-- API Key and Model Selection -->

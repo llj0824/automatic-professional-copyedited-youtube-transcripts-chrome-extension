@@ -35,7 +35,8 @@
             "popup/popup.js",
             "background/service_worker.js",
             "popup/storage_utils.js",
-            "popup/llm_api_utils.js"
+            "popup/llm_api_utils.js",
+            "popup/clipServiceUtils.js"
           ],
           "matches": ["<all_urls>"]
         }
