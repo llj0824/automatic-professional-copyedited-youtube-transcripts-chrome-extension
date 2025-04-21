@@ -2,7 +2,6 @@
 node_modules/
 dist/
 *.test.js
-*.md
 llm_responses/
 icons/
 store_assets/
