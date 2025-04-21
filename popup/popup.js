@@ -4,6 +4,7 @@ import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 import Logger from './logger.js';
+import { parseTimeString, validateClipTimes } from './clipServiceUtils.js';
 
 
 //==============================================================================
@@ -57,6 +58,40 @@ let resetTranscriptBtn;
 // Call it immediately in browser environment
 if (typeof document !== 'undefined') {
   setupPopup();
+}
+
+// Setup Clip button/form functionality
+function setupClipService(storageUtils) {
+  const clipBtn = document.getElementById('clip-btn');
+  const clipForm = document.getElementById('clip-form');
+  const clipStartInput = document.getElementById('clip-start');
+  const clipEndInput = document.getElementById('clip-end');
+  const clipSubmit = document.getElementById('clip-submit');
+  const clipError = document.getElementById('clip-error');
+  const clipLoader = document.getElementById('clip-loader');
+  // Show clip button if on a YouTube video
+  storageUtils.getCurrentYouTubeVideoId().then(videoId => {
+    if (videoId) clipBtn.classList.remove('hidden');
+  });
+  clipBtn.addEventListener('click', () => {
+    clipForm.classList.toggle('hidden');
+    clipError.textContent = '';
+    clipError.classList.add('hidden');
+  });
+  clipSubmit.addEventListener('click', () => {
+    const startStr = clipStartInput.value.trim();
+    const endStr = clipEndInput.value.trim();
+    try {
+      const { start, end } = validateClipTimes(startStr, endStr);
+      clipError.textContent = '';
+      clipError.classList.add('hidden');
+      // TODO: Implement clip API call and download logic
+      console.log(`Requesting clip from ${start} to ${end}`);
+    } catch (err) {
+      clipError.textContent = err.message;
+      clipError.classList.remove('hidden');
+    }
+  });
 }
 
 /**
@@ -138,7 +173,9 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils);
 
-    setupClearTranscriptButton(resetTranscriptBtn, storageUtils,videoId);
+    setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId);
+    // Setup clip button and form functionality
+    setupClipService(storageUtils);
 
     // Initialize highlight prompt with default text from LLM API Utils
     const highlightPromptTextarea = doc.getElementById('highlight-prompt');
