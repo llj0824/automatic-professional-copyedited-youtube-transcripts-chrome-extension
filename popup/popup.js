@@ -180,11 +180,25 @@ function setupClipService(storageUtils) {
           }
           return;
       }
-      const startStr = clipStartInput ? clipStartInput.value.trim() : '';
-      const endStr = clipEndInput ? clipEndInput.value.trim() : '';
+      let startStr = clipStartInput ? clipStartInput.value.trim() : '';
+      let endStr = clipEndInput ? clipEndInput.value.trim() : '';
+
+      // 2. Dynamic Filename - Extract Title
+      let videoTitle = 'video_clip'; // Default title
+      if (rawTranscriptPages && rawTranscriptPages.length > 0) {
+        try {
+          videoTitle = extractVideoTitle(rawTranscriptPages[0]); // Use the title extracted from the first page
+          console.log('[ClipService Filename] Extracted video title:', videoTitle);
+        } catch (err) {
+          console.error('[ClipService Filename] Error extracting video title:', err);
+          // Keep the default title if extraction fails
+        } 
+      } else {
+        console.warn('[ClipService Filename] Raw transcript pages not available for title extraction.');
+      }
       
-      // Delegate the request process to the handler
-      clipHandler.requestClip(currentTabUrl, startStr, endStr, videoId);
+      // Delegate the request process to the handler, now including the title
+      clipHandler.requestClip(currentTabUrl, startStr, endStr, videoId, videoTitle);
     });
   }
 }

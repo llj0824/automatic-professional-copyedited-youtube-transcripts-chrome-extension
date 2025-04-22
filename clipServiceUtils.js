@@ -69,6 +69,10 @@ export class ClipRequestHandler {
     this.baseUrl = config.baseUrl;
     this.apiKey = config.apiKey;
     this.pollIntervalId = null;
+    // Add instance variables to store clip details
+    this.videoTitle = 'video_clip'; // Default
+    this.startTimeStr = '00:00:00';
+    this.endTimeStr = '00:00:00';
   }
 
   _updateStatus(message, isLoading = false, isError = false) {
@@ -87,29 +91,54 @@ export class ClipRequestHandler {
     }
   }
 
-  async requestClip(url, startStr, endStr, videoId) {
-    console.log('[ClipRequestHandler] requestClip called with:', { url, startStr, endStr, videoId });
+  // Add videoTitle to the signature
+  async requestClip(url, startStr, endStr, videoId, videoTitle = 'video_clip') { 
+    console.log('[ClipRequestHandler] requestClip called with raw inputs:', { url, startStr, endStr, videoId, videoTitle });
+    
+    // --- Time Format Conversion (Moved from popup.js) ---
+    const timeFormatCheck = (timeStr) => (timeStr.match(/:/g) || []).length === 1 && /^[0-5]?\d:[0-5]?\d$/.test(timeStr);
+    let formattedStartStr = startStr;
+    let formattedEndStr = endStr;
+
+    if (timeFormatCheck(startStr)) {
+        console.log(`[ClipServiceUtils Time Format] Converting start time ${startStr} to 00:${startStr}`);
+        formattedStartStr = `00:${startStr}`;
+    }
+    if (timeFormatCheck(endStr)) {
+        console.log(`[ClipServiceUtils Time Format] Converting end time ${endStr} to 00:${endStr}`);
+        formattedEndStr = `00:${endStr}`;
+    }
+    // ---------------------------------------------------
+
     this._updateStatus('Validating input...', false, false); // Reset error state
+    
+    // Store title and CORRECTLY FORMATTED times for later use in filename generation
+    this.videoTitle = videoTitle || 'video_clip'; // Use default if title is missing
+    this.startTimeStr = formattedStartStr; // Use the potentially formatted string
+    this.endTimeStr = formattedEndStr;   // Use the potentially formatted string
+
     let startTimeSeconds, endTimeSeconds;
 
     try {
-      startTimeSeconds = parseTimeString(startStr);
-      endTimeSeconds = parseTimeString(endStr);
+      // Validate using the formatted strings
+      startTimeSeconds = parseTimeString(formattedStartStr);
+      endTimeSeconds = parseTimeString(formattedEndStr);
       if (startTimeSeconds >= endTimeSeconds) {
         throw new Error('Start time must be before end time.');
       }
     } catch (error) {
-      this._updateStatus(`Error: ${error.message}`, true);
+      // Show error using original input for clarity if needed, or formatted
+      this._updateStatus(`Validation Error: ${error.message} (Input: ${startStr}, ${endStr})`, false, true);
       return;
     }
 
     this._updateStatus('Requesting clip...', true);
 
-    // Keep validation using parsed seconds, but prepare body with original strings
+    // Use formatted strings for the API request body
     const requestBody = { 
       url: url, 
-      start_time: startStr, // Send original string in "HH:MM:SS" format (e.g., "00:00:05")
-      end_time: endStr,   // Send original string in "HH:MM:SS" format (e.g., "00:00:55")
+      start_time: formattedStartStr, 
+      end_time: formattedEndStr,   
     };
 
     console.log('[ClipRequestHandler] Making POST /get_video request:', { 
@@ -181,8 +210,14 @@ export class ClipRequestHandler {
           // Construct full download URL
           const downloadUrl = `${this.baseUrl}${data.file}`; 
           
-          // Extract filename from the path
-          const filename = data.file.split('/').pop() || `clip_${taskId}.mp4`;
+          // --- Generate Dynamic Filename ---
+          // Format time range (replace colons with underscores)
+          const timeRange = `${this.startTimeStr.replace(/:/g, '_')}-${this.endTimeStr.replace(/:/g, '_')}`;
+          // Sanitize title (remove invalid chars, limit length)
+          const sanitizedTitle = this._sanitizeFilename(this.videoTitle);
+          // Construct filename
+          const filename = `${timeRange}_${sanitizedTitle}.mp4`;
+          // ---------------------------------
 
           console.log(`[ClipRequestHandler] Triggering download:`, { downloadUrl, filename });
           this.downloadFile(downloadUrl, filename);
@@ -205,12 +240,23 @@ export class ClipRequestHandler {
     }, pollInterval);
   }
 
-  downloadFile(downloadUrl, suggestedFilename) {
-    console.log(`[ClipRequestHandler] Attempting to download file:`, { downloadUrl, suggestedFilename });
+  // Helper to sanitize video title for use in filename
+  _sanitizeFilename(title) {
+    // Remove invalid characters: / ? < > \ : * | " ^
+    // Replace spaces with underscores
+    // Limit length to avoid issues
+    const invalidCharsRegex = /[\/?<>\\:*|"^]/g;
+    let sanitized = title.replace(invalidCharsRegex, '').replace(/\s+/g, '_');
+    // Limit length (e.g., 100 characters)
+    return sanitized.substring(0, 100);
+  }
+
+  downloadFile(url, filename) {
+    console.log(`[ClipRequestHandler] Initiating download via chrome.downloads:`, { url, filename });
     try {
       chrome.downloads.download({
-        url: downloadUrl,
-        filename: suggestedFilename || 'youtube_clip.mp4' // Fallback filename
+        url: url,
+        filename: filename || 'youtube_clip.mp4' // Fallback filename
       }, (downloadId) => {
         if (chrome.runtime.lastError) {
           console.error(`[ClipRequestHandler] Download failed:`, chrome.runtime.lastError);
