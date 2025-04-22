@@ -6,9 +6,9 @@ import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 import Logger from './logger.js';
 import { 
   ClipRequestHandler, 
-  CLIP_SERVICE_BASE_URL, 
+  CLIP_SERVICE_BASE_URL,
   CLIP_API_KEY
-} from './clipServiceUtils.js';
+} from '../clipServiceUtils.js';
 
 //==============================================================================
 //                              GLOBAL VARIABLES
@@ -85,6 +85,8 @@ function setupClipService(storageUtils) {
       console.warn('Clip loader element not found when creating status text.');
   }
 
+  console.log('[ClipService Setup] Found UI elements:', { clipBtn, clipForm, clipStartInput, clipEndInput, clipSubmit, clipError, clipLoader });
+
   let videoId = null;
   let currentTabUrl = null;
   let clipHandler = null; // To hold the handler instance
@@ -103,6 +105,7 @@ function setupClipService(storageUtils) {
         apiKey: CLIP_API_KEY
       }
     );
+    console.log('[ClipService Setup] ClipRequestHandler instantiated.');
   } else {
       console.error("ClipRequestHandler Init Failed: Missing UI elements.");
       // Disable clip feature if setup fails
@@ -144,6 +147,7 @@ function setupClipService(storageUtils) {
   // Listener for the main Clip button to toggle the form
   if (clipBtn) {
     clipBtn.addEventListener('click', () => {
+      console.log('[ClipService Button] Clip button clicked.');
       if(clipForm) clipForm.classList.toggle('hidden');
       // Reset UI state via handler when form is shown/hidden
       if (clipHandler) clipHandler._updateStatus('', false, false); 
@@ -153,6 +157,7 @@ function setupClipService(storageUtils) {
   // Listener for the Submit button within the form
   if (clipSubmit) {
     clipSubmit.addEventListener('click', () => {
+      console.log('[ClipService Button] Clip submit button clicked.');
       if (!clipHandler) {
           console.error("Clip handler not ready.");
           if(clipError) {
