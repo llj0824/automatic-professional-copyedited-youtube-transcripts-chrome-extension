@@ -173,14 +173,25 @@ export class ClipRequestHandler {
         const data = await response.json();
         console.log(`[ClipRequestHandler] Poll status for ${taskId}:`, data);
 
-        if (data.status === 'SUCCESS') {
+        // Check for COMPLETED status with a file path
+        if ((data.status === 'completed') && data.file) {
           clearInterval(intervalId);
-          this._updateStatus('Clip ready! Downloading...', false); // Keep loader maybe?
-          this.downloadFile(data.result.download_url, data.result.filename);
+          this._updateStatus('Clip ready! Downloading...', false);
+          
+          // Construct full download URL
+          const downloadUrl = `${this.baseUrl}${data.file}`; 
+          
+          // Extract filename from the path
+          const filename = data.file.split('/').pop() || `clip_${taskId}.mp4`;
+
+          console.log(`[ClipRequestHandler] Triggering download:`, { downloadUrl, filename });
+          this.downloadFile(downloadUrl, filename);
         } else if (data.status === 'FAILURE') {
           clearInterval(intervalId);
-          this._updateStatus(`Error: ${data.result || 'Clip processing failed.'}`, true);
-          console.error(`[ClipRequestHandler] Clip processing failed for taskId: ${taskId}`, data.result);
+          // Use data.error if available, otherwise use data.result
+          const errorMessage = data.error || data.result || 'Clip processing failed.';
+          this._updateStatus(`Error: ${errorMessage}`, true);
+          console.error(`[ClipRequestHandler] Clip processing failed for taskId: ${taskId}`, data);
         } else {
           // Still PENDING or other state, update status text if available
           if (data.status && data.status !== 'PENDING') {
