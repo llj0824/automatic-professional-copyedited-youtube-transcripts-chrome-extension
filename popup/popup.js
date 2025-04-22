@@ -4,12 +4,17 @@ import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 import Logger from './logger.js';
-import { parseTimeString, validateClipTimes } from './clipServiceUtils.js';
-
+import { 
+  ClipRequestHandler, 
+  CLIP_SERVICE_BASE_URL, 
+  CLIP_API_KEY
+} from './clipServiceUtils.js';
 
 //==============================================================================
 //                              GLOBAL VARIABLES
 //==============================================================================
+
+// Constants are now imported from clipServiceUtils.js
 
 // Declare the variables in a higher scope
 let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
@@ -49,11 +54,9 @@ let highlightsPages = [];
 // Add to global variables section
 let resetTranscriptBtn;
 
-
 //==============================================================================
 //                         INITIALIZATION FUNCTIONS 
 //==============================================================================
-
 
 // Call it immediately in browser environment
 if (typeof document !== 'undefined') {
@@ -69,29 +72,102 @@ function setupClipService(storageUtils) {
   const clipSubmit = document.getElementById('clip-submit');
   const clipError = document.getElementById('clip-error');
   const clipLoader = document.getElementById('clip-loader');
-  // Show clip button if on a YouTube video
-  storageUtils.getCurrentYouTubeVideoId().then(videoId => {
-    if (videoId) clipBtn.classList.remove('hidden');
-  });
-  clipBtn.addEventListener('click', () => {
-    clipForm.classList.toggle('hidden');
-    clipError.textContent = '';
-    clipError.classList.add('hidden');
-  });
-  clipSubmit.addEventListener('click', () => {
-    const startStr = clipStartInput.value.trim();
-    const endStr = clipEndInput.value.trim();
-    try {
-      const { start, end } = validateClipTimes(startStr, endStr);
-      clipError.textContent = '';
-      clipError.classList.add('hidden');
-      // TODO: Implement clip API call and download logic
-      console.log(`Requesting clip from ${start} to ${end}`);
-    } catch (err) {
-      clipError.textContent = err.message;
-      clipError.classList.remove('hidden');
+  
+  // Find or create the status text element
+  let clipStatusText = document.getElementById('clip-status-text');
+  if (!clipStatusText && clipLoader && clipLoader.parentNode) {
+      clipStatusText = document.createElement('span');
+      clipStatusText.id = 'clip-status-text';
+      clipStatusText.style.marginLeft = '10px';
+      clipLoader.parentNode.insertBefore(clipStatusText, clipLoader.nextSibling);
+  } else if (!clipStatusText) {
+       // Fallback if loader isn't ready/found - status won't display
+      console.warn('Clip loader element not found when creating status text.');
+  }
+
+  let videoId = null;
+  let currentTabUrl = null;
+  let clipHandler = null; // To hold the handler instance
+
+  // Instantiate the handler, ensuring required elements exist
+  if (clipLoader && clipStatusText && clipError && clipSubmit) {
+    clipHandler = new ClipRequestHandler(
+      { 
+        loader: clipLoader,
+        statusText: clipStatusText,
+        errorDisplay: clipError,
+        submitButton: clipSubmit
+      },
+      { 
+        baseUrl: CLIP_SERVICE_BASE_URL,
+        apiKey: CLIP_API_KEY
+      }
+    );
+  } else {
+      console.error("ClipRequestHandler Init Failed: Missing UI elements.");
+      // Disable clip feature if setup fails
+      if(clipBtn) { 
+        clipBtn.disabled = true; 
+        clipBtn.title = "Clip feature disabled.";
+      }
+      if(clipError) {
+        clipError.textContent = "Clip feature error. Reload.";
+        clipError.classList.remove('hidden');
+      }
+      return; // Stop setup 
+  }
+
+  // Show clip button and get videoId/URL if on a YouTube video
+  storageUtils.getCurrentYouTubeVideoId().then(id => {
+    if (id) {
+      videoId = id;
+      return storageUtils.getCurrentTabUrl(); 
     }
+    // If no ID, keep button hidden (default state)
+    return null; // Indicate no valid ID/URL found yet
+  }).then(url => {
+    if (videoId && url && url.includes('youtube.com/watch')) {
+        currentTabUrl = url;
+        if(clipBtn) clipBtn.classList.remove('hidden'); // Show button only if ID and valid URL
+    } else {
+        // Hide button if no ID or URL isn't a watch page
+        if(clipBtn) clipBtn.classList.add('hidden');
+        currentTabUrl = null; 
+        videoId = null; 
+        if (url) console.warn("URL is not a YouTube watch page:", url);
+    }
+  }).catch(err => {
+    console.error("Error getting video info for clip service:", err);
+    if(clipBtn) clipBtn.classList.add('hidden');
   });
+
+  // Listener for the main Clip button to toggle the form
+  if (clipBtn) {
+    clipBtn.addEventListener('click', () => {
+      if(clipForm) clipForm.classList.toggle('hidden');
+      // Reset UI state via handler when form is shown/hidden
+      if (clipHandler) clipHandler._updateStatus('', false, false); 
+    });
+  }
+
+  // Listener for the Submit button within the form
+  if (clipSubmit) {
+    clipSubmit.addEventListener('click', () => {
+      if (!clipHandler) {
+          console.error("Clip handler not ready.");
+          if(clipError) {
+              clipError.textContent = "Error. Please reload.";
+              clipError.classList.remove('hidden');
+          }
+          return;
+      }
+      const startStr = clipStartInput ? clipStartInput.value.trim() : '';
+      const endStr = clipEndInput ? clipEndInput.value.trim() : '';
+      
+      // Delegate the request process to the handler
+      clipHandler.requestClip(currentTabUrl, startStr, endStr, videoId);
+    });
+  }
 }
 
 /**
@@ -408,7 +484,6 @@ function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
 //                            EVENT HANDLERS
 //==============================================================================
 
-
 function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingStatus, existingMessage) {
   const statusMessage = `YouTube Transcript: ${youtubeStatus} ${youtubeMessage}\nExisting Transcript: ${existingStatus} ${existingMessage}`;
   window.alert(statusMessage);
@@ -488,7 +563,6 @@ function handleNextClick() {
     loadHighlightsForCurrentPage();
   }
 }
-
 
 /**
  * Handles processing the transcript when the process button is clicked.
@@ -589,6 +663,7 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
     loader.classList.add('hidden');
   }
 }
+
 async function handleGenerateHighlightsClick(storageUtils) {
   const currentRawPage = rawTranscriptPages[currentPageIndex];
   const videoTitle = extractVideoTitle(currentRawPage);
@@ -929,7 +1004,6 @@ function paginateProcessedTranscript(processedTranscript) {
   return paginated;
 }
 
-
 /**
  * TODO: parameterize number of  partitions, n
  * Splits a transcript page into two roughly equal parts, ensuring timestamps are not split.
@@ -992,7 +1066,6 @@ function splitTranscriptPage(page) {
 //                            UI UPDATES
 //==============================================================================
 
-
 /**
  * Displays the current page based on visibility state.
  */
@@ -1015,6 +1088,7 @@ function updatePaginationButtons() {
   prevBtn.disabled = currentPageIndex === 0;
   nextBtn.disabled = currentPageIndex === (getCurrentDisplayPagesNumbers().length - 1);
 }
+
 /**
  * Updates the page information display.
  */
@@ -1030,7 +1104,6 @@ function updateFontSize() {
   highlightsProcessedDisplay.style.fontSize  = `${currentFontSize}px`;
   highlightsResultsDisplay.style.fontSize  = `${currentFontSize}px`;
 }
-
 
 //==============================================================================
 //                            EVENT HANDLERS
@@ -1049,4 +1122,3 @@ export {
   splitTranscriptPage,
   setupPopup
 };
-
