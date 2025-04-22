@@ -140,7 +140,7 @@ function setupClipService(storageUtils) {
       });
     } else {
       // If no ID, resolve immediately with null URL
-      return Promise.resolve(null); 
+    return Promise.resolve(null); 
     }
   }).then(url => {
     if (videoId && url && url.includes('youtube.com/watch')) {

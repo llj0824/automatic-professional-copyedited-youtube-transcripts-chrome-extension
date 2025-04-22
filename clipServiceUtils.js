@@ -105,22 +105,26 @@ export class ClipRequestHandler {
 
     this._updateStatus('Requesting clip...', true);
 
+    // Keep validation using parsed seconds, but prepare body with original strings
     const requestBody = { 
       url: url, 
-      start_time: startTimeSeconds, 
-      end_time: endTimeSeconds,
-      api_key: this.apiKey // Use the stored API key
+      start_time: startStr, // Send original string in "HH:MM:SS" format (e.g., "00:00:05")
+      end_time: endStr,   // Send original string in "HH:MM:SS" format (e.g., "00:00:55")
     };
 
-    console.log('[ClipRequestHandler] Making POST /get_video request:', { url: `${this.baseUrl}/get_video`, body: requestBody });
+    console.log('[ClipRequestHandler] Making POST /get_video request:', { 
+      url: `${this.baseUrl}/get_video`, 
+      body: requestBody 
+    });
 
     try {
       const response = await fetch(`${this.baseUrl}/get_video`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-API-Key': this.apiKey // Add API key header
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(requestBody), // Send body without API key
       });
 
       if (!response.ok) {
@@ -144,9 +148,9 @@ export class ClipRequestHandler {
 
   async pollStatus(taskId) {
     console.log(`[ClipRequestHandler] Starting polling for taskId: ${taskId}`);
-    const pollInterval = 3000; // Poll every 3 seconds
+    const pollInterval = 30000; // Poll every 30 seconds
     let attempts = 0;
-    const maxAttempts = 20; // Stop after 1 minute (20 * 3s)
+    const maxAttempts = 10; // Stop after 5 minutes (10 * 30s)
 
     const intervalId = setInterval(async () => {
       if (attempts >= maxAttempts) {
