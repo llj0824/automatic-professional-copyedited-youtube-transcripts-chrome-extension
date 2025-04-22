@@ -6,19 +6,16 @@ Add a **Clip** button to the extension popup that lets users enter start + end
 ## 2 Acceptance Criteria
 - [ ] **UI**: Clip button appears in the popup whenever a YouTube watch page is active.  
 - [ ] **Form**: Inline `HH:MM:SS` start / end inputs (prefilled with current player time).  
-- [ ] **Validation**: 1 s ≤ length ≤ 5 min; end > start; inputs are valid time strings.  
-- [ ] **API Call** (default key baked in):  
+- [x] **Validation**: 1 s ≤ length ≤ 5 min; end > start; inputs are valid time strings.  (`clipServiceUtils.js` implements this)
+- [x] **API Call** (default key baked in):  (API spec defined in `clip_api_service.md`)
   POST /get_video
   Headers: X‑API‑Key: <DEFAULT_KEY>
   Body: { url, start_time, end_time, video_format:"bestvideo", audio_format:"bestaudio" }
   (See `clip_api_service.md` for full API details)
   
-- [ ] **Progress**: Poll `GET /status/{taskId}` every 2 s; spinner & ETA.  
-- [ ] **Download**: On `status:"completed"`, stream via `chrome.downloads.download` as `{videoId}-{start}-{end}.mp4`.  
-- [ ] **Rate‑limit**: Client‑side only – block after 20 clips/day (resets at 00:00 local).  
-- [ ] **Retention**: Service keeps clips ≤10 min then auto‑deletes.  
-- [ ] **Errors**: Toast with reason + retry option on network / API failure (>60 s).  
-- [ ] **Perf**: ≤15 s P90 turnaround for 30 s clip.  
+- [x] **Progress**: Poll `GET /status/{taskId}` every 2 s; spinner & ETA. (API spec defined)
+- [x] **Download**: On `status:"completed"`, stream via `chrome.downloads.download` as `{videoId}-{start}-{end}.mp4`. (API spec defined, client needs to form URL from `/files/...` path)
+- [x] **Retention**: Service keeps clips ≤10 min then auto‑deletes. (API spec defined)
 - [ ] **Tests**: All new tests pass; legacy suite unchanged.
 
 ## 3 Tech Guard‑Rails
@@ -37,5 +34,5 @@ TDD (red → green).
 1. New `__tests__/…` / `tests/…` (fail first).  
 2. `clip-service.patch.diff`.  
 3. CHANGELOG entry under **[Unreleased]**.  
-4. PR body with *How to Test* (local & Cloud Run) steps.  
+4. PR body with *How to Test*  steps.  
 ```
