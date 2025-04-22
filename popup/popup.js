@@ -124,10 +124,24 @@ function setupClipService(storageUtils) {
   storageUtils.getCurrentYouTubeVideoId().then(id => {
     if (id) {
       videoId = id;
-      return storageUtils.getCurrentTabUrl(); 
+      // Get the current tab's URL directly
+      return new Promise((resolve, reject) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (chrome.runtime.lastError) {
+            console.error('Error querying tabs for URL:', chrome.runtime.lastError);
+            return reject(chrome.runtime.lastError);
+          }
+          if (tabs.length > 0 && tabs[0].url) {
+            resolve(tabs[0].url); // Resolve with the URL
+          } else {
+            resolve(null); // Resolve with null if no URL
+          }
+        });
+      });
+    } else {
+      // If no ID, resolve immediately with null URL
+      return Promise.resolve(null); 
     }
-    // If no ID, keep button hidden (default state)
-    return null; // Indicate no valid ID/URL found yet
   }).then(url => {
     if (videoId && url && url.includes('youtube.com/watch')) {
         currentTabUrl = url;
