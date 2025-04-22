@@ -88,63 +88,127 @@ export class ClipRequestHandler {
   }
 
   async requestClip(url, startStr, endStr, videoId) {
-    if (!url) {
-        this._updateStatus('Could not get YouTube video URL.', false, true);
-        return;
-    }
-    let validationResult;
+    console.log('[ClipRequestHandler] requestClip called with:', { url, startStr, endStr, videoId });
+    this._updateStatus('Validating input...', false, false); // Reset error state
+    let startTimeSeconds, endTimeSeconds;
+
     try {
-        validationResult = validateClipTimes(startStr, endStr);
-        this._updateStatus('Requesting clip...', true);
-        const apiUrl = `${this.baseUrl}/get_video`;
-        const payload = {
-            url: url,
-            start_time: validationResult.startStr,
-            end_time: validationResult.endStr,
-        };
-        console.log('Sending clip request:', payload);
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-API-Key': this.apiKey },
-            body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ detail: 'Unknown server error' }));
-            throw new Error(`API Error (${response.status}): ${errorData.detail || response.statusText}`);
-        }
-        const result = await response.json();
+      startTimeSeconds = parseTimeString(startStr);
+      endTimeSeconds = parseTimeString(endStr);
+      if (startTimeSeconds >= endTimeSeconds) {
+        throw new Error('Start time must be before end time.');
+      }
+    } catch (error) {
+      this._updateStatus(`Error: ${error.message}`, true);
+      return;
+    }
+
+    this._updateStatus('Requesting clip...', true);
+
+    const requestBody = { 
+      url: url, 
+      start_time: startTimeSeconds, 
+      end_time: endTimeSeconds,
+      api_key: this.apiKey // Use the stored API key
+    };
+
+    console.log('[ClipRequestHandler] Making POST /get_video request:', { url: `${this.baseUrl}/get_video`, body: requestBody });
+
+    try {
+      const response = await fetch(`${this.baseUrl}/get_video`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text(); 
+        throw new Error(`Server error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('[ClipRequestHandler] /get_video response:', data);
+      if (data.task_id) {
         this._updateStatus('Processing...', true);
-        console.log(`Clip task started with ID: ${result.task_id}`);
-        this._startPolling(result.task_id, videoId, validationResult.startStr, validationResult.endStr);
-    } catch (err) {
-        console.error('Clip request failed:', err);
-        this._updateStatus(err.message, false, true);
+        this.pollStatus(data.task_id);
+      } else {
+        throw new Error('Task ID not received from server.');
+      }
+    } catch (error) {
+      console.error('[ClipRequestHandler] Error in requestClip:', error);
+      this._updateStatus(`Error: ${error.message}`, true);
     }
   }
 
-  _startPolling(taskId, videoId, startStr, endStr) {
-    this._stopPolling(); // Clear existing interval before starting new
-    this.pollIntervalId = setInterval(async () => {
-        try {
-            const statusUrl = `${this.baseUrl}/status/${taskId}`;
-            const statusResponse = await fetch(statusUrl, { headers: { 'X-API-Key': this.apiKey } });
-            if (!statusResponse.ok) {
-                const errorData = await statusResponse.json().catch(() => ({ detail: 'Failed to get status' }));
-                throw new Error(`Status Error (${statusResponse.status}): ${errorData.detail || statusResponse.statusText}`);
-            }
-            const statusResult = await statusResponse.json();
-            console.log('Poll status:', statusResult);
-            this._updateStatus(`Status: ${statusResult.status}... (${statusResult.progress || 0}%)`, true);
-            if (statusResult.status === 'completed') {
-                this._handleCompletion(statusResult, videoId, startStr, endStr);
-            } else if (statusResult.status === 'failed') {
-                this._handleFailure(statusResult.error || 'Processing failed.');
-            }
-        } catch (pollError) {
-            console.error('Polling error:', pollError);
-            this._handleFailure(`Polling Error: ${pollError.message}`);
+  async pollStatus(taskId) {
+    console.log(`[ClipRequestHandler] Starting polling for taskId: ${taskId}`);
+    const pollInterval = 3000; // Poll every 3 seconds
+    let attempts = 0;
+    const maxAttempts = 20; // Stop after 1 minute (20 * 3s)
+
+    const intervalId = setInterval(async () => {
+      if (attempts >= maxAttempts) {
+        clearInterval(intervalId);
+        this._updateStatus('Error: Timeout waiting for clip.', true);
+        console.error(`[ClipRequestHandler] Polling timed out for taskId: ${taskId}`);
+        return;
+      }
+      attempts++;
+      
+      console.log(`[ClipRequestHandler] Polling attempt ${attempts} for taskId: ${taskId}`);
+      try {
+        const response = await fetch(`${this.baseUrl}/status/${taskId}`);
+        if (!response.ok) {
+          // Don't stop polling immediately on non-OK, might be transient
+          console.warn(`[ClipRequestHandler] Poll status check failed: ${response.status}`);
+          return; // Try again next interval
         }
-    }, 2000);
+
+        const data = await response.json();
+        console.log(`[ClipRequestHandler] Poll status for ${taskId}:`, data);
+
+        if (data.status === 'SUCCESS') {
+          clearInterval(intervalId);
+          this._updateStatus('Clip ready! Downloading...', false); // Keep loader maybe?
+          this.downloadFile(data.result.download_url, data.result.filename);
+        } else if (data.status === 'FAILURE') {
+          clearInterval(intervalId);
+          this._updateStatus(`Error: ${data.result || 'Clip processing failed.'}`, true);
+          console.error(`[ClipRequestHandler] Clip processing failed for taskId: ${taskId}`, data.result);
+        } else {
+          // Still PENDING or other state, update status text if available
+          if (data.status && data.status !== 'PENDING') {
+            this._updateStatus(`Status: ${data.status}...`, true); 
+          }
+        }
+      } catch (error) {
+        console.error(`[ClipRequestHandler] Error during polling for taskId: ${taskId}`, error);
+        // Don't clear interval on network error, maybe recoverable
+      }
+    }, pollInterval);
+  }
+
+  downloadFile(downloadUrl, suggestedFilename) {
+    console.log(`[ClipRequestHandler] Attempting to download file:`, { downloadUrl, suggestedFilename });
+    try {
+      chrome.downloads.download({
+        url: downloadUrl,
+        filename: suggestedFilename || 'youtube_clip.mp4' // Fallback filename
+      }, (downloadId) => {
+        if (chrome.runtime.lastError) {
+          console.error(`[ClipRequestHandler] Download failed:`, chrome.runtime.lastError);
+          this._updateStatus(`Error: ${chrome.runtime.lastError.message}`, true);
+        } else {
+          console.log(`[ClipRequestHandler] Download started with ID: ${downloadId}`);
+          this._updateStatus('Download started.', false, false); // Indicate success, remove loader
+        }
+      });
+    } catch (error) {
+       console.error(`[ClipRequestHandler] Error initiating download:`, error);
+       this._updateStatus(`Error: Could not start download.`, true);
+    }
   }
 
   _stopPolling() {
