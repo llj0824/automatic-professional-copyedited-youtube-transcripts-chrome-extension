@@ -8,7 +8,7 @@ import {
   ClipRequestHandler, 
   CLIP_SERVICE_BASE_URL,
   CLIP_API_KEY
-} from '../clipServiceUtils.js';
+} from './clipServiceUtils.js';
 
 //==============================================================================
 //                              GLOBAL VARIABLES
