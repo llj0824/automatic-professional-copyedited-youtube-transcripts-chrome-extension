@@ -20,7 +20,7 @@ class YoutubeTranscriptRetriever {
    * @returns {Promise<string>} - The raw transcript as a single string.
    * @throws Will throw an error if the transcript cannot be retrieved.
    */
-  static async fetchParsedTranscript(videoIdOrUrl, retryAttempts = 3) {
+  static async fetchParsedTranscript(videoIdOrUrl, retryAttempts = 10) {
     for (let attempt = 1; attempt <= retryAttempts; attempt++) {
       try {
         // Extract the video ID from the URL if necessary
@@ -81,8 +81,8 @@ class YoutubeTranscriptRetriever {
         }
 
         
-        // Wait for a short delay before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait for a short delay before retrying (ms)
+        await new Promise(resolve => setTimeout(resolve, 15 * 1000));
       }
     }
   }
