@@ -61,7 +61,7 @@ class LLM_API_Utils {
     
     # Notes
     - If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc.
-    - Break long segments into smaller time ranges, clearly identify when speakers change, even within the same time range.
+    - Break long segments into smaller time ranges (1-3 mins), clearly identify the speaker, even within the same time range. Or if the same speaker is speaking across time ranges, use the same speaker name.
     - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue.
     - Never truncate the output or ask for permission to continue - process the entire input segment`;
 
