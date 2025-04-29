@@ -182,7 +182,7 @@ export class ClipRequestHandler {
     console.log(`[ClipRequestHandler] Starting polling for taskId: ${taskId}`);
     const pollInterval = 30000; // Poll every 30 seconds
     let attempts = 0;
-    const maxAttempts = 10; // Stop after 5 minutes (10 * 30s)
+    const maxAttempts = 30; // Stop after 15 minutes (30 * 30s)
 
     const intervalId = setInterval(async () => {
       if (attempts >= maxAttempts) {
