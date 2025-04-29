@@ -82,7 +82,7 @@ class YoutubeTranscriptRetriever {
 
         
         // Wait for a short delay before retrying (ms)
-        await new Promise(resolve => setTimeout(resolve, 15 * 1000));
+        await new Promise(resolve => setTimeout(resolve, 30 * 1000));
       }
     }
   }
