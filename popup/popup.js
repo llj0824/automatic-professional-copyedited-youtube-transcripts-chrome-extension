@@ -671,7 +671,7 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
     processedDisplay.textContent = processedPage;
 
     // Combine all processed pages into a single text block
-    processedTranscript = processedTranscriptPages.join('\n');
+    processedTranscript = processedTranscriptPages.join('\n\n--- Page Break ---\n\n');
 
     // Save the full processed transcript
     await storageUtils.saveProcessedTranscriptById(videoId, processedTranscript);
@@ -1001,40 +1001,13 @@ function paginateRawTranscript(transcript) {
  * @returns {Array} Array of paginated processed transcript pages
  */
 function paginateProcessedTranscript(processedTranscript) {
-  const lines = processedTranscript.split('\n');
-  const paginated = [];
-  let currentPage = '';
-  let segmentStartTime = 0;
-  let segmentEndTime = PAGE_DURATION;
-
-  lines.forEach(line => {
-    const match = line.match(/\[(\d+):(\d+) -> (\d+):(\d+)\]/);
-    if (match) {
-      const startMinutes = parseInt(match[1], 10);
-      const startSeconds = parseInt(match[2], 10);
-      const startTime = startMinutes * 60 + startSeconds;
-
-      if (startTime >= segmentEndTime) {
-        if (currentPage) {
-          paginated.push(currentPage.trim());
-        }
-        // Update the segment window
-        segmentStartTime = Math.floor(startTime / PAGE_DURATION) * PAGE_DURATION;
-        segmentEndTime = segmentStartTime + PAGE_DURATION;
-        currentPage = '';
-      }
-
-      currentPage += `${line}\n`;
-    } else {
-      currentPage += `${line}\n`;
-    }
-  });
-
-  if (currentPage.trim().length > 0) {
-    paginated.push(currentPage.trim());
+  if (!processedTranscript || processedTranscript.trim() === "") {
+    return []; // Return empty array if no processed transcript
   }
-
-  return paginated;
+  // Directly split by the page break delimiter used during saving
+  const pages = processedTranscript.split('\n\n--- Page Break ---\n\n');
+  // Ensure each page is trimmed of any leading/trailing whitespace
+  return pages.map(page => page.trim());
 }
 
 /**
