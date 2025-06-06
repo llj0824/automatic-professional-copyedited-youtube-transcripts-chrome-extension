@@ -38,7 +38,9 @@ class YoutubeTranscriptRetriever {
         }
 
       const transcriptUrl = captionTracks[0].baseUrl;
+      console.log('Transcript URL:', transcriptUrl);
       const xmlTranscript = await this.fetchTranscriptXml(transcriptUrl);
+      console.log('XML transcript length:', xmlTranscript.length);
       
       /*
       Expected xmlTranscript format:
@@ -132,7 +134,21 @@ class YoutubeTranscriptRetriever {
    */
   static async fetchTranscriptXml(transcriptUrl) {
     const response = await fetch(transcriptUrl);
-    return await response.text();
+    if (!response.ok) {
+      throw new Error(`Failed to fetch transcript: ${response.status} ${response.statusText}`);
+    }
+    
+    const xmlText = await response.text();
+    if (!xmlText || xmlText.trim().length === 0) {
+      throw new Error('Empty transcript response from YouTube API - URL may have expired');
+    }
+    
+    // Additional validation to ensure we got XML content
+    if (!xmlText.includes('<transcript>') && !xmlText.includes('<text')) {
+      throw new Error('Invalid transcript format received from YouTube API');
+    }
+    
+    return xmlText;
   }
 
   /**
