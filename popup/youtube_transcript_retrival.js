@@ -38,7 +38,9 @@ class YoutubeTranscriptRetriever {
         }
 
       const transcriptUrl = captionTracks[0].baseUrl;
-      const xmlTranscript = await this.fetchTranscriptXml(transcriptUrl);
+      console.log('Transcript URL:', transcriptUrl);
+      const xmlTranscript = await this.fetchTranscriptXml(transcriptUrl, videoId);
+      console.log('XML transcript length:', xmlTranscript.length);
       
       /*
       Expected xmlTranscript format:
@@ -72,12 +74,16 @@ class YoutubeTranscriptRetriever {
         }
         
         if (attempt === retryAttempts) {
+          console.error('Final attempt failed:', error.message);
           window.alert(
             'Unable to load the transcript automatically.\n\n' +
             'Please try:\n' +
             '1) Toggling off the extension\n' + 
-            '2) Refreshing the YouTube page'
+            '2) Refreshing the YouTube page\n' +
+            '3) Check browser console for detailed error info'
           );
+        } else {
+          console.log(`Attempt ${attempt} failed, retrying:`, error.message);
         }
 
         
@@ -89,13 +95,28 @@ class YoutubeTranscriptRetriever {
 
   /**
    * Fetches the HTML content of the YouTube video page.
+   * Uses proper browser headers to avoid being blocked by YouTube.
    * 
    * @param {string} videoId - The YouTube video ID.
    * @returns {Promise<string>} - HTML content of the video page.
    */
   static async fetchVideoPage(videoId) {
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const response = await fetch(videoUrl);
+    
+    // Add browser headers to mimic a real browser request
+    // This prevents YouTube from blocking our requests
+    const response = await fetch(videoUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
+      }
+    });
+    
     if (!response.ok) {
       throw new Error(`Failed to fetch video page: ${response.status}`);
     }
@@ -126,13 +147,54 @@ class YoutubeTranscriptRetriever {
 
   /**
    * Fetches the XML transcript from the provided URL.
+   * CRITICAL: Must include proper headers to authenticate with YouTube's transcript API.
+   * YouTube's transcript API requires requests to appear as if they're coming from 
+   * the video page itself, otherwise it returns empty responses.
    * 
    * @param {string} transcriptUrl - The URL to fetch the XML transcript from.
+   * @param {string} videoId - The YouTube video ID (needed for Referer header).
    * @returns {Promise<string>} - The XML transcript as a string.
+   * @throws Will throw an error if the transcript cannot be retrieved or is empty.
    */
-  static async fetchTranscriptXml(transcriptUrl) {
-    const response = await fetch(transcriptUrl);
-    return await response.text();
+  static async fetchTranscriptXml(transcriptUrl, videoId) {
+    // IMPORTANT: These headers are crucial for the transcript API to work
+    // Without them, YouTube returns empty responses (0 bytes)
+    const response = await fetch(transcriptUrl, {
+      headers: {
+        // Must match a real browser to avoid detection
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        // CRITICAL: Referer header tells YouTube this request came from the video page
+        'Referer': `https://www.youtube.com/watch?v=${videoId}`,
+        // Origin header for CORS authentication
+        'Origin': 'https://www.youtube.com',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        // Security headers that modern browsers send
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch transcript: ${response.status} ${response.statusText}`);
+    }
+    
+    const xmlText = await response.text();
+    
+    // Check for empty response (common issue when headers are missing/wrong)
+    if (!xmlText || xmlText.trim().length === 0) {
+      throw new Error('Empty transcript response from YouTube API - URL may have expired or headers are insufficient');
+    }
+    
+    // Validate that we received actual XML transcript content
+    if (!xmlText.includes('<transcript>') && !xmlText.includes('<text')) {
+      throw new Error('Invalid transcript format received from YouTube API - expected XML with <text> elements');
+    }
+    
+    return xmlText;
   }
 
   /**
