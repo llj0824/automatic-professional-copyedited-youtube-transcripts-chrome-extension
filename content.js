@@ -100,6 +100,7 @@ Description: ${description}
 
 // --- 2.  Message bridge ----------------------------------------------------
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
+  console.log('Content script received message:', msg);
   if (msg?.type !== 'CHECK_TRANSCRIPT') return;
   
   console.log('Checking for transcript panel...');
