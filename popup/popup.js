@@ -20,7 +20,7 @@ const CONTEXT_BEGINS_DELIMITER = "*** Background Context ***";
 // Constants are now imported from clipServiceUtils.js
 
 // Declare the variables in a higher scope
-let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect, transcriptInput, loadTranscriptBtn;
+let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect;
 
 // Add this near other global variables
 const TabState = {
@@ -56,6 +56,46 @@ let highlightsPages = [];
 
 // Add to global variables section
 let resetTranscriptBtn;
+
+// State management
+const AppState = {
+  GUIDE: 'guide',
+  LOADING: 'loading',
+  READY: 'ready'
+};
+
+let currentState = null;
+
+function setState(state) {
+  currentState = state;
+  
+  // Hide all states
+  const stateContainers = document.querySelectorAll('.state-container, #ready-state');
+  stateContainers.forEach(el => el.classList.add('hidden'));
+  
+  // Hide other UI elements based on state
+  if (state !== AppState.READY) {
+    document.getElementById('transcript-section')?.classList.add('hidden');
+    document.getElementById('content-section')?.classList.add('hidden');
+    document.getElementById('actions')?.classList.add('hidden');
+  }
+  
+  // Show current state
+  switch(state) {
+    case AppState.GUIDE:
+      document.getElementById('guide-state')?.classList.remove('hidden');
+      break;
+    case AppState.LOADING:
+      document.getElementById('loading-state')?.classList.remove('hidden');
+      break;
+    case AppState.READY:
+      document.getElementById('ready-state')?.classList.remove('hidden');
+      document.getElementById('transcript-section')?.classList.remove('hidden');
+      document.getElementById('content-section')?.classList.remove('hidden');
+      document.getElementById('actions')?.classList.remove('hidden');
+      break;
+  }
+}
 
 //==============================================================================
 //                         INITIALIZATION FUNCTIONS 
@@ -230,8 +270,6 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     tabButtons = doc.querySelectorAll('.tab-button');
     tabContents = doc.querySelectorAll('.tab-content');
     modelSelect = doc.getElementById('model-select');
-    transcriptInput = doc.getElementById('transcript-input');
-    loadTranscriptBtn = doc.getElementById('load-transcript-btn');
     resetTranscriptBtn = doc.getElementById('reset-transcript-btn');
 
     // Add new element declarations
@@ -240,7 +278,6 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     setupTabs(doc, tabButtons, tabContents);
     setupProcessButton(processBtn, modelSelect, storageUtils);
-    setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils);
     setupPagination(prevBtn, nextBtn, pageInfo);
 
     // Load existing transcripts if available
@@ -254,13 +291,34 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     // First try to load from storage
     const savedTranscripts = await storageUtils.loadTranscriptsById(videoId);
 
-    // Then try to load from YouTube if needed
-    const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
-    const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
-
-    // If no transcript is available, start polling
-    if (!isCached && !isLoadedFromYoutube) {
-      startTranscriptPolling(videoId, storageUtils);
+    // Set initial state based on whether we have transcripts
+    if (savedTranscripts.rawTranscript) {
+      // Have saved transcript
+      rawTranscript = savedTranscripts.rawTranscript;
+      processedTranscript = savedTranscripts.processedTranscript || "";
+      setState(AppState.READY);
+      paginateBothTranscripts(rawTranscript, processedTranscript);
+      displayCurrentPage();
+      updatePaginationUI();
+    } else {
+      // No saved transcript - check if transcript panel is open
+      setState(AppState.GUIDE);
+      const result = await checkTranscriptViaContentScript();
+      
+      if (result?.success && result.transcript) {
+        // Transcript panel is open - load it
+        setState(AppState.LOADING);
+        rawTranscript = result.transcript;
+        await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
+        processedTranscript = "";
+        setState(AppState.READY);
+        paginateBothTranscripts(rawTranscript, processedTranscript);
+        displayCurrentPage();
+        updatePaginationUI();
+      } else {
+        // Start polling
+        startTranscriptPolling(videoId, storageUtils);
+      }
     }
 
     // Load highlights for current page
@@ -276,11 +334,6 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
         console.error('Error loading highlights:', error);
       }
     }
-
-    paginateBothTranscripts(rawTranscript, processedTranscript);
-
-    // handle showing UI elements based on auto-load transcript success status
-    handleTranscriptLoadingStatus(youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage);
 
     // Add copy button functionality
     setupCopyButtons(doc);
@@ -392,10 +445,6 @@ function setupProcessButton(processBtn, modelSelect, storageUtils) {
   processBtn.addEventListener('click', () => handleProcessTranscriptClick(modelSelect, storageUtils));
 }
 
-// Setup load transcript button event
-function setupLoadTranscriptButton(loadTranscriptBtn, transcriptInput, storageUtils) {
-  loadTranscriptBtn.addEventListener('click', handleLoadTranscriptClick.bind(null, transcriptInput, storageUtils));
-}
 
 /**
  * Sets up pagination button event listeners.
@@ -489,38 +538,27 @@ function setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils) {
 function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
   resetTranscriptBtn.addEventListener('click', async () => {
     try {
-      // Show loader
-      loader.classList.remove('hidden');
-
       // Remove existing transcripts from storage
       await storageUtils.removeTranscriptsById(videoId);
 
-      // Try to fetch fresh transcript via content script
+      // Reset global variables
+      rawTranscript = "";
+      processedTranscript = "";
+      rawTranscriptPages = [];
+      processedTranscriptPages = [];
+      currentPageIndex = 0;
+
+      // Check if transcript panel is open
       const result = await checkTranscriptViaContentScript();
       
       if (result?.success && result.transcript) {
-        // Save new transcript
-        await storageUtils.saveRawTranscriptById(videoId, result.transcript);
-
-        // Update UI
-        rawTranscript = result.transcript;
-        processedTranscript = ""; // Reset processed transcript
-        
-        // Re-paginate and update display
-        paginateBothTranscripts(rawTranscript, processedTranscript);
-        setRawAndProcessedTranscriptText();
+        // Transcript available - load it
+        await handleTranscriptFound(result.transcript, videoId, storageUtils);
       } else {
-        // If no transcript available, start polling
-        rawTranscript = "";
-        processedTranscript = "";
-        paginateBothTranscripts(rawTranscript, processedTranscript);
-        setRawAndProcessedTranscriptText();
+        // No transcript available - show guide and start polling
+        setState(AppState.GUIDE);
         startTranscriptPolling(videoId, storageUtils);
       }
-      updatePaginationButtons();
-      updatePageInfo();
-
-      alert('Transcript refreshed successfully!');
     } catch (error) {
       console.error('Error refreshing transcript:', error);
       alert(`Failed to refresh transcript: ${error.message}`);
@@ -534,54 +572,7 @@ function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
 //                            EVENT HANDLERS
 //==============================================================================
 
-function handleTranscriptLoadingStatus(youtubeStatus, youtubeMessage, existingStatus, existingMessage) {
-  const statusMessage = `YouTube Transcript: ${youtubeStatus} ${youtubeMessage}\nExisting Transcript: ${existingStatus} ${existingMessage}`;
-  window.alert(statusMessage);
 
-  if (youtubeStatus === '✅' || existingStatus === '✅') {
-    // Hide manual load transcript section
-    document.getElementById('transcript-input-section').classList.add('hidden');
-
-    // Show other sections
-    document.getElementById('transcript-section').classList.remove('hidden');
-    document.getElementById('content-section').classList.remove('hidden');
-    document.getElementById('actions').classList.remove('hidden'); // TODO: if processed transcripts is avaliable, hide process button
-
-    // update UI
-    setRawAndProcessedTranscriptText();
-    updatePaginationButtons();
-    updatePageInfo();
-  } else {
-    // Show manual load transcript section only if both auto-load methods failed
-    document.getElementById('transcript-input-section').classList.remove('hidden');
-    window.alert("Unable to auto-load transcript. Please load manually.");
-  }
-}
-
-// Update handleLoadTranscriptClick to remove formatting step
-async function handleLoadTranscriptClick(transcriptInput, storageUtils) {
-  rawTranscript = transcriptInput.value.trim();
-  if (!rawTranscript) {
-    console.warn('No transcript entered.');
-    alert('Please enter a transcript.');
-    return;
-  }
-
-  paginateRawTranscript(rawTranscript);
-  setRawAndProcessedTranscriptText();
-  updatePaginationButtons();
-
-  const videoId = await storageUtils.getCurrentYouTubeVideoId();
-  if (videoId) {
-    try {
-      await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
-      alert('Transcript loaded and saved successfully!');
-    } catch (error) {
-      console.error('Error saving raw transcript:', error);
-      alert('Failed to save the raw transcript.');
-    }
-  }
-}
 
 // Event handler for previous button click
 function handlePrevClick() {
@@ -816,30 +807,6 @@ function getCurrentDisplayPagesNumbers() {
 }
 
 
-function getTranscriptStatus(isCached, isLoadedFromYoutube) {
-  let youtubeTranscriptStatus = '⏭️';
-  let youtubeTranscriptMessage = 'Skipped YouTube retrieval (found in storage)';
-  let existingTranscriptStatus = '❌';
-  let existingTranscriptMessage = 'No existing transcript found.';
-
-  if (isCached) {
-    existingTranscriptStatus = '✅';
-    existingTranscriptMessage = 'Existing transcript loaded from storage.';
-  } else if (isLoadedFromYoutube) {
-    youtubeTranscriptStatus = '✅';
-    youtubeTranscriptMessage = 'Transcript automatically retrieved from YouTube.';
-  } else {
-    youtubeTranscriptStatus = '❌';
-    youtubeTranscriptMessage = 'Failed to automatically retrieve transcript from YouTube.';
-  }
-
-  return {
-    youtubeTranscriptStatus,
-    youtubeTranscriptMessage,
-    existingTranscriptStatus,
-    existingTranscriptMessage
-  };
-}
 
 
 /**
@@ -891,17 +858,69 @@ async function checkTranscriptViaContentScript() {
   try {
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
     if (!tab?.id) throw new Error('No active tab found');
+    
+    console.log('Sending CHECK_TRANSCRIPT to tab:', tab.id, tab.url);
 
-    const result = await chrome.tabs.sendMessage(
+    // First try to send message
+    let result = await chrome.tabs.sendMessage(
       tab.id,
       {type: 'CHECK_TRANSCRIPT'},
       {frameId: 0}
-    ).catch(() => ({success: false}));
+    ).catch(async (error) => {
+      console.error('Message send error:', error);
+      
+      // If content script not loaded, try to inject it
+      if (error.message?.includes('Receiving end does not exist')) {
+        console.log('Content script not found, injecting...');
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content.js']
+          });
+          console.log('Content script injected, retrying...');
+          
+          // Wait a bit for script to initialize
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Retry sending message
+          return await chrome.tabs.sendMessage(
+            tab.id,
+            {type: 'CHECK_TRANSCRIPT'},
+            {frameId: 0}
+          );
+        } catch (injectError) {
+          console.error('Failed to inject content script:', injectError);
+          return {success: false};
+        }
+      }
+      return {success: false};
+    });
 
-    return result;
+    console.log('Received result:', result);
+    return result || {success: false};
   } catch (error) {
     console.error('Error checking transcript:', error);
     return {success: false};
+  }
+}
+
+// Animated dots for the checking indicator
+let dotsInterval = null;
+function animateDots() {
+  const dotsElement = document.querySelector('.dots');
+  if (!dotsElement) return;
+  
+  let count = 0;
+  dotsInterval = setInterval(() => {
+    count = (count + 1) % 4;
+    dotsElement.textContent = '.'.repeat(count || 1);
+  }, 500);
+}
+
+function stopDotsAnimation() {
+  if (dotsInterval) {
+    clearInterval(dotsInterval);
+    dotsInterval = null;
   }
 }
 
@@ -912,31 +931,55 @@ async function startTranscriptPolling(videoId, storageUtils) {
   if (pollingInterval) {
     clearInterval(pollingInterval);
   }
+  stopDotsAnimation();
 
-  // Update UI to show waiting state
-  if (transcriptDisplay) {
-    transcriptDisplay.textContent = 'Waiting for transcript... Please click "..." below the video → "Show transcript"';
+  // Ensure we're in guide state
+  setState(AppState.GUIDE);
+  
+  // Start dots animation
+  animateDots();
+  
+  // Set up check again button
+  const checkAgainBtn = document.getElementById('check-again-btn');
+  if (checkAgainBtn) {
+    checkAgainBtn.onclick = async () => {
+      const result = await checkTranscriptViaContentScript();
+      if (result?.success && result.transcript) {
+        handleTranscriptFound(result.transcript, videoId, storageUtils);
+      }
+    };
   }
 
   pollingInterval = setInterval(async () => {
     const result = await checkTranscriptViaContentScript();
     if (result?.success && result.transcript) {
-      // Stop polling
-      clearInterval(pollingInterval);
-      pollingInterval = null;
-
-      // Save and display transcript
-      rawTranscript = result.transcript;
-      await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
-      processedTranscript = "";
-      
-      // Update UI
-      paginateBothTranscripts(rawTranscript, processedTranscript);
-      displayCurrentPage();
-      updatePaginationUI();
-      updateTabStates();
+      handleTranscriptFound(result.transcript, videoId, storageUtils);
     }
   }, 2000); // Check every 2 seconds
+}
+
+async function handleTranscriptFound(transcript, videoId, storageUtils) {
+  // Stop polling and animations
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+  stopDotsAnimation();
+
+  // Show loading state
+  setState(AppState.LOADING);
+
+  // Save and display transcript
+  rawTranscript = transcript;
+  await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
+  processedTranscript = "";
+  
+  // Update to ready state
+  setState(AppState.READY);
+  paginateBothTranscripts(rawTranscript, processedTranscript);
+  displayCurrentPage();
+  updatePaginationUI();
+  updateTabStates();
 }
 
 async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils) {
@@ -1142,9 +1185,27 @@ function splitTranscriptPage(page) {
 //==============================================================================
 
 /**
+ * Displays the current page content
+ */
+function displayCurrentPage() {
+  setRawAndProcessedTranscriptText();
+}
+
+/**
+ * Updates all pagination UI elements
+ */
+function updatePaginationUI() {
+  updatePaginationButtons();
+  updatePageInfo();
+}
+
+/**
  * Displays the current page based on visibility state.
  */
 function setRawAndProcessedTranscriptText() {
+  // Ensure elements exist before using them
+  if (!transcriptDisplay || !processedDisplay) return;
+  
   // Visibility is handled separately via CSS classes
   transcriptDisplay.textContent = rawTranscriptPages[currentPageIndex] || "No transcript available.";
   processedDisplay.textContent = processedTranscriptPages[currentPageIndex] || "Processed output will appear here.";
@@ -1160,6 +1221,7 @@ function setRawAndProcessedTranscriptText() {
  * Updates the state of pagination buttons.
  */
 function updatePaginationButtons() {
+  if (!prevBtn || !nextBtn) return;
   prevBtn.disabled = currentPageIndex === 0;
   nextBtn.disabled = currentPageIndex === (getCurrentDisplayPagesNumbers().length - 1);
 }
@@ -1168,6 +1230,7 @@ function updatePaginationButtons() {
  * Updates the page information display.
  */
 function updatePageInfo() {
+  if (!pageInfo) return;
   const currentPages = getCurrentDisplayPagesNumbers();
   pageInfo.textContent = `Page ${currentPageIndex + 1} of ${currentPages.length}`;
 }
@@ -1193,7 +1256,6 @@ export {
   handlePrevClick,
   handleNextClick,
   setupProcessButton,
-  setupLoadTranscriptButton,
   splitTranscriptPage,
   setupPopup
 };

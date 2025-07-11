@@ -328,3 +328,125 @@ h2, h3 {
   /* ... existing styles ... */
   width: 100%;
 }
+
+/* ===== NEW STAGED UI STYLES ===== */
+
+/* State containers */
+.state-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+/* Guide state styles */
+.guide-content {
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 100%;
+}
+
+.guide-content h3 {
+  font-size: 24px;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.guide-content p {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.guide-content ol {
+  text-align: left;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #555;
+  margin-bottom: 30px;
+}
+
+.primary-btn {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-bottom: 20px;
+}
+
+.primary-btn:hover {
+  background-color: #45a049;
+}
+
+.auto-check-indicator {
+  font-size: 14px;
+  color: #888;
+}
+
+/* Animated dots */
+.dots {
+  display: inline-block;
+  min-width: 20px;
+  text-align: left;
+}
+
+/* Loading state styles */
+.loading-content {
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 100%;
+}
+
+.loading-content h3 {
+  font-size: 24px;
+  margin-bottom: 30px;
+  color: #333;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #4CAF50;
+  width: 0%;
+  transition: width 0.3s ease;
+  animation: progress 2s ease-in-out;
+}
+
+@keyframes progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+#loading-status {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Make ready state container take full space */
+#ready-state {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+}

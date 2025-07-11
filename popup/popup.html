@@ -12,6 +12,36 @@
   <div class="container">
     <h2>Automatic YouTube Transcript Professional Editor</h2>
 
+    <!-- Guide State (shown when no transcript) -->
+    <div id="guide-state" class="state-container hidden">
+      <div class="guide-content">
+        <h3>📺 Action Required</h3>
+        <p>To load the transcript, please:</p>
+        <ol>
+          <li>In the Video Description (click expand "...")</li>
+          <li> Click "Show Transcript" Button</li>
+        </ol>
+        <button id="check-again-btn" class="primary-btn">👀 Check Again</button>
+        <div class="auto-check-indicator">
+          <span>Checking automatically</span>
+          <span class="dots">...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="state-container hidden">
+      <div class="loading-content">
+        <h3>✨ Loading Transcript</h3>
+        <div class="progress-bar">
+          <div class="progress-fill"></div>
+        </div>
+        <p id="loading-status">Extracting transcript segments...</p>
+      </div>
+    </div>
+
+    <!-- Ready State wrapper -->
+    <div id="ready-state" class="hidden">
     <!-- Transcript Navigation -->
     <div id="transcript-section" class="hidden">
       <button id="prev-btn" disabled>&larr; </button>
@@ -109,13 +139,7 @@
       </div>
     </div>
 
-    <!-- Transcript Input Section -->
-    <div id="transcript-input-section" class="hidden">
-      <h3>Load Transcript Manually</h3>
-      <textarea id="transcript-input" placeholder="Paste your transcript here..." rows="5" cols="50"></textarea>
-      <button id="load-transcript-btn">Load Transcript</button>
-    </div>
-    <!-- **End of Added Section** -->
+    </div><!-- End of ready-state -->
 
   </div>
 
