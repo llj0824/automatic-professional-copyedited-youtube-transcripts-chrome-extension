@@ -147,4 +147,4 @@ const panelObserver = new MutationObserver(() => {
 panelObserver.observe(document.body, {subtree: true, childList: true});
 
 // First‑time load: insert overlay if panel not already open.
-if (!isTranscriptPanelOpen()) injectGuideOverlay();
+// if (!isTranscriptPanelOpen()) injectGuideOverlay();
