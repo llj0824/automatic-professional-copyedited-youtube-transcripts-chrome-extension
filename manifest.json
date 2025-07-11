@@ -17,10 +17,17 @@
         "service_worker": "background/service_worker.js"
       },
       "permissions": [
+        "scripting",
         "storage",
         "sidePanel",
-        "downloads"
+        "downloads",
+        "activeTab"
       ],
+      "content_scripts": [{
+        "matches": ["https://www.youtube.com/watch*"],
+        "js": ["content.js"],
+        "run_at": "document_idle"
+      }],
       "host_permissions": [
         "https://*.youtube.com/*",
         "https://api.openai.com/*", 

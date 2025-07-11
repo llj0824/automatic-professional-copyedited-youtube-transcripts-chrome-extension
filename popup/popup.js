@@ -2,13 +2,16 @@
 
 import LLM_API_Utils from './llm_api_utils.js';
 import StorageUtils from './storage_utils.js';
-import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 import Logger from './logger.js';
 import { 
   ClipRequestHandler, 
   CLIP_SERVICE_BASE_URL,
   CLIP_API_KEY
 } from './clipServiceUtils.js';
+
+// Constants from YoutubeTranscriptRetriever
+const TRANSCRIPT_BEGINS_DELIMITER = "*** Transcript ***";
+const CONTEXT_BEGINS_DELIMITER = "*** Background Context ***";
 
 //==============================================================================
 //                              GLOBAL VARIABLES
@@ -255,6 +258,11 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     const { isCached, isLoadedFromYoutube } = await retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils);
     const { youtubeTranscriptStatus, youtubeTranscriptMessage, existingTranscriptStatus, existingTranscriptMessage } = getTranscriptStatus(isCached, isLoadedFromYoutube);
 
+    // If no transcript is available, start polling
+    if (!isCached && !isLoadedFromYoutube) {
+      startTranscriptPolling(videoId, storageUtils);
+    }
+
     // Load highlights for current page
     const highlightResultsTextarea = doc.getElementById('highlight-results');
     if (highlightResultsTextarea) {
@@ -487,19 +495,28 @@ function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
       // Remove existing transcripts from storage
       await storageUtils.removeTranscriptsById(videoId);
 
-      // Fetch fresh transcript from YouTube
-      const freshTranscript = await YoutubeTranscriptRetriever.fetchParsedTranscript(videoId);
+      // Try to fetch fresh transcript via content script
+      const result = await checkTranscriptViaContentScript();
       
-      // Save new transcript
-      await storageUtils.saveRawTranscriptById(videoId, freshTranscript);
+      if (result?.success && result.transcript) {
+        // Save new transcript
+        await storageUtils.saveRawTranscriptById(videoId, result.transcript);
 
-      // Update UI
-      rawTranscript = freshTranscript;
-      processedTranscript = ""; // Reset processed transcript
-      
-      // Re-paginate and update display
-      paginateBothTranscripts(rawTranscript, processedTranscript);
-      setRawAndProcessedTranscriptText();
+        // Update UI
+        rawTranscript = result.transcript;
+        processedTranscript = ""; // Reset processed transcript
+        
+        // Re-paginate and update display
+        paginateBothTranscripts(rawTranscript, processedTranscript);
+        setRawAndProcessedTranscriptText();
+      } else {
+        // If no transcript available, start polling
+        rawTranscript = "";
+        processedTranscript = "";
+        paginateBothTranscripts(rawTranscript, processedTranscript);
+        setRawAndProcessedTranscriptText();
+        startTranscriptPolling(videoId, storageUtils);
+      }
       updatePaginationButtons();
       updatePageInfo();
 
@@ -869,6 +886,59 @@ function formatTime(seconds) {
 
 
 
+// New function to check transcript via content script
+async function checkTranscriptViaContentScript() {
+  try {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    if (!tab?.id) throw new Error('No active tab found');
+
+    const result = await chrome.tabs.sendMessage(
+      tab.id,
+      {type: 'CHECK_TRANSCRIPT'},
+      {frameId: 0}
+    ).catch(() => ({success: false}));
+
+    return result;
+  } catch (error) {
+    console.error('Error checking transcript:', error);
+    return {success: false};
+  }
+}
+
+// Polling function to check for transcript availability
+let pollingInterval = null;
+async function startTranscriptPolling(videoId, storageUtils) {
+  // Clear any existing polling
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+  }
+
+  // Update UI to show waiting state
+  if (transcriptDisplay) {
+    transcriptDisplay.textContent = 'Waiting for transcript... Please click "..." below the video → "Show transcript"';
+  }
+
+  pollingInterval = setInterval(async () => {
+    const result = await checkTranscriptViaContentScript();
+    if (result?.success && result.transcript) {
+      // Stop polling
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+
+      // Save and display transcript
+      rawTranscript = result.transcript;
+      await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
+      processedTranscript = "";
+      
+      // Update UI
+      paginateBothTranscripts(rawTranscript, processedTranscript);
+      displayCurrentPage();
+      updatePaginationUI();
+      updateTabStates();
+    }
+  }, 2000); // Check every 2 seconds
+}
+
 async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils) {
   // Inner function to handle all transcript cleaning/decoding html verbage
   const decodeTranscript = (text) => {
@@ -888,19 +958,18 @@ async function retrieveAndSetTranscripts(videoId, savedTranscripts, storageUtils
     return { isCached: true, isLoadedFromYoutube: false };
   }
 
-  // If no saved transcript, try to fetch from YouTube
-  try {
-    const fetchedRawTranscript = await YoutubeTranscriptRetriever.fetchParsedTranscript(videoId);
-    rawTranscript = decodeTranscript(fetchedRawTranscript);
+  // If no saved transcript, try to fetch via content script
+  const result = await checkTranscriptViaContentScript();
+  if (result?.success && result.transcript) {
+    rawTranscript = decodeTranscript(result.transcript);
     if (rawTranscript) {
       await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
       processedTranscript = ""; // Reset processed transcript
       return { isCached: false, isLoadedFromYoutube: true };
     }
-  } catch (ytError) {
-    console.error('Error automatically retrieving transcript from YouTube:', ytError);
   }
 
+  // If content script doesn't have transcript, show waiting message
   return { isCached: false, isLoadedFromYoutube: false };
 }
 
@@ -946,7 +1015,7 @@ function paginateBothTranscripts(rawTranscript, processedTranscript) {
 function paginateRawTranscript(transcript) {
   // Then handle pagination logic with clean text
   const [contextBlock = "", transcriptContent = transcript] =
-    transcript.split(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER);
+    transcript.split(TRANSCRIPT_BEGINS_DELIMITER);
 
   // Parse the transcript content into array of objects with timestamp and text
   const parsedTranscript = (function parseTranscript(rawTranscript) {
@@ -978,7 +1047,7 @@ function paginateRawTranscript(transcript) {
     } else {
       if (currentPage) {
         // Add context block to each page
-        pages.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentPage.trim()}`);
+        pages.push(`${contextBlock}\n${TRANSCRIPT_BEGINS_DELIMITER}\n${currentPage.trim()}`);
       }
       pageStartTime = Math.floor(item.timestamp / PAGE_DURATION) * PAGE_DURATION;
       pageEndTime = pageStartTime + PAGE_DURATION;
@@ -988,7 +1057,7 @@ function paginateRawTranscript(transcript) {
 
   if (currentPage) {
     // Add context block to final page
-    pages.push(`${contextBlock}\n${YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER}\n${currentPage.trim()}`);
+    pages.push(`${contextBlock}\n${TRANSCRIPT_BEGINS_DELIMITER}\n${currentPage.trim()}`);
   }
 
   return pages;
@@ -1022,10 +1091,10 @@ function splitTranscriptPage(page) {
 
   // Find the context section and transcript delimiter
   const contextStartIndex = lines.findIndex(line =>
-    line.includes(YoutubeTranscriptRetriever.CONTEXT_BEGINS_DELIMITER)
+    line.includes(CONTEXT_BEGINS_DELIMITER)
   );
   const transcriptStartIndex = lines.findIndex(line =>
-    line.includes(YoutubeTranscriptRetriever.TRANSCRIPT_BEGINS_DELIMITER)
+    line.includes(TRANSCRIPT_BEGINS_DELIMITER)
   );
 
   // Extract context section
