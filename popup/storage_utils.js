@@ -245,6 +245,44 @@ class StorageUtils {
   }
 
   /**
+   * Saves the language preference to local storage
+   * @param {string} language - The language code (e.g., 'en', 'zh-CN', 'es')
+   * @returns {Promise<void>}
+   */
+  saveLanguagePreference(language) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set({ 'language_preference': language }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error saving language preference:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log('Language preference saved successfully:', language);
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Loads the language preference from local storage
+   * @returns {Promise<string>} - The language code (default 'en')
+   */
+  loadLanguagePreference() {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(['language_preference'], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error loading language preference:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          const language = result.language_preference || 'en'; // Default to English
+          console.log('Language preference loaded:', language);
+          resolve(language);
+        }
+      });
+    });
+  }
+
+  /**
    * Generates a storage key for highlights of a specific page
    * @param {string} videoId - The YouTube video ID
    * @param {number} pageNumber - The page number

@@ -23,11 +23,14 @@ class LLM_API_Utils {
     
     this.openai_api_key = this.decryptApiKey(OPENAI_ENCRYPTED_API_KEY);
     this.anthropic_api_key = this.decryptApiKey(ANTHROPIC_ENCRYPTED_API_KEY);
+  }
 
-    this.llm_system_role = `Take a raw video transcript and copyedit it into a world-class professionally copyedited transcript.  
+  generateSystemRole(targetLanguage = 'English') {
+    return `Take a raw video transcript and copyedit it into a world-class professionally copyedited transcript in ${targetLanguage}.  
     Attempt to identify the speaker from the context of the conversation.
     
     IMPORTANT: Process and return the ENTIRE transcript segment. Do not truncate or ask for confirmation to continue.
+    IMPORTANT: Output the transcript in ${targetLanguage}.
     
     # Steps
     1. **Speaker Identification**: Identify who is speaking at each segment based on context clues within the transcript.
@@ -35,17 +38,18 @@ class LLM_API_Utils {
        - Correct any grammatical or typographical errors.
        - Ensure coherence and flow of conversation.
        - Maintain the original meaning while enhancing clarity.
+       - Translate to ${targetLanguage} if needed.
     3. **Structure**: Format the transcript with each speaker's name followed by their dialogue.
     
     # Output Format
     [Time Range]
     [Speaker Name]:
-    [Dialogue]
+    [Dialogue in ${targetLanguage}]
     
     **Requirements:**
     - **Time Range:** Combine the start and end timestamps in the format [Start Time -> End Time].
     - **Speaker Name:** Followed by a colon (:) and a newline.
-    - **Dialogue:** Starts on a new line beneath the speaker's name. Ensure the dialogue is free of filler words and is professionally phrased.
+    - **Dialogue:** Starts on a new line beneath the speaker's name. Ensure the dialogue is free of filler words and is professionally phrased in ${targetLanguage}.
     - **Completeness:** Process and return the entire transcript segment without truncation.
     
     # Example Input/Output Format
@@ -64,10 +68,13 @@ class LLM_API_Utils {
     - Break long segments into smaller time ranges (1-3 mins), clearly identify the speaker, even within the same time range. Or if the same speaker is speaking across time ranges, use the same speaker name.
     - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue.
     - Never truncate the output or ask for permission to continue - process the entire input segment`;
+  }
 
-    // System role for generating highlights
-    this.llm_highlights_system_role = `
-Extract segments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in philosophical reflections, or statements that could inspire thought, provides expert analysis on complex topics 
+  generateHighlightsSystemRole(targetLanguage = 'English') {
+    return `
+Extract segments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in philosophical reflections, or statements that could inspire thought, provides expert analysis on complex topics.
+
+IMPORTANT: Output all text in ${targetLanguage}. 
 
 Identify moments that are:
 - Highly quotable (~3-5 sentences)
@@ -96,9 +103,10 @@ Format each highlight as:
 
 --- 
 
-Two sentence summary of highlight in viewpoint of the reader.
+Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguage}).
 `;
   }
+
   // Simple but sufficient for initial launch
   // the api_key has a limit of like ten dollars, so even if cracked, it's not a big deal.
   decryptApiKey(encryptedHex) {
@@ -208,7 +216,7 @@ Two sentence summary of highlight in viewpoint of the reader.
     return data.content[0].text;
   }
 
-  async call_llm({ model_name, system_role = this.llm_system_role, prompt, max_tokens, temperature }) {
+  async call_llm({ model_name, system_role, prompt, max_tokens, temperature }) {
     try {
       if (model_name?.toLowerCase().startsWith("claude")) {
         return await this.call_claude(system_role, prompt, model_name, max_tokens, temperature);
@@ -272,7 +280,11 @@ Two sentence summary of highlight in viewpoint of the reader.
    * @param {string} [params.system_role] - Optional system role, defaults to this.llm_system_role
    * @returns {Promise<string>} Processed transcript
    */
-  async processTranscriptInParallel({ transcript, model_name, partitions = LLM_API_Utils.DEFAULT_PARTITIONS, system_role = this.llm_system_role }) {
+  async processTranscriptInParallel({ transcript, model_name, partitions = LLM_API_Utils.DEFAULT_PARTITIONS, system_role, targetLanguage = 'English' }) {
+    // Generate system role if not provided
+    if (!system_role) {
+      system_role = this.generateSystemRole(targetLanguage);
+    }
     // Split transcript into parts
     const parts = this.splitTranscriptForProcessing(transcript, partitions);
 
@@ -293,10 +305,10 @@ Two sentence summary of highlight in viewpoint of the reader.
   }
 
   // Add the new method
-  async generateHighlights({ processedTranscript, customPrompt, model_name=this.GPT_4o}) {
+  async generateHighlights({ processedTranscript, customPrompt, model_name=this.GPT_4o, targetLanguage = 'English'}) {
     try {
       // Use custom prompt if provided, otherwise use default system role
-      const system_role = customPrompt || this.llm_highlights_system_role;
+      const system_role = customPrompt || this.generateHighlightsSystemRole(targetLanguage);
       
       // Process the transcript in parallel using the existing method
       const highlights = await this.processTranscriptInParallel({

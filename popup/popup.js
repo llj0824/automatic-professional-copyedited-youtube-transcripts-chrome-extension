@@ -20,7 +20,7 @@ const CONTEXT_BEGINS_DELIMITER = "*** Background Context ***";
 // Constants are now imported from clipServiceUtils.js
 
 // Declare the variables in a higher scope
-let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect;
+let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect, languageSelect;
 
 // Add this near other global variables
 const TabState = {
@@ -270,6 +270,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     tabButtons = doc.querySelectorAll('.tab-button');
     tabContents = doc.querySelectorAll('.tab-content');
     modelSelect = doc.getElementById('model-select');
+    languageSelect = doc.getElementById('language-select');
     resetTranscriptBtn = doc.getElementById('reset-transcript-btn');
 
     // Add new element declarations
@@ -340,6 +341,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
 
     // Add new setup call
     setupFontSizeControls(fontSizeDecrease, fontSizeIncrease, storageUtils);
+    setupLanguageSelection(languageSelect, storageUtils);
 
     setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils);
 
@@ -531,6 +533,28 @@ function setupFontSizeControls(decreaseBtn, increaseBtn, storageUtils) {
   });
 }
 
+function setupLanguageSelection(languageSelect, storageUtils) {
+  // Load saved language preference when initializing
+  (async () => {
+    try {
+      const savedLanguage = await storageUtils.loadLanguagePreference();
+      languageSelect.value = savedLanguage;
+    } catch (error) {
+      console.error('Error loading language preference:', error);
+    }
+  })();
+
+  // Save language preference when changed
+  languageSelect.addEventListener('change', async () => {
+    try {
+      await storageUtils.saveLanguagePreference(languageSelect.value);
+      console.log('Language preference saved:', languageSelect.value);
+    } catch (error) {
+      console.error('Error saving language preference:', error);
+    }
+  });
+}
+
 function setupGenerateHighlightsButton(generateHighlightsBtn, storageUtils) {
   generateHighlightsBtn.addEventListener('click', () => handleGenerateHighlightsClick(storageUtils));
 }
@@ -612,6 +636,7 @@ function handleNextClick() {
  */
 async function handleProcessTranscriptClick(modelSelect, storageUtils) {
   const selectedModel = modelSelect.value;
+  const selectedLanguage = languageSelect.value;
 
   const currentRawPage = rawTranscriptPages[currentPageIndex];
   const videoTitle = extractVideoTitle(currentRawPage);
@@ -649,10 +674,15 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
     const currentRawPage = rawTranscriptPages[currentPageIndex];
 
     const startTime = Date.now();
+    // Get the language name from the dropdown option text
+    const languageOption = languageSelect.options[languageSelect.selectedIndex];
+    const languageName = languageOption.text.split(' (')[0]; // Extract just the language name
+    
     const processedPage = await llmUtils.processTranscriptInParallel({
       transcript: currentRawPage,
       model_name: selectedModel,
-      partitions: llmUtils.DEFAULT_PARTITIONS
+      partitions: llmUtils.DEFAULT_PARTITIONS,
+      targetLanguage: languageName
     });
     const processingTime = Date.now() - startTime;
 
@@ -716,6 +746,7 @@ async function handleGenerateHighlightsClick(storageUtils) {
   }
 
   const selectedModel = modelSelect.value;
+  const selectedLanguage = languageSelect.value;
   const highlightPrompt = document.getElementById('highlight-prompt').value;
   const highlightProcessed = document.getElementById('highlight-processed').value;
 
@@ -733,9 +764,14 @@ async function handleGenerateHighlightsClick(storageUtils) {
   try {
     loader.classList.remove('hidden');
 
+    // Get the language name from the dropdown option text
+    const languageOption = languageSelect.options[languageSelect.selectedIndex];
+    const languageName = languageOption.text.split(' (')[0]; // Extract just the language name
+    
     const highlightForPage = await llmUtils.generateHighlights({
       processedTranscript: highlightProcessed,
-      customPrompt: highlightPrompt
+      customPrompt: highlightPrompt,
+      targetLanguage: languageName
     });
 
     // Save highlights for current page
