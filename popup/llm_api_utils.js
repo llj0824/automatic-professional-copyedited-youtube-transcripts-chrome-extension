@@ -29,7 +29,7 @@ class LLM_API_Utils {
     return `Take a raw video transcript and copyedit it into a world-class professionally copyedited transcript in ${targetLanguage}.  
     Attempt to identify the speaker from the context of the conversation.
     
-    IMPORTANT: Process and return the ENTIRE transcript segment. Do not truncate or ask for confirmation to continue.
+    IMPORTANT: Process and return the provided transcript segment. Do not truncate or ask for confirmation to continue.
     IMPORTANT: Output the transcript in ${targetLanguage}.
     
     # Steps
@@ -50,7 +50,6 @@ class LLM_API_Utils {
     - **Time Range:** Combine the start and end timestamps in the format [Start Time -> End Time].
     - **Speaker Name:** Followed by a colon (:) and a newline.
     - **Dialogue:** Starts on a new line beneath the speaker's name. Ensure the dialogue is free of filler words and is professionally phrased in ${targetLanguage}.
-    - **Completeness:** Process and return the entire transcript segment without truncation.
     
     # Example Input/Output Format
     Input:  
@@ -67,7 +66,7 @@ class LLM_API_Utils {
     - If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc.
     - Break long segments into smaller time ranges (1-3 mins), clearly identify the speaker, even within the same time range. Or if the same speaker is speaking across time ranges, use the same speaker name.
     - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue.
-    - Never truncate the output or ask for permission to continue - process the entire input segment`;
+    - Never truncate the output or ask for permission to continue - process only the provided input segment.`;
   }
 
   generateHighlightsSystemRole(targetLanguage = 'English') {
