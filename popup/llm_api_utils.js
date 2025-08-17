@@ -31,6 +31,7 @@ class LLM_API_Utils {
     
     IMPORTANT: Process and return the provided transcript segment. Do not truncate or ask for confirmation to continue.
     IMPORTANT: Output the transcript in ${targetLanguage}.
+    IMPORTANT: Use natural, colloquial ${targetLanguage} that a native speaker would say. Avoid literal, word-for-word or phrase-by-phrase translation; prefer idiomatic phrasing and adjust sentence structure for clarity while preserving meaning. If the target is Chinese (中文/Chinese), write in modern, conversational Chinese with a native tone (avoid stiff or overly formal phrasing).
     
     # Steps
     1. **Speaker Identification**: Identify who is speaking at each segment based on context clues within the transcript.
@@ -38,7 +39,7 @@ class LLM_API_Utils {
        - Correct any grammatical or typographical errors.
        - Ensure coherence and flow of conversation.
        - Maintain the original meaning while enhancing clarity.
-       - Translate to ${targetLanguage} if needed.
+       - Translate to ${targetLanguage} if needed, ensuring it reads naturally to natives (colloquial, idiomatic, not literal).
     3. **Structure**: Format the transcript with each speaker's name followed by their dialogue.
     
     # Output Format
@@ -65,7 +66,7 @@ class LLM_API_Utils {
     # Notes
     - If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc.
     - Break long segments into smaller time ranges (1-3 mins), clearly identify the speaker, even within the same time range. Or if the same speaker is speaking across time ranges, use the same speaker name.
-    - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue.
+    - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue. Prioritize native, colloquial expression over literal translation.
     - Never truncate the output or ask for permission to continue - process only the provided input segment.`;
   }
 
@@ -73,7 +74,8 @@ class LLM_API_Utils {
     return `
 Extract segments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in philosophical reflections, or statements that could inspire thought, provides expert analysis on complex topics.
 
-IMPORTANT: Output all text in ${targetLanguage}. 
+IMPORTANT: Output all text in ${targetLanguage}.
+IMPORTANT: Use a natural, colloquial style in ${targetLanguage} (native-sounding, idiomatic; avoid literal translation). If Chinese is selected, use modern conversational Chinese.
 
 Identify moments that are:
 - Highly quotable (~3-5 sentences)
@@ -123,7 +125,7 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     return decrypted;
   }
 
-  async call_openai(system_role, prompt, model = "chatgpt-4o-latest", max_tokens = 10000, temperature = 0.1) {
+  async call_openai(system_role, prompt, model = "gpt-4.1", max_tokens = 10000, temperature = 0.1) {
     if (!this.openai_api_key) {
       throw new Error("OpenAI API key is not set.");
     }
