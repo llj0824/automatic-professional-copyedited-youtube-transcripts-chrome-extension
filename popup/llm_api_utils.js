@@ -135,14 +135,18 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     // Determine if we should include reasoning config (treat gpt-5 and o-series as reasoning)
     const isReasoningModel = model?.toLowerCase().startsWith('o') || model?.toLowerCase().startsWith('gpt-5');
 
+    // Console log the chosen OpenAI config
+    try {
+      console.info(`[LLM][OpenAI] endpoint=/v1/responses model=${model} max_output_tokens=${max_tokens} reasoning=${isReasoningModel ? 'low' : 'none'}`);
+    } catch (_) { /* no-op */ }
+
     // Build Responses API payload
     const payload = {
       model: model,
       instructions: system_role || undefined,
       input: prompt,
-      temperature: temperature,
       max_output_tokens: max_tokens,
-      ...(isReasoningModel ? { reasoning: { effort: "low" } } : {}) // minimal verbosity reasoning
+      ...(isReasoningModel ? { reasoning: { effort: "low" }, text: { format: { type: 'text' } } } : { temperature: temperature })
     };
 
     const response = await fetch(this.openai_endpoint, {
@@ -195,6 +199,10 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
       throw new Error("Anthropic API key is not set.");
     }
 
+    try {
+      console.info(`[LLM][Anthropic] endpoint=/v1/messages model=${model} max_tokens=${max_tokens}`);
+    } catch (_) { /* no-op */ }
+
     const headers = {
       "x-api-key": this.anthropic_api_key,
       "Content-Type": "application/json",
@@ -232,6 +240,15 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
 
   async call_llm({ model_name, system_role, prompt, max_tokens, temperature }) {
     try {
+      // Log routing choice
+      try {
+        if (model_name?.toLowerCase().startsWith("claude")) {
+          console.info(`[LLM] provider=Anthropic model=${model_name}`);
+        } else {
+          const isReasoning = model_name?.toLowerCase().startsWith('o') || model_name?.toLowerCase().startsWith('gpt-5');
+          console.info(`[LLM] provider=OpenAI api=responses model=${model_name} reasoning=${isReasoning ? 'low' : 'none'}`);
+        }
+      } catch (_) { /* no-op */ }
       if (model_name?.toLowerCase().startsWith("claude")) {
         return await this.call_claude(system_role, prompt, model_name, max_tokens, temperature);
       } else {
