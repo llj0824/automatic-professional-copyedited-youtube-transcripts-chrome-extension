@@ -7,13 +7,15 @@ import { OPENAI_ENCRYPTED_API_KEY, ANTHROPIC_ENCRYPTED_API_KEY } from './keys.js
 class LLM_API_Utils {
   static DEFAULT_PARTITIONS = 8; // Default number of partitions for parallel processing. 
 
+  static GPT_5 = "gpt-5";
   static GPT_4o = "gpt-4.1";
   static GPT_o3_mini = "o3-mini";
   static GPT_4o_mini = "gpt-4o-mini"
   static CLAUDE_SONNET_LATEST_MODEL = "claude-3-5-sonnet-latest";
 
   constructor() {
-    this.openai_endpoint = "https://api.openai.com/v1/chat/completions";
+    // Use Responses API for OpenAI
+    this.openai_endpoint = "https://api.openai.com/v1/responses";
     this.anthropic_endpoint = "https://api.anthropic.com/v1/complete";
     
     // Use static constants from keys.js
@@ -31,6 +33,7 @@ class LLM_API_Utils {
     
     IMPORTANT: Process and return the provided transcript segment. Do not truncate or ask for confirmation to continue.
     IMPORTANT: Output the transcript in ${targetLanguage}.
+    IMPORTANT: Use natural, colloquial ${targetLanguage} that a native speaker would say. Avoid literal, word-for-word or phrase-by-phrase translation; prefer idiomatic phrasing and adjust sentence structure for clarity while preserving meaning. If the target is Chinese (中文/Chinese), write in modern, conversational Chinese with a native tone (avoid stiff or overly formal phrasing).
     
     # Steps
     1. **Speaker Identification**: Identify who is speaking at each segment based on context clues within the transcript.
@@ -38,7 +41,7 @@ class LLM_API_Utils {
        - Correct any grammatical or typographical errors.
        - Ensure coherence and flow of conversation.
        - Maintain the original meaning while enhancing clarity.
-       - Translate to ${targetLanguage} if needed.
+       - Translate to ${targetLanguage} if needed, ensuring it reads naturally to natives (colloquial, idiomatic, not literal).
     3. **Structure**: Format the transcript with each speaker's name followed by their dialogue.
     
     # Output Format
@@ -65,7 +68,7 @@ class LLM_API_Utils {
     # Notes
     - If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc.
     - Break long segments into smaller time ranges (1-3 mins), clearly identify the speaker, even within the same time range. Or if the same speaker is speaking across time ranges, use the same speaker name.
-    - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue.
+    - Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue. Prioritize native, colloquial expression over literal translation.
     - Never truncate the output or ask for permission to continue - process only the provided input segment.`;
   }
 
@@ -73,7 +76,8 @@ class LLM_API_Utils {
     return `
 Extract segments where the speaker expresses a controversial opinion, challenges conventional wisdom, or engages in philosophical reflections, or statements that could inspire thought, provides expert analysis on complex topics.
 
-IMPORTANT: Output all text in ${targetLanguage}. 
+IMPORTANT: Output all text in ${targetLanguage}.
+IMPORTANT: Use a natural, colloquial style in ${targetLanguage} (native-sounding, idiomatic; avoid literal translation). If Chinese is selected, use modern conversational Chinese.
 
 Identify moments that are:
 - Highly quotable (~3-5 sentences)
@@ -123,39 +127,27 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     return decrypted;
   }
 
-  async call_openai(system_role, prompt, model = "chatgpt-4o-latest", max_tokens = 10000, temperature = 0.1) {
+  async call_openai(system_role, prompt, model = "gpt-5", max_tokens = 10000, temperature = 0.1) {
     if (!this.openai_api_key) {
       throw new Error("OpenAI API key is not set.");
     }
 
-    // Check if it's a reasoning model (starts with 'o')
-    const isReasoningModel = model.startsWith('o');
+    // Determine if we should include reasoning config (treat gpt-5 and o-series as reasoning)
+    const isReasoningModel = model?.toLowerCase().startsWith('o') || model?.toLowerCase().startsWith('gpt-5');
 
-    let payload;
-    if (isReasoningModel) {
-      // Reasoning models don't support system messages, so combine system_role and prompt
-      const combinedPrompt = system_role ? `${prompt}\n\n${system_role}\n` : prompt;
-      
-      payload = {
-        model: model,
-        
-        messages: [
-          { role: "user", content: combinedPrompt }
-        ],
-        reasoning_effort: "high" // Only parameter supported by o-series
-      };
-    } else {
-      // Standard payload for non-reasoning models
-      payload = {
-        model: model,
-        messages: [
-          { role: "system", content: system_role },
-          { role: "user", content: prompt }
-        ],
-        temperature: temperature,
-        max_completion_tokens: max_tokens
-      };
-    }
+    // Console log the chosen OpenAI config
+    try {
+      console.info(`[LLM][OpenAI] endpoint=/v1/responses model=${model} max_output_tokens=${max_tokens} reasoning=${isReasoningModel ? 'low' : 'none'}`);
+    } catch (_) { /* no-op */ }
+
+    // Build Responses API payload
+    const payload = {
+      model: model,
+      instructions: system_role || undefined,
+      input: prompt,
+      max_output_tokens: max_tokens,
+      ...(isReasoningModel ? { reasoning: { effort: "low" }, text: { format: { type: 'text' } } } : { temperature: temperature })
+    };
 
     const response = await fetch(this.openai_endpoint, {
       method: "POST",
@@ -167,18 +159,49 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      let errorData;
+      try { errorData = await response.json(); } catch (_) { errorData = {}; }
       throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
     }
 
     const data = await response.json();
-    return data.choices[0].message.content.trim();
+    // Extract aggregated text from Responses API output
+    try {
+      if (data && Array.isArray(data.output)) {
+        const texts = [];
+        for (const item of data.output) {
+          if (item?.type === 'message' && Array.isArray(item.content)) {
+            for (const part of item.content) {
+              if (part?.type === 'output_text' && typeof part.text === 'string') {
+                texts.push(part.text);
+              }
+            }
+          }
+        }
+        if (texts.length > 0) {
+          return texts.join('\n').trim();
+        }
+      }
+      // Fallback if unexpected shape
+      if (typeof data.output_text === 'string') {
+        return data.output_text.trim();
+      }
+      return JSON.stringify(data);
+    } catch (_) {
+      return JSON.stringify(data);
+    }
   }
+
+  // (No Chat Completions fallback; Responses API is required.)
 
   async call_claude(system_role, prompt, model = "claude-3-5-sonnet-latest", max_tokens = 8192, temperature = 0.1) {
     if (!this.anthropic_api_key) {
       throw new Error("Anthropic API key is not set.");
     }
+
+    try {
+      console.info(`[LLM][Anthropic] endpoint=/v1/messages model=${model} max_tokens=${max_tokens}`);
+    } catch (_) { /* no-op */ }
 
     const headers = {
       "x-api-key": this.anthropic_api_key,
@@ -217,6 +240,15 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
 
   async call_llm({ model_name, system_role, prompt, max_tokens, temperature }) {
     try {
+      // Log routing choice
+      try {
+        if (model_name?.toLowerCase().startsWith("claude")) {
+          console.info(`[LLM] provider=Anthropic model=${model_name}`);
+        } else {
+          const isReasoning = model_name?.toLowerCase().startsWith('o') || model_name?.toLowerCase().startsWith('gpt-5');
+          console.info(`[LLM] provider=OpenAI api=responses model=${model_name} reasoning=${isReasoning ? 'low' : 'none'}`);
+        }
+      } catch (_) { /* no-op */ }
       if (model_name?.toLowerCase().startsWith("claude")) {
         return await this.call_claude(system_role, prompt, model_name, max_tokens, temperature);
       } else {
@@ -304,7 +336,7 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
   }
 
   // Add the new method
-  async generateHighlights({ processedTranscript, customPrompt, model_name=this.GPT_4o, targetLanguage = 'English'}) {
+  async generateHighlights({ processedTranscript, customPrompt, model_name=this.GPT_5, targetLanguage = 'English'}) {
     try {
       // Use custom prompt if provided, otherwise use default system role
       const system_role = customPrompt || this.generateHighlightsSystemRole(targetLanguage);
