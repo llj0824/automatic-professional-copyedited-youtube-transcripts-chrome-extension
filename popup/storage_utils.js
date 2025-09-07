@@ -1,4 +1,5 @@
 // popup/storage_utils.js
+import { UI_DEFAULTS } from './config.js';
 
 /**
  * StorageUtils - Manages YouTube video transcript storage in Chrome's local storage.
@@ -236,7 +237,7 @@ class StorageUtils {
           console.error('Error loading font size:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
         } else {
-          const fontSize = result.font_size || 12; // Default to 12px if not set
+          const fontSize = result.font_size || UI_DEFAULTS.fontSizePx; // Centralized default
           console.log('Font size loaded:', fontSize);
           resolve(fontSize);
         }
@@ -274,7 +275,7 @@ class StorageUtils {
           console.error('Error loading language preference:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
         } else {
-          const language = result.language_preference || 'en'; // Default to English
+          const language = result.language_preference || UI_DEFAULTS.languageCode; // Centralized default
           console.log('Language preference loaded:', language);
           resolve(language);
         }
