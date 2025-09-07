@@ -3,20 +3,14 @@
 // Class definition remains the same
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
 import { OPENAI_ENCRYPTED_API_KEY, ANTHROPIC_ENCRYPTED_API_KEY } from './keys.js'; // adjust the path as needed
+import { LLM_DEFAULTS, PROCESSING_DEFAULTS, UI_DEFAULTS } from './config.js';
 
 class LLM_API_Utils {
-  static DEFAULT_PARTITIONS = 8; // Default number of partitions for parallel processing. 
-
-  static GPT_5 = "gpt-5";
-  static GPT_4o = "gpt-4.1";
-  static GPT_o3_mini = "o3-mini";
-  static GPT_4o_mini = "gpt-4o-mini"
-  static CLAUDE_SONNET_LATEST_MODEL = "claude-3-5-sonnet-latest";
 
   constructor() {
-    // Use Responses API for OpenAI
-    this.openai_endpoint = "https://api.openai.com/v1/responses";
-    this.anthropic_endpoint = "https://api.anthropic.com/v1/complete";
+    // Use centralized endpoints from config
+    this.openai_endpoint = LLM_DEFAULTS.endpoints.openai;
+    this.anthropic_endpoint = LLM_DEFAULTS.endpoints.anthropic;
     
     // Use static constants from keys.js
     if (!OPENAI_ENCRYPTED_API_KEY || !ANTHROPIC_ENCRYPTED_API_KEY) {
@@ -25,6 +19,13 @@ class LLM_API_Utils {
     
     this.openai_api_key = this.decryptApiKey(OPENAI_ENCRYPTED_API_KEY);
     this.anthropic_api_key = this.decryptApiKey(ANTHROPIC_ENCRYPTED_API_KEY);
+
+    // Provide a default highlights prompt text for UI initialization
+    try {
+      this.llm_highlights_system_role = this.generateHighlightsSystemRole(UI_DEFAULTS.languageName);
+    } catch (_) {
+      this.llm_highlights_system_role = this.generateHighlightsSystemRole('English');
+    }
   }
 
   generateSystemRole(targetLanguage = 'English') {
@@ -127,26 +128,32 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     return decrypted;
   }
 
-  async call_openai(system_role, prompt, model = "gpt-5", max_tokens = 10000, temperature = 0.1) {
+  async call_openai(system_role, prompt, model, max_tokens, temperature) {
     if (!this.openai_api_key) {
       throw new Error("OpenAI API key is not set.");
     }
 
-    // Determine if we should include reasoning config (treat gpt-5 and o-series as reasoning)
-    const isReasoningModel = model?.toLowerCase().startsWith('o') || model?.toLowerCase().startsWith('gpt-5');
+    const chosenModel = model || LLM_DEFAULTS.defaultModel;
+    const modelCfg = LLM_DEFAULTS.models[chosenModel] || {};
 
     // Console log the chosen OpenAI config
     try {
-      console.info(`[LLM][OpenAI] endpoint=/v1/responses model=${model} max_output_tokens=${max_tokens} reasoning=${isReasoningModel ? 'low' : 'none'}`);
+      const reasoningLabel = modelCfg?.openaiOverrides?.reasoning?.effort || 'none';
+      const verbosityLabel = modelCfg?.openaiOverrides?.text?.verbosity || 'n/a';
+      const effectiveMax = max_tokens ?? modelCfg.maxOutputTokens ?? LLM_DEFAULTS.common.maxOutputTokens;
+      console.info(`[LLM][OpenAI] endpoint=/v1/responses model=${chosenModel} max_output_tokens=${effectiveMax} reasoning=${reasoningLabel} verbosity=${verbosityLabel}`);
     } catch (_) { /* no-op */ }
 
     // Build Responses API payload
     const payload = {
-      model: model,
+      model: chosenModel,
       instructions: system_role || undefined,
       input: prompt,
-      max_output_tokens: max_tokens,
-      ...(isReasoningModel ? { reasoning: { effort: "low" }, text: { format: { type: 'text' } } } : { temperature: temperature })
+      max_output_tokens: max_tokens ?? modelCfg.maxOutputTokens ?? LLM_DEFAULTS.common.maxOutputTokens,
+      ...(modelCfg.openaiOverrides
+        ? { ...modelCfg.openaiOverrides }
+        : { temperature: (temperature ?? modelCfg.temperature ?? LLM_DEFAULTS.common.temperature) }
+      )
     };
 
     const response = await fetch(this.openai_endpoint, {
@@ -194,13 +201,16 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
 
   // (No Chat Completions fallback; Responses API is required.)
 
-  async call_claude(system_role, prompt, model = "claude-3-5-sonnet-latest", max_tokens = 8192, temperature = 0.1) {
+  async call_claude(system_role, prompt, model, max_tokens, temperature) {
     if (!this.anthropic_api_key) {
       throw new Error("Anthropic API key is not set.");
     }
 
     try {
-      console.info(`[LLM][Anthropic] endpoint=/v1/messages model=${model} max_tokens=${max_tokens}`);
+      const chosenModel = model || 'claude-3-5-sonnet-latest';
+      const modelCfg = LLM_DEFAULTS.models[chosenModel] || {};
+      const effectiveMax = max_tokens ?? modelCfg.maxTokens ?? 8192;
+      console.info(`[LLM][Anthropic] endpoint=/v1/messages model=${chosenModel} max_tokens=${effectiveMax}`);
     } catch (_) { /* no-op */ }
 
     const headers = {
@@ -210,10 +220,12 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
       "anthropic-dangerous-direct-browser-access": "true"  // Add this header
     };
 
+    const chosenModel = model || 'claude-3-5-sonnet-latest';
+    const modelCfg = LLM_DEFAULTS.models[chosenModel] || {};
     const payload = {
-      model: model,
-      max_tokens: max_tokens,
-      temperature: temperature,
+      model: chosenModel,
+      max_tokens: max_tokens ?? modelCfg.maxTokens ?? 8192,
+      temperature: temperature ?? modelCfg.temperature ?? 0.1,
       system: system_role,
       messages: [
         {
@@ -223,7 +235,7 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
       ]
     };
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch(this.anthropic_endpoint, {
       method: "POST",
       headers: headers,
       body: JSON.stringify(payload)
@@ -242,18 +254,24 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     try {
       // Log routing choice
       try {
-        if (model_name?.toLowerCase().startsWith("claude")) {
-          console.info(`[LLM] provider=Anthropic model=${model_name}`);
+        const chosenModel = model_name || LLM_DEFAULTS.defaultModel;
+        const modelCfg = LLM_DEFAULTS.models[chosenModel] || {};
+        const provider = modelCfg.provider || (chosenModel.toLowerCase().startsWith('claude') ? 'anthropic' : 'openai');
+        if (provider === 'anthropic') {
+          console.info(`[LLM] provider=Anthropic model=${chosenModel}`);
         } else {
-          const isReasoning = model_name?.toLowerCase().startsWith('o') || model_name?.toLowerCase().startsWith('gpt-5');
-          console.info(`[LLM] provider=OpenAI api=responses model=${model_name} reasoning=${isReasoning ? 'low' : 'none'}`);
+          const reasoningLabel = modelCfg?.openaiOverrides?.reasoning?.effort || 'none';
+          const verbosityLabel = modelCfg?.openaiOverrides?.text?.verbosity || 'n/a';
+          console.info(`[LLM] provider=OpenAI api=responses model=${chosenModel} reasoning=${reasoningLabel} verbosity=${verbosityLabel}`);
         }
       } catch (_) { /* no-op */ }
-      if (model_name?.toLowerCase().startsWith("claude")) {
-        return await this.call_claude(system_role, prompt, model_name, max_tokens, temperature);
-      } else {
-        return await this.call_openai(system_role, prompt, model_name, max_tokens, temperature);
+      const chosenModel = model_name || LLM_DEFAULTS.defaultModel;
+      const modelCfg = LLM_DEFAULTS.models[chosenModel] || {};
+      const provider = modelCfg.provider || (chosenModel.toLowerCase().startsWith('claude') ? 'anthropic' : 'openai');
+      if (provider === 'anthropic') {
+        return await this.call_claude(system_role, prompt, chosenModel, max_tokens, temperature);
       }
+      return await this.call_openai(system_role, prompt, chosenModel, max_tokens, temperature);
     } catch (error) {
       console.error("LLM API call error:", error);
       return "An error occurred while processing your request.";
@@ -311,13 +329,14 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
    * @param {string} [params.system_role] - Optional system role, defaults to this.llm_system_role
    * @returns {Promise<string>} Processed transcript
    */
-  async processTranscriptInParallel({ transcript, model_name, partitions = LLM_API_Utils.DEFAULT_PARTITIONS, system_role, targetLanguage = 'English' }) {
+  async processTranscriptInParallel({ transcript, model_name, partitions, system_role, targetLanguage = 'English' }) {
     // Generate system role if not provided
     if (!system_role) {
       system_role = this.generateSystemRole(targetLanguage);
     }
     // Split transcript into parts
-    const parts = this.splitTranscriptForProcessing(transcript, partitions);
+    const effectivePartitions = partitions ?? PROCESSING_DEFAULTS.partitions;
+    const parts = this.splitTranscriptForProcessing(transcript, effectivePartitions);
 
     // Process all parts in parallel
     const promises = parts.map(part =>
@@ -336,7 +355,7 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
   }
 
   // Add the new method
-  async generateHighlights({ processedTranscript, customPrompt, model_name=this.GPT_5, targetLanguage = 'English'}) {
+  async generateHighlights({ processedTranscript, customPrompt, model_name, targetLanguage = 'English'}) {
     try {
       // Use custom prompt if provided, otherwise use default system role
       const system_role = customPrompt || this.generateHighlightsSystemRole(targetLanguage);
@@ -344,9 +363,9 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
       // Process the transcript in parallel using the existing method
       const highlights = await this.processTranscriptInParallel({
         transcript: processedTranscript,
-        model_name,
+        model_name: model_name || LLM_DEFAULTS.defaultModel,
         system_role: system_role,
-        partitions: 1 // At 30 minutes per page divided by num of partitions
+        partitions: PROCESSING_DEFAULTS.highlightPartitions // One call per page for highlights
       });
 
       return highlights;

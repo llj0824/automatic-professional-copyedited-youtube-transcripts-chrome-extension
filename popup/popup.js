@@ -1,6 +1,7 @@
 // popup/popup.js
 
 import LLM_API_Utils from './llm_api_utils.js';
+import { PROCESSING_DEFAULTS } from './config.js';
 import StorageUtils from './storage_utils.js';
 import Logger from './logger.js';
 import { 
@@ -38,7 +39,7 @@ let processedTranscript = ""; // loaded from storage
 let rawTranscriptPages = []; // paginated from raw transcript
 let processedTranscriptPages = []; // paginated from processed transcript
 let currentPageIndex = 0;
-let PAGE_DURATION = 30 * 60; // seconds (modifiable)
+let PAGE_DURATION = PROCESSING_DEFAULTS.pageDurationSec; // seconds (modifiable, centralized)
 
 const llmUtils = new LLM_API_Utils();
 const logger = new Logger();
@@ -681,7 +682,7 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
     const processedPage = await llmUtils.processTranscriptInParallel({
       transcript: currentRawPage,
       model_name: selectedModel,
-      partitions: llmUtils.DEFAULT_PARTITIONS,
+      partitions: PROCESSING_DEFAULTS.partitions,
       targetLanguage: languageName
     });
     const processingTime = Date.now() - startTime;
