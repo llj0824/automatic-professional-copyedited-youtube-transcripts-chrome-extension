@@ -20,7 +20,7 @@ export const LLM_DEFAULTS = {
       maxOutputTokens: 10000,
       // Responses API overrides for GPT-5 (reasoning + verbosity)
       openaiOverrides: {
-        reasoning: { effort: 'medium' },
+        reasoning: { effort: 'minimal' },
         text: { verbosity: 'high' },
       },
     },
@@ -30,6 +30,10 @@ export const LLM_DEFAULTS = {
       // Use standard temperature-based text generation
       temperature: 0.1,
       maxOutputTokens: 10000,
+      openaiOverrides: {
+        reasoning: { effort: 'minimal' },
+        text: { verbosity: 'medium' },
+      },
     },
   },
 };
@@ -37,7 +41,7 @@ export const LLM_DEFAULTS = {
 // Processing defaults, including page/partition behavior
 export const PROCESSING_DEFAULTS = {
   // How many partitions a single transcript page is split into for parallel LLM calls
-  partitions: 5,
+  partitions: 6,
   // For highlights generation we currently do a single call per page
   highlightPartitions: 1,
   // How long (in seconds) a page covers in the UI pagination

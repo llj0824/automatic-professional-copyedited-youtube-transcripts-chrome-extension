@@ -44,6 +44,9 @@ let PAGE_DURATION = PROCESSING_DEFAULTS.pageDurationSec; // seconds (modifiable,
 const llmUtils = new LLM_API_Utils();
 const logger = new Logger();
 
+// Hold a reference to the StorageUtils instance created during initialization
+let storageUtilsRef = null;
+
 // Add these variables to the top-level declarations
 let fontSizeDecrease, fontSizeIncrease;
 let currentFontSize = 12; // Default font size in px
@@ -255,6 +258,8 @@ function setupClipService(storageUtils) {
  */
 async function initializePopup(doc = document, storageUtils = new StorageUtils()) {
   try {
+    // Keep a module-level reference for handlers that cannot receive DI params
+    storageUtilsRef = storageUtils;
     // Initialize the variables within the function using dependency injection
     // this is allow for jest testing...lol
     transcriptDisplay = doc.getElementById('transcript-display');
@@ -328,11 +333,12 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     if (highlightResultsTextarea) {
       try {
         const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
-        if (savedHighlights) {
-          highlightsPages[currentPageIndex] = savedHighlights;
-          highlightResultsTextarea.value = savedHighlights;
-        }
+        const highlightValue = savedHighlights || '';
+        highlightsPages[currentPageIndex] = highlightValue;
+        highlightResultsTextarea.value = highlightValue;
       } catch (error) {
+        highlightResultsTextarea.value = '';
+        highlightsPages[currentPageIndex] = '';
         console.error('Error loading highlights:', error);
       }
     }
@@ -813,19 +819,29 @@ async function handleGenerateHighlightsClick(storageUtils) {
 
 // Update loadHighlightsForCurrentPage to properly set the textarea value
 async function loadHighlightsForCurrentPage() {
-  const videoId = await storageUtils.getCurrentYouTubeVideoId();
+  const highlightResultsTextarea = document.getElementById('highlight-results');
+  if (highlightResultsTextarea) {
+    const cachedHighlights = highlightsPages[currentPageIndex] || '';
+    highlightResultsTextarea.value = cachedHighlights;
+  }
+
+  // Ensure we have a storage utils reference
+  const su = storageUtilsRef;
+  if (!su) return;
+  const videoId = await su.getCurrentYouTubeVideoId();
   if (!videoId) return;
 
   try {
-    const savedHighlights = await storageUtils.loadHighlightsById(videoId, currentPageIndex);
-    if (savedHighlights) {
-      highlightsPages[currentPageIndex] = savedHighlights;
-      const highlightResultsTextarea = document.getElementById('highlight-results');
-      if (highlightResultsTextarea) {
-        highlightResultsTextarea.value = savedHighlights;
-      }
+    const savedHighlights = await su.loadHighlightsById(videoId, currentPageIndex);
+    const highlightValue = savedHighlights || '';
+    highlightsPages[currentPageIndex] = highlightValue;
+    if (highlightResultsTextarea) {
+      highlightResultsTextarea.value = highlightValue;
     }
   } catch (error) {
+    if (highlightResultsTextarea) {
+      highlightResultsTextarea.value = highlightsPages[currentPageIndex] || '';
+    }
     console.error('Error loading highlights for current page:', error);
   }
 }
@@ -1076,6 +1092,9 @@ function paginateBothTranscripts(rawTranscript, processedTranscript) {
   if (processedTranscriptPages.length === 0) {
     processedTranscriptPages.push("No processed transcript available.");
   }
+
+  // Reset cached highlights whenever pagination is recalculated
+  highlightsPages = new Array(rawTranscriptPages.length).fill('');
 
   // Reset the current page index and update UI
   currentPageIndex = 0;
