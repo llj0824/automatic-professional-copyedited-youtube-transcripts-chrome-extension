@@ -1255,6 +1255,41 @@ function updatePaginationUI() {
   updatePageInfo();
 }
 
+function updateTabStates() {
+  // Preserve current tab state (default raw) and reapply visibility rules
+  const activeTab = currentTab || TabState.RAW;
+
+  if (tabButtons) {
+    tabButtons.forEach(button => {
+      const tab = button.getAttribute('data-tab');
+      button.classList.toggle('active', tab === activeTab);
+    });
+  }
+
+  if (tabContents) {
+    tabContents.forEach(content => {
+      content.classList.toggle('hidden', content.id !== activeTab);
+    });
+  }
+
+  const processButton = document.getElementById('process-btn');
+  const highlightsButton = document.getElementById('generate-highlights-btn');
+  const hasProcessedPage = Boolean(processedTranscriptPages[currentPageIndex]);
+
+  if (processButton) {
+    processButton.classList.toggle('hidden', activeTab === TabState.HIGHLIGHTS);
+  }
+
+  if (highlightsButton) {
+    const shouldShowHighlightsButton =
+      activeTab === TabState.HIGHLIGHTS || (activeTab === TabState.PROCESSED && hasProcessedPage);
+    highlightsButton.classList.toggle('hidden', !shouldShowHighlightsButton);
+  }
+
+  setRawAndProcessedTranscriptText();
+  updatePaginationUI();
+}
+
 /**
  * Displays the current page based on visibility state.
  */

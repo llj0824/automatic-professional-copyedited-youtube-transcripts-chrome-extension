@@ -3,10 +3,11 @@
 
 // LLM-related defaults and per-model settings
 export const LLM_DEFAULTS = {
-  defaultModel: 'gpt-5',
+  defaultModel: 'deepseek/deepseek-v3.1-terminus',
   endpoints: {
     openai: 'https://api.openai.com/v1/responses',
     anthropic: 'https://api.anthropic.com/v1/messages',
+    openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   },
   common: {
     temperature: 0.1,
@@ -15,6 +16,15 @@ export const LLM_DEFAULTS = {
   },
   // Model-specific knobs (converged to GPT-5 variants)
   models: {
+    'deepseek/deepseek-v3.1-terminus': {
+      provider: 'openrouter',
+      maxTokens: 8192,
+      temperature: 0.1,
+      openrouterOverrides: {
+        isEnabled: false,
+        reasoning_effort: 'low',
+      },
+    },
     'gpt-5': {
       provider: 'openai',
       maxOutputTokens: 10000,
