@@ -2,7 +2,7 @@
 
 // Class definition remains the same
 import YoutubeTranscriptRetriever from './youtube_transcript_retrival.js';
-import { OPENAI_ENCRYPTED_API_KEY, ANTHROPIC_ENCRYPTED_API_KEY } from './keys.js'; // adjust the path as needed
+import { OPENAI_ENCRYPTED_API_KEY, ANTHROPIC_ENCRYPTED_API_KEY, OPENROUTER_ENCRYPTED_API_KEY } from './keys.js'; // adjust the path as needed
 import { LLM_DEFAULTS, PROCESSING_DEFAULTS, UI_DEFAULTS } from './config.js';
 
 class LLM_API_Utils {
@@ -11,14 +11,16 @@ class LLM_API_Utils {
     // Use centralized endpoints from config
     this.openai_endpoint = LLM_DEFAULTS.endpoints.openai;
     this.anthropic_endpoint = LLM_DEFAULTS.endpoints.anthropic;
+    this.openrouter_endpoint = LLM_DEFAULTS.endpoints.openrouter;
     
     // Use static constants from keys.js
-    if (!OPENAI_ENCRYPTED_API_KEY || !ANTHROPIC_ENCRYPTED_API_KEY) {
+    if (!OPENAI_ENCRYPTED_API_KEY || !ANTHROPIC_ENCRYPTED_API_KEY || !OPENROUTER_ENCRYPTED_API_KEY) {
       throw new Error("API keys are not set in keys.js.");
     }
     
     this.openai_api_key = this.decryptApiKey(OPENAI_ENCRYPTED_API_KEY);
     this.anthropic_api_key = this.decryptApiKey(ANTHROPIC_ENCRYPTED_API_KEY);
+    this.openrouter_api_key = this.decryptApiKey(OPENROUTER_ENCRYPTED_API_KEY);
 
     // Provide a default highlights prompt text for UI initialization
     try {
@@ -199,6 +201,105 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     }
   }
 
+  async call_openrouter(system_role, prompt, model, max_tokens, temperature) {
+    if (!this.openrouter_api_key) {
+      throw new Error("OpenRouter API key is not set.");
+    }
+
+    const chosenModel = model || LLM_DEFAULTS.defaultModel;
+    const modelCfg = LLM_DEFAULTS.models[chosenModel] || {};
+    const effectiveMax = max_tokens ?? modelCfg.maxTokens ?? modelCfg.maxOutputTokens ?? LLM_DEFAULTS.common.maxOutputTokens;
+
+    try {
+      const reasoningEffort = modelCfg?.openrouterOverrides?.reasoning_effort || 'none';
+      const reasoningMax = modelCfg?.openrouterOverrides?.reasoning_max_tokens || 0;
+      console.info(`[LLM][OpenRouter] endpoint=/v1/chat/completions model=${chosenModel} max_tokens=${effectiveMax} reasoning_effort=${reasoningEffort} reasoning_max=${reasoningMax}`);
+    } catch (_) { /* no-op */ }
+
+    const payload = {
+      model: chosenModel,
+      messages: [
+        ...(system_role ? [{ role: 'system', content: system_role }] : []),
+        { role: 'user', content: prompt }
+      ],
+      temperature: temperature ?? modelCfg.temperature ?? LLM_DEFAULTS.common.temperature,
+      max_tokens: effectiveMax
+    };
+
+    const reasoningOverrides = modelCfg.openrouterOverrides || {};
+    if (typeof reasoningOverrides.reasoning_max_tokens === 'number' && reasoningOverrides.reasoning_max_tokens > 0) {
+      payload.reasoning = { max_tokens: reasoningOverrides.reasoning_max_tokens };
+    } 
+    if (reasoningOverrides.isEnabled && reasoningOverrides.reasoning_effort) {
+      payload.reasoning = { effort: reasoningOverrides.reasoning_effort };
+    }
+
+    const response = await fetch(this.openrouter_endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.openrouter_api_key}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Accept-Encoding': 'identity',
+        'HTTP-Referer': 'https://local.dev',
+        'X-Title': 'automatic-professional-transcript-editor',
+        'User-Agent': 'automatic-professional-transcript-editor/1.0 (popup)'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      let errorData;
+      try { errorData = await response.json(); } catch (_) { errorData = {}; }
+      throw new Error(`OpenRouter API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+    }
+
+    const rawBody = await response.text();
+    if (!rawBody) {
+      throw new Error('OpenRouter API returned an empty response body.');
+    }
+
+    let data;
+    try {
+      data = JSON.parse(rawBody);
+    } catch (parseError) {
+      console.error('[LLM][OpenRouter] Failed to parse JSON response:', parseError);
+      return rawBody.trim();
+    }
+
+    const choice = Array.isArray(data?.choices) ? data.choices[0] : undefined;
+    if (!choice) {
+      return typeof data === 'string' ? data : JSON.stringify(data);
+    }
+
+    const message = choice?.message || {};
+
+    let content = '';
+    if (Array.isArray(message.content)) {
+      content = message.content
+        .map(part => (typeof part?.text === 'string' ? part.text : ''))
+        .filter(Boolean)
+        .join('\n')
+        .trim();
+    } else if (typeof message.content === 'string') {
+      content = message.content.trim();
+    } else if (message.content && typeof message.content === 'object' && typeof message.content.text === 'string') {
+      content = message.content.text.trim();
+    }
+
+    const reasoning = typeof message.reasoning === 'string'
+      ? message.reasoning.trim()
+      : Array.isArray(message.reasoning)
+        ? message.reasoning.map(part => (typeof part === 'string' ? part : '')).filter(Boolean).join('\n').trim()
+        : '';
+
+    console.log(`Reasoning:\n${reasoning}`)
+    if (reasoning) {
+      return `${content}\n\n`.trim();
+    }
+    return content;
+  }
+
   // (No Chat Completions fallback; Responses API is required.)
 
   async call_claude(system_role, prompt, model, max_tokens, temperature) {
@@ -259,6 +360,8 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
         const provider = modelCfg.provider || (chosenModel.toLowerCase().startsWith('claude') ? 'anthropic' : 'openai');
         if (provider === 'anthropic') {
           console.info(`[LLM] provider=Anthropic model=${chosenModel}`);
+        } else if (provider === 'openrouter') {
+          console.info(`[LLM] provider=OpenRouter model=${chosenModel}`);
         } else {
           const reasoningLabel = modelCfg?.openaiOverrides?.reasoning?.effort || 'none';
           const verbosityLabel = modelCfg?.openaiOverrides?.text?.verbosity || 'n/a';
@@ -270,6 +373,9 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
       const provider = modelCfg.provider || (chosenModel.toLowerCase().startsWith('claude') ? 'anthropic' : 'openai');
       if (provider === 'anthropic') {
         return await this.call_claude(system_role, prompt, chosenModel, max_tokens, temperature);
+      }
+      if (provider === 'openrouter') {
+        return await this.call_openrouter(system_role, prompt, chosenModel, max_tokens, temperature);
       }
       return await this.call_openai(system_role, prompt, chosenModel, max_tokens, temperature);
     } catch (error) {
