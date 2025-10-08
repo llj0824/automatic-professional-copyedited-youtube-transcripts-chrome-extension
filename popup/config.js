@@ -3,7 +3,7 @@
 
 // LLM-related defaults and per-model settings
 export const LLM_DEFAULTS = {
-  defaultModel: 'deepseek/deepseek-v3.1-terminus',
+  defaultModel: 'google/gemini-2.5-pro',
   endpoints: {
     openai: 'https://api.openai.com/v1/responses',
     anthropic: 'https://api.anthropic.com/v1/messages',
@@ -16,6 +16,14 @@ export const LLM_DEFAULTS = {
   },
   // Model-specific knobs (converged to GPT-5 variants)
   models: {
+    'google/gemini-2.5-pro': {
+      provider: 'openrouter',
+      maxTokens: 65000,
+      temperature: 0.1,
+      openrouterOverrides: {
+        isEnabled: false
+      }
+    },
     'deepseek/deepseek-v3.1-terminus': {
       provider: 'openrouter',
       maxTokens: 8192,
@@ -27,7 +35,7 @@ export const LLM_DEFAULTS = {
     },
     'gpt-5': {
       provider: 'openai',
-      maxOutputTokens: 10000,
+      maxOutputTokens: 60000,
       // Responses API overrides for GPT-5 (reasoning + verbosity)
       openaiOverrides: {
         reasoning: { effort: 'minimal' },
@@ -39,7 +47,7 @@ export const LLM_DEFAULTS = {
       // No reasoning override (non-reasoning / mini behavior)
       // Use standard temperature-based text generation
       temperature: 0.1,
-      maxOutputTokens: 10000,
+      maxOutputTokens: 60000,
       openaiOverrides: {
         reasoning: { effort: 'minimal' },
         text: { verbosity: 'medium' },
