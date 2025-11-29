@@ -198,20 +198,6 @@ h2, h3 {
   to { transform: rotate(360deg); }
 }
 
-#model-selection {
-  margin-top: 10px;
-}
-
-#model-selection label {
-  display: block;
-  margin-bottom: 5px;
-}
-
-#model-select {
-  width: 100%;
-  padding: 5px;
-}
-
 #language-selection {
   display: flex;
   align-items: center;
