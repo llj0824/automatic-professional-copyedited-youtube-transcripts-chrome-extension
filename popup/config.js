@@ -3,7 +3,7 @@
 
 // LLM-related defaults and per-model settings
 export const LLM_DEFAULTS = {
-  defaultModel: 'google/gemini-2.5-pro',
+  defaultModel: 'openai/gpt-oss-120b',
   endpoints: {
     openai: 'https://api.openai.com/v1/responses',
     anthropic: 'https://api.anthropic.com/v1/messages',
@@ -13,9 +13,22 @@ export const LLM_DEFAULTS = {
     temperature: 0.1,
     // Fallback if model-specific is not provided
     maxOutputTokens: 10000,
+    minOutputTokens: 512,
+    contextReservedTokens: 2048,
   },
   // Model-specific knobs (converged to GPT-5 variants)
   models: {
+    'openai/gpt-oss-120b': {
+      provider: 'openrouter',
+      temperature: 0.1,
+      maxTokens: 131072,
+      maxOutputTokens: 131072,
+      openrouterOverrides: {
+        reasoning: {
+          enabled: true
+        },
+      },
+    },
     'google/gemini-2.5-pro': {
       provider: 'openrouter',
       maxTokens: 65000,

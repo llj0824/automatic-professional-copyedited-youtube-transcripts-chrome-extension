@@ -8,7 +8,7 @@ This Chrome extension automatically retrieves and provides high-quality, profess
 - **Manual Transcript Upload:** Option to manually upload your own transcripts if preferred.
 - **Professional Copyediting:** Provides high-quality, professionally edited transcripts for clarity and accuracy.
 - **Segmented Display:** Transcripts are divided into pages (e.g., 15-minute intervals) for easy navigation.
-
+- **LLM-Powered Processing:** Uses a configurable default LLM (set in `popup/config.js`) for copyediting plus highlight generation (ships with OpenRouter's `openai/gpt-oss-120b`).
 
 ## Installation
 
@@ -27,7 +27,7 @@ This Chrome extension automatically retrieves and provides high-quality, profess
 
 ## Configuration
 
-- **Model Selection:** Choose from available LLM models to enhance or analyze your transcripts.
+- **Default LLM (OpenRouter-ready):** Update `LLM_DEFAULTS.defaultModel` in `popup/config.js` to change which model powers processing. The extension always uses this value, so no other files or UI changes are required. The default ships with OpenRouter's [`openai/gpt-oss-120b`](https://openrouter.ai/openai/gpt-oss-120b/api); swap in any other OpenRouter/OpenAI/Anthropic model you have access to.
 
 ## Contributing
 
@@ -127,8 +127,7 @@ II. Debugging unit and integration tests on Cursor
 * [UI change][important and quick] make tab selection (raw vs processed) visually more obvious.
 * [UIchange] make "process with LLM button more prominent" -> make it green or blue 
 * unit and integration tests are only partially all passing. TBH i'll fix on a per need basis.
-* change to use gpt-4o as default model, maybe even hide the model being used from the UI.
-    - changed back to gpt-4o-mini after optimizing it
+* [done] default model now uses `openai/gpt-oss-120b`; switch models by editing `LLM_DEFAULTS.defaultModel` (UI always reflects this).
 * add unit and LLM-as-judge to automaticaly test responses from LLM.
     - helps track regression in model performance
     - helps tracks effect of changes to prompt/system role.

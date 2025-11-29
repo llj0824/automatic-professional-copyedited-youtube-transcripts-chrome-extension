@@ -107,7 +107,7 @@ This is a Chrome extension that provides professionally copyedited YouTube trans
    - Check Chrome storage limits if issues occur
 
 3. **LLM Processing**
-   - Default model is GPT-4o-mini (optimized prompts)
+   - Default model is openai/gpt-oss-120b (set via `LLM_DEFAULTS.defaultModel`) and routes through OpenRouter.
    - Anthropic Claude also supported but requires API key
 
 ## Testing Strategy

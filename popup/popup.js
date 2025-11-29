@@ -1,7 +1,7 @@
 // popup/popup.js
 
 import LLM_API_Utils from './llm_api_utils.js';
-import { PROCESSING_DEFAULTS } from './config.js';
+import { LLM_DEFAULTS, PROCESSING_DEFAULTS } from './config.js';
 import StorageUtils from './storage_utils.js';
 import Logger from './logger.js';
 import { 
@@ -21,7 +21,7 @@ const CONTEXT_BEGINS_DELIMITER = "*** Background Context ***";
 // Constants are now imported from clipServiceUtils.js
 
 // Declare the variables in a higher scope
-let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, modelSelect, languageSelect;
+let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, languageSelect;
 
 // Add this near other global variables
 const TabState = {
@@ -275,7 +275,6 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     loader = doc.getElementById('loader');
     tabButtons = doc.querySelectorAll('.tab-button');
     tabContents = doc.querySelectorAll('.tab-content');
-    modelSelect = doc.getElementById('model-select');
     languageSelect = doc.getElementById('language-select');
     resetTranscriptBtn = doc.getElementById('reset-transcript-btn');
 
@@ -284,7 +283,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     fontSizeIncrease = doc.getElementById('font-size-increase');
 
     setupTabs(doc, tabButtons, tabContents);
-    setupProcessButton(processBtn, modelSelect, storageUtils);
+    setupProcessButton(processBtn, storageUtils);
     setupPagination(prevBtn, nextBtn, pageInfo);
 
     // Load existing transcripts if available
@@ -447,11 +446,10 @@ function setupTabs(doc, tabButtons, tabContents) {
 /**
  * Sets up the process button event listener.
  * @param {HTMLElement} processBtn - The process button element.
- * @param {HTMLElement} modelSelect - The model selection element.
  * @param {StorageUtils} storageUtils - The StorageUtils instance.
  */
-function setupProcessButton(processBtn, modelSelect, storageUtils) {
-  processBtn.addEventListener('click', () => handleProcessTranscriptClick(modelSelect, storageUtils));
+function setupProcessButton(processBtn, storageUtils) {
+  processBtn.addEventListener('click', () => handleProcessTranscriptClick(storageUtils));
 }
 
 
@@ -638,13 +636,10 @@ function handleNextClick() {
 
 /**
  * Handles processing the transcript when the process button is clicked.
- * @param {HTMLElement} modelSelect - The model selection element.
  * @param {StorageUtils} storageUtils - The StorageUtils instance.
  */
-async function handleProcessTranscriptClick(modelSelect, storageUtils) {
-  const selectedModel = modelSelect.value;
-  const selectedLanguage = languageSelect.value;
-
+async function handleProcessTranscriptClick(storageUtils) {
+  const modelInUse = LLM_DEFAULTS.defaultModel;
   const currentRawPage = rawTranscriptPages[currentPageIndex];
   const videoTitle = extractVideoTitle(currentRawPage);
   const videoId = await storageUtils.getCurrentYouTubeVideoId();
@@ -653,7 +648,7 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
   logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_START, {
     [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
     [Logger.FIELDS.VIDEO_ID]: videoId,
-    [Logger.FIELDS.MODEL]: selectedModel,
+    [Logger.FIELDS.MODEL]: modelInUse,
     [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
     [Logger.FIELDS.TRANSCRIPT_LENGTH]: rawTranscriptPages[currentPageIndex].length
   });
@@ -677,9 +672,6 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
     const loader = document.getElementById('loader');
     loader.classList.remove('hidden');
 
-    // Get the current raw page
-    const currentRawPage = rawTranscriptPages[currentPageIndex];
-
     const startTime = Date.now();
     // Get the language name from the dropdown option text
     const languageOption = languageSelect.options[languageSelect.selectedIndex];
@@ -687,7 +679,7 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
     
     const processedPage = await llmUtils.processTranscriptInParallel({
       transcript: currentRawPage,
-      model_name: selectedModel,
+      model_name: modelInUse,
       partitions: PROCESSING_DEFAULTS.partitions,
       targetLanguage: languageName
     });
@@ -697,7 +689,7 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
     logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_SUCCESS, {
       [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
       [Logger.FIELDS.VIDEO_ID]: videoId,
-      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.MODEL]: modelInUse,
       [Logger.FIELDS.PROCESSING_TIME]: processingTime,
       [Logger.FIELDS.TRANSCRIPT_LENGTH]: currentRawPage.length,
       [Logger.FIELDS.RESPONSE_LENGTH]: processedPage.length,
@@ -731,7 +723,7 @@ async function handleProcessTranscriptClick(modelSelect, storageUtils) {
     logger.logEvent(Logger.EVENTS.PROCESS_TRANSCRIPT_FAILURE, {
       [Logger.FIELDS.ERROR_TYPE]: error.name,
       [Logger.FIELDS.ERROR_MESSAGE]: error.message,
-      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.MODEL]: modelInUse,
       [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
       [Logger.FIELDS.VIDEO_ID]: videoId,
     });
@@ -752,8 +744,7 @@ async function handleGenerateHighlightsClick(storageUtils) {
     return;
   }
 
-  const selectedModel = modelSelect.value;
-  const selectedLanguage = languageSelect.value;
+  const modelInUse = LLM_DEFAULTS.defaultModel;
   const highlightPrompt = document.getElementById('highlight-prompt').value;
   const highlightProcessed = document.getElementById('highlight-processed').value;
 
@@ -778,6 +769,7 @@ async function handleGenerateHighlightsClick(storageUtils) {
     const highlightForPage = await llmUtils.generateHighlights({
       processedTranscript: highlightProcessed,
       customPrompt: highlightPrompt,
+      model_name: modelInUse,
       targetLanguage: languageName
     });
 
@@ -807,7 +799,7 @@ async function handleGenerateHighlightsClick(storageUtils) {
     logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_FAILURE, {
       [Logger.FIELDS.ERROR_TYPE]: error.name,
       [Logger.FIELDS.ERROR_MESSAGE]: error.message,
-      [Logger.FIELDS.MODEL]: selectedModel,
+      [Logger.FIELDS.MODEL]: modelInUse,
       [Logger.FIELDS.VIDEO_ID]: videoId,
     });
     console.error('Error generating highlights:', error);

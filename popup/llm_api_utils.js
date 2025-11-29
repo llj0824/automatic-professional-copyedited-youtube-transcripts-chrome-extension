@@ -201,6 +201,24 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     }
   }
 
+  approximateTokenCount(text) {
+    if (!text) {
+      return 0;
+    }
+    let asciiCount = 0;
+    let nonAsciiCount = 0;
+    for (let i = 0; i < text.length; i++) {
+      if (text.charCodeAt(i) <= 0x7F) {
+        asciiCount++;
+      } else {
+        nonAsciiCount++;
+      }
+    }
+    const asciiEstimate = asciiCount / 3.5;
+    const nonAsciiEstimate = nonAsciiCount * 1.2; // over-estimate to stay safe
+    return Math.ceil(asciiEstimate + nonAsciiEstimate);
+  }
+
   async call_openrouter(system_role, prompt, model, max_tokens, temperature) {
     if (!this.openrouter_api_key) {
       throw new Error("OpenRouter API key is not set.");
@@ -208,12 +226,38 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
 
     const chosenModel = model || LLM_DEFAULTS.defaultModel;
     const modelCfg = LLM_DEFAULTS.models[chosenModel] || {};
-    const effectiveMax = max_tokens ?? modelCfg.maxTokens ?? modelCfg.maxOutputTokens ?? LLM_DEFAULTS.common.maxOutputTokens;
+    const contextLimit = typeof modelCfg.maxContextTokens === 'number'
+      ? modelCfg.maxContextTokens
+      : (typeof modelCfg.maxTokens === 'number' ? modelCfg.maxTokens : null);
+    const reservedTokens = modelCfg.contextReservedTokens ?? LLM_DEFAULTS.common.contextReservedTokens ?? 1024;
+    const minimumOutputTokens = modelCfg.minOutputTokens ?? LLM_DEFAULTS.common.minOutputTokens ?? 256;
+    let effectiveMax = max_tokens ?? modelCfg.maxOutputTokens ?? LLM_DEFAULTS.common.maxOutputTokens;
+    if (contextLimit) {
+      const approxPromptTokens = this.approximateTokenCount(
+        `${system_role || ''}\n${prompt || ''}`
+      );
+      const safeLimit = Math.max(
+        minimumOutputTokens,
+        contextLimit - approxPromptTokens - reservedTokens
+      );
+      if (safeLimit < effectiveMax) {
+        console.info(
+          `[LLM][OpenRouter] reducing max_tokens from ${effectiveMax} to ${safeLimit} ` +
+          `(approx_prompt=${approxPromptTokens}, buffer=${reservedTokens})`
+        );
+      }
+      effectiveMax = Math.min(effectiveMax, safeLimit);
+    }
+    const openrouterOverrides = modelCfg.openrouterOverrides || {};
+    const configuredReasoning = (typeof openrouterOverrides.reasoning === 'object' && openrouterOverrides.reasoning !== null)
+      ? openrouterOverrides.reasoning
+      : null;
 
     try {
-      const reasoningEffort = modelCfg?.openrouterOverrides?.reasoning_effort || 'none';
-      const reasoningMax = modelCfg?.openrouterOverrides?.reasoning_max_tokens || 0;
-      console.info(`[LLM][OpenRouter] endpoint=/v1/chat/completions model=${chosenModel} max_tokens=${effectiveMax} reasoning_effort=${reasoningEffort} reasoning_max=${reasoningMax}`);
+      const reasoningEffort = configuredReasoning?.effort ?? openrouterOverrides.reasoning_effort ?? 'none';
+      const reasoningMax = configuredReasoning?.max_tokens ?? openrouterOverrides.reasoning_max_tokens ?? 0;
+      const reasoningEnabled = configuredReasoning?.enabled ?? openrouterOverrides.isEnabled ?? false;
+      console.info(`[LLM][OpenRouter] endpoint=/v1/chat/completions model=${chosenModel} max_tokens=${effectiveMax} reasoning_enabled=${reasoningEnabled} reasoning_effort=${reasoningEffort} reasoning_max=${reasoningMax}`);
     } catch (_) { /* no-op */ }
 
     const payload = {
@@ -226,12 +270,18 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
       max_tokens: effectiveMax
     };
 
-    const reasoningOverrides = modelCfg.openrouterOverrides || {};
-    if (typeof reasoningOverrides.reasoning_max_tokens === 'number' && reasoningOverrides.reasoning_max_tokens > 0) {
-      payload.reasoning = { max_tokens: reasoningOverrides.reasoning_max_tokens };
-    } 
-    if (reasoningOverrides.isEnabled && reasoningOverrides.reasoning_effort) {
-      payload.reasoning = { effort: reasoningOverrides.reasoning_effort };
+    const reasoningPayload = {};
+    if (configuredReasoning) {
+      Object.assign(reasoningPayload, configuredReasoning);
+    }
+    if (typeof openrouterOverrides.reasoning_max_tokens === 'number' && openrouterOverrides.reasoning_max_tokens > 0 && reasoningPayload.max_tokens === undefined) {
+      reasoningPayload.max_tokens = openrouterOverrides.reasoning_max_tokens;
+    }
+    if (openrouterOverrides.isEnabled && openrouterOverrides.reasoning_effort && reasoningPayload.effort === undefined) {
+      reasoningPayload.effort = openrouterOverrides.reasoning_effort;
+    }
+    if (Object.keys(reasoningPayload).length > 0) {
+      payload.reasoning = reasoningPayload;
     }
 
     const response = await fetch(this.openrouter_endpoint, {
