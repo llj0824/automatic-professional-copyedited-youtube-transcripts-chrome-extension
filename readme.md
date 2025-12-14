@@ -8,7 +8,7 @@ This Chrome extension automatically retrieves and provides high-quality, profess
 - **Manual Transcript Upload:** Option to manually upload your own transcripts if preferred.
 - **Professional Copyediting:** Provides high-quality, professionally edited transcripts for clarity and accuracy.
 - **Segmented Display:** Transcripts are divided into pages (e.g., 15-minute intervals) for easy navigation.
-- **LLM-Powered Processing:** Uses a configurable default LLM (set in `popup/config.js`) for copyediting plus highlight generation (ships with OpenRouter's `openai/gpt-oss-120b`).
+- **LLM-Powered Processing:** Pick an LLM from the Model dropdown (options come from `popup/config.js`) for copyediting and highlight generation; ships with OpenRouter's `openai/gpt-oss-120b` as the default.
 
 ## Installation
 
@@ -27,7 +27,7 @@ This Chrome extension automatically retrieves and provides high-quality, profess
 
 ## Configuration
 
-- **Default LLM (OpenRouter-ready):** Update `LLM_DEFAULTS.defaultModel` in `popup/config.js` to change which model powers processing. The extension always uses this value, so no other files or UI changes are required. The default ships with OpenRouter's [`openai/gpt-oss-120b`](https://openrouter.ai/openai/gpt-oss-120b/api); swap in any other OpenRouter/OpenAI/Anthropic model you have access to.
+- **LLM options:** The Model dropdown is populated from `LLM_DEFAULTS.models` in `popup/config.js` (with `LLM_DEFAULTS.defaultModel` as the fallback/initial choice). Add or tweak entries there to make more models available; the user's selection is saved automatically.
 
 ## Contributing
 

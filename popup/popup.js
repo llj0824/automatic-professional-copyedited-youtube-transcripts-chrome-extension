@@ -1,7 +1,7 @@
 // popup/popup.js
 
 import LLM_API_Utils from './llm_api_utils.js';
-import { LLM_DEFAULTS, PROCESSING_DEFAULTS } from './config.js';
+import { LLM_DEFAULTS, PROCESSING_DEFAULTS, MODEL_OPTIONS } from './config.js';
 import StorageUtils from './storage_utils.js';
 import Logger from './logger.js';
 import { 
@@ -21,7 +21,7 @@ const CONTEXT_BEGINS_DELIMITER = "*** Background Context ***";
 // Constants are now imported from clipServiceUtils.js
 
 // Declare the variables in a higher scope
-let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, languageSelect;
+let transcriptDisplay, processedDisplay, prevBtn, nextBtn, pageInfo, processBtn, loader, tabButtons, tabContents, languageSelect, modelSelect;
 
 // Add this near other global variables
 const TabState = {
@@ -50,6 +50,7 @@ let storageUtilsRef = null;
 // Add these variables to the top-level declarations
 let fontSizeDecrease, fontSizeIncrease;
 let currentFontSize = 12; // Default font size in px
+let currentModelName = LLM_DEFAULTS.defaultModel; // Default model selection
 
 // Add these variables to the top-level declarations
 let generateHighlightsBtn;
@@ -276,6 +277,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     tabButtons = doc.querySelectorAll('.tab-button');
     tabContents = doc.querySelectorAll('.tab-content');
     languageSelect = doc.getElementById('language-select');
+    modelSelect = doc.getElementById('model-select');
     resetTranscriptBtn = doc.getElementById('reset-transcript-btn');
 
     // Add new element declarations
@@ -285,6 +287,7 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
     setupTabs(doc, tabButtons, tabContents);
     setupProcessButton(processBtn, storageUtils);
     setupPagination(prevBtn, nextBtn, pageInfo);
+    setupModelSelection(modelSelect, storageUtils);
 
     // Load existing transcripts if available
     const videoId = await storageUtils.getCurrentYouTubeVideoId();
@@ -538,6 +541,61 @@ function setupFontSizeControls(decreaseBtn, increaseBtn, storageUtils) {
   });
 }
 
+function setupModelSelection(modelSelectEl, storageUtils) {
+  if (!modelSelectEl) {
+    console.warn('Model select element not found; falling back to default model.');
+    return;
+  }
+
+  const normalizeModel = (model) => {
+    if (!model) return model;
+    // Backward compatibility for deprecated slugs
+    if (model === 'x-ai/grok-4.1-fast:free') {
+      return 'x-ai/grok-4.1-fast';
+    }
+    return model;
+  };
+
+  modelSelectEl.innerHTML = '';
+  MODEL_OPTIONS.forEach(({ value, label }) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    modelSelectEl.appendChild(option);
+  });
+  modelSelectEl.value = currentModelName;
+
+  (async () => {
+    try {
+      const savedModelRaw = await storageUtils.loadModelPreference();
+      const savedModel = normalizeModel(savedModelRaw);
+      const validModels = new Set(MODEL_OPTIONS.map(opt => opt.value));
+      const initialModel = validModels.has(savedModel) ? savedModel : LLM_DEFAULTS.defaultModel;
+      currentModelName = initialModel;
+      modelSelectEl.value = initialModel;
+      if (savedModel !== savedModelRaw || !validModels.has(savedModel)) {
+        await storageUtils.saveModelPreference(initialModel);
+      }
+    } catch (error) {
+      console.error('Error loading model preference:', error);
+      currentModelName = LLM_DEFAULTS.defaultModel;
+      modelSelectEl.value = currentModelName;
+    }
+  })();
+
+  modelSelectEl.addEventListener('change', async () => {
+    currentModelName = modelSelectEl.value || LLM_DEFAULTS.defaultModel;
+    try {
+      await storageUtils.saveModelPreference(currentModelName);
+      logger.logEvent(Logger.EVENTS.MODEL_CHANGED, {
+        [Logger.FIELDS.MODEL]: currentModelName
+      });
+    } catch (error) {
+      console.error('Error saving model preference:', error);
+    }
+  });
+}
+
 function setupLanguageSelection(languageSelect, storageUtils) {
   // Load saved language preference when initializing
   (async () => {
@@ -639,7 +697,7 @@ function handleNextClick() {
  * @param {StorageUtils} storageUtils - The StorageUtils instance.
  */
 async function handleProcessTranscriptClick(storageUtils) {
-  const modelInUse = LLM_DEFAULTS.defaultModel;
+  const modelInUse = getActiveModelName();
   const currentRawPage = rawTranscriptPages[currentPageIndex];
   const videoTitle = extractVideoTitle(currentRawPage);
   const videoId = await storageUtils.getCurrentYouTubeVideoId();
@@ -744,7 +802,7 @@ async function handleGenerateHighlightsClick(storageUtils) {
     return;
   }
 
-  const modelInUse = LLM_DEFAULTS.defaultModel;
+  const modelInUse = getActiveModelName();
   const highlightPrompt = document.getElementById('highlight-prompt').value;
   const highlightProcessed = document.getElementById('highlight-processed').value;
 
@@ -756,6 +814,7 @@ async function handleGenerateHighlightsClick(storageUtils) {
   logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_START, {
     [Logger.FIELDS.VIDEO_ID]: videoId,
     [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
+    [Logger.FIELDS.MODEL]: modelInUse,
     [Logger.FIELDS.TRANSCRIPT_LENGTH]: highlightProcessed.length,
   });
 
@@ -789,6 +848,7 @@ async function handleGenerateHighlightsClick(storageUtils) {
     logger.logEvent(Logger.EVENTS.HIGHLIGHTS_GENERATION_SUCCESS, {
       [Logger.FIELDS.VIDEO_ID]: videoId,
       [Logger.FIELDS.VIDEO_TITLE]: videoTitle,
+      [Logger.FIELDS.MODEL]: modelInUse,
       [Logger.FIELDS.HIGHLIGHTS_GENERATION_RESULT]: highlightForPage,
       [Logger.FIELDS.PAGE_INDEX]: currentPageIndex,
       [Logger.FIELDS.HIGHLIGHTS_LENGTH]: highlightForPage.length,
@@ -848,11 +908,12 @@ async function loadHighlightsForCurrentPage() {
  */
 function getCurrentDisplayPagesNumbers() {
   // note: let's always use number of raw pages.
-  return rawTranscriptPages
+  return rawTranscriptPages;
 }
 
-
-
+function getActiveModelName() {
+  return currentModelName || LLM_DEFAULTS.defaultModel;
+}
 
 /**
  * Extracts the video title from a transcript page's context block

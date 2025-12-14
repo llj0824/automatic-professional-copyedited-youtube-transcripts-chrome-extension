@@ -252,12 +252,11 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     const configuredReasoning = (typeof openrouterOverrides.reasoning === 'object' && openrouterOverrides.reasoning !== null)
       ? openrouterOverrides.reasoning
       : null;
+    const configuredReasoningEffort = configuredReasoning?.effort ?? openrouterOverrides.reasoning_effort;
 
     try {
-      const reasoningEffort = configuredReasoning?.effort ?? openrouterOverrides.reasoning_effort ?? 'none';
-      const reasoningMax = configuredReasoning?.max_tokens ?? openrouterOverrides.reasoning_max_tokens ?? 0;
-      const reasoningEnabled = configuredReasoning?.enabled ?? openrouterOverrides.isEnabled ?? false;
-      console.info(`[LLM][OpenRouter] endpoint=/v1/chat/completions model=${chosenModel} max_tokens=${effectiveMax} reasoning_enabled=${reasoningEnabled} reasoning_effort=${reasoningEffort} reasoning_max=${reasoningMax}`);
+      const reasoningEffort = configuredReasoningEffort ?? 'none';
+      console.info(`[LLM][OpenRouter] endpoint=/v1/chat/completions model=${chosenModel} max_tokens=${effectiveMax} reasoning_effort=${reasoningEffort}`);
     } catch (_) { /* no-op */ }
 
     const payload = {
@@ -271,14 +270,8 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     };
 
     const reasoningPayload = {};
-    if (configuredReasoning) {
-      Object.assign(reasoningPayload, configuredReasoning);
-    }
-    if (typeof openrouterOverrides.reasoning_max_tokens === 'number' && openrouterOverrides.reasoning_max_tokens > 0 && reasoningPayload.max_tokens === undefined) {
-      reasoningPayload.max_tokens = openrouterOverrides.reasoning_max_tokens;
-    }
-    if (openrouterOverrides.isEnabled && openrouterOverrides.reasoning_effort && reasoningPayload.effort === undefined) {
-      reasoningPayload.effort = openrouterOverrides.reasoning_effort;
+    if (configuredReasoningEffort) {
+      reasoningPayload.effort = configuredReasoningEffort;
     }
     if (Object.keys(reasoningPayload).length > 0) {
       payload.reasoning = reasoningPayload;
