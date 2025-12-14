@@ -11,6 +11,7 @@ class Logger {
     PAGE_NAVIGATION: 'page_navigation',
     TAB_SWITCH: 'tab_switch',
     FONT_SIZE_CHANGE: 'font_size_change',
+    MODEL_CHANGED: 'model_changed',
     COPY_ATTEMPT: 'copy_attempt',
     COPY_SUCCESS: 'copy_success',
     MANUAL_TRANSCRIPT_LOAD: 'manual_transcript_load',

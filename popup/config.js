@@ -1,6 +1,17 @@
 // popup/config.js
 // Centralized configuration for models, processing, and UI defaults.
 
+// Processing defaults, including page/partition behavior
+export const PROCESSING_DEFAULTS = {
+  // How many partitions a single transcript page is split into for parallel LLM calls
+  partitions: 2,
+  // For highlights generation we currently do a single call per page
+  highlightPartitions: 1,
+  // How long (in seconds) a page covers in the UI pagination
+  pageDurationSec: 30 * 60,
+};
+
+
 // LLM-related defaults and per-model settings
 export const LLM_DEFAULTS = {
   defaultModel: 'openai/gpt-oss-120b',
@@ -12,72 +23,95 @@ export const LLM_DEFAULTS = {
   common: {
     temperature: 0.1,
     // Fallback if model-specific is not provided
-    maxOutputTokens: 10000,
-    minOutputTokens: 512,
-    contextReservedTokens: 2048,
+    maxOutputTokens: 30000,
+    openrouterOverrides: {
+      reasoning: {
+        effort: 'medium'
+      },
+    },
   },
   // Model-specific knobs (converged to GPT-5 variants)
   models: {
-    'openai/gpt-oss-120b': {
+    'openai/gpt-5.2': {
+      label: 'GPT-5.2',
       provider: 'openrouter',
       temperature: 0.1,
-      maxTokens: 131072,
-      maxOutputTokens: 131072,
+      maxOutputTokens: 200000,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          enabled: true
+          effort: 'medium'
         },
       },
     },
-    'google/gemini-2.5-pro': {
+    'openai/gpt-oss-120b': {
+      label: 'OpenAI GPT-OSS 120B (OpenRouter)',
       provider: 'openrouter',
-      maxTokens: 65000,
       temperature: 0.1,
+      maxTokens: 131072,          // from OpenRouter context_length
+      maxOutputTokens: 32768,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
-        isEnabled: false
-      }
-    },
-    'deepseek/deepseek-v3.1-terminus': {
-      provider: 'openrouter',
-      maxTokens: 8192,
-      temperature: 0.1,
-      openrouterOverrides: {
-        isEnabled: false,
-        reasoning_effort: 'low',
+        reasoning: {
+          effort: 'medium'
+        },
       },
     },
-    'gpt-5': {
-      provider: 'openai',
-      maxOutputTokens: 60000,
-      // Responses API overrides for GPT-5 (reasoning + verbosity)
-      openaiOverrides: {
-        reasoning: { effort: 'minimal' },
-        text: { verbosity: 'high' },
+    'x-ai/grok-4.1-fast': {
+      label: 'Grok 4.1 Fast (OpenRouter)',
+      provider: 'openrouter',
+      temperature: 0.7,           // OpenRouter default temperature
+      maxTokens: 2000000,         // from OpenRouter context_length
+      maxOutputTokens: 30000,     // from OpenRouter max_completion_tokens
+      openrouterOverrides: {
+        reasoning: {
+          effort: 'medium'
+        },
       },
     },
-    'gpt-5-minimal': {
-      provider: 'openai',
-      // No reasoning override (non-reasoning / mini behavior)
-      // Use standard temperature-based text generation
+    'moonshotai/kimi-k2-thinking': {
+      label: 'MoonshotAI Kimi K2 Thinking (OpenRouter)',
+      provider: 'openrouter',
       temperature: 0.1,
-      maxOutputTokens: 60000,
-      openaiOverrides: {
-        reasoning: { effort: 'minimal' },
-        text: { verbosity: 'medium' },
+      maxTokens: 262144,          // from OpenRouter context_length
+      maxOutputTokens: 16384,     // from OpenRouter max_completion_tokens
+      openrouterOverrides: {
+        reasoning: {
+          effort: 'medium'
+        },
+      },
+    },
+    'google/gemini-3-pro-preview': {
+      label: 'Gemini 3 Pro Preview (OpenRouter)',
+      provider: 'openrouter',
+      temperature: 0.1,
+      maxTokens: 1048576,         // from OpenRouter context_length
+      maxOutputTokens: 65536,     // from OpenRouter max_completion_tokens
+      openrouterOverrides: {
+        reasoning: {
+          effort: 'medium'
+        },
       },
     },
   },
 };
 
-// Processing defaults, including page/partition behavior
-export const PROCESSING_DEFAULTS = {
-  // How many partitions a single transcript page is split into for parallel LLM calls
-  partitions: 6,
-  // For highlights generation we currently do a single call per page
-  highlightPartitions: 1,
-  // How long (in seconds) a page covers in the UI pagination
-  pageDurationSec: 30 * 60,
-};
+// Derived list of model options for UI drop-downs and validation
+const mappedModelOptions = Object.entries(LLM_DEFAULTS.models).map(
+  ([modelName, cfg]) => ({
+    value: modelName,
+    label: cfg.label || modelName,
+    provider: cfg.provider || 'openai'
+  })
+);
+
+if (!mappedModelOptions.some(option => option.value === LLM_DEFAULTS.defaultModel)) {
+  mappedModelOptions.unshift({
+    value: LLM_DEFAULTS.defaultModel,
+    label: LLM_DEFAULTS.defaultModel,
+    provider: 'openai'
+  });
+}
+
+export const MODEL_OPTIONS = mappedModelOptions;
 
 // UI defaults
 export const UI_DEFAULTS = {

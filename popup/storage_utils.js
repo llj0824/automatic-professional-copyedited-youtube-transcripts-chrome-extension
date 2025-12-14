@@ -1,5 +1,5 @@
 // popup/storage_utils.js
-import { UI_DEFAULTS } from './config.js';
+import { UI_DEFAULTS, LLM_DEFAULTS } from './config.js';
 
 /**
  * StorageUtils - Manages YouTube video transcript storage in Chrome's local storage.
@@ -28,6 +28,8 @@ class StorageUtils {
       throw new Error('chrome.storage API is not available.');
     }
     this.KEY_PREFIX = 'youtube_video:'; // Prefix for human-readable keys
+    this.METADATA_KEY = `${this.KEY_PREFIX}__metadata`; // Tracks last-updated timestamps
+    this.EVICTION_FRACTION = 0.65; // Remove ~65% of oldest entries when over quota
   }
 
   /**
@@ -69,6 +71,89 @@ class StorageUtils {
   }
 
   /**
+   * Detects quota errors from chrome.runtime.lastError
+   */
+  isQuotaError(error) {
+    const msg = (error && error.message) ? error.message.toLowerCase() : String(error).toLowerCase();
+    return msg.includes('quota');
+  }
+
+  /**
+   * Runs a storage operation and retries once after evicting old entries on quota errors.
+   * @param {Function} operationFn - Function returning a Promise for the storage operation.
+   * @returns {Promise<void>}
+   */
+  async runWithEviction(operationFn) {
+    try {
+      return await operationFn();
+    } catch (error) {
+      if (this.isQuotaError(error)) {
+        console.warn('Quota exceeded. Evicting old entries...');
+        await this.evictOldEntries();
+        return operationFn();
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Removes the oldest stored entries (based on last update time) to free space.
+   * Deletes roughly EVICTION_FRACTION of the oldest items with the KEY_PREFIX.
+   */
+  evictOldEntries() {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(null, (allItems) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+          return;
+        }
+
+        const metadata = allItems[this.METADATA_KEY] || {};
+        const prefixedKeys = Object.keys(allItems).filter(
+          (key) => key.startsWith(this.KEY_PREFIX) && key !== this.METADATA_KEY
+        );
+
+        if (prefixedKeys.length === 0) {
+          console.warn('No entries to evict.');
+          resolve();
+          return;
+        }
+
+        const datedKeys = prefixedKeys.map((key) => ({
+          key,
+          updatedAt: metadata[key] || (allItems[key] && allItems[key]._updatedAt) || 0,
+        }));
+
+        datedKeys.sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+
+        const deleteCount = Math.max(1, Math.ceil(datedKeys.length * this.EVICTION_FRACTION));
+        const keysToDelete = datedKeys.slice(0, deleteCount).map((entry) => entry.key);
+
+        chrome.storage.local.remove(keysToDelete, () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+            return;
+          }
+
+          const updatedMetadata = { ...metadata };
+          keysToDelete.forEach((key) => {
+            delete updatedMetadata[key];
+          });
+
+          chrome.storage.local.set({ [this.METADATA_KEY]: updatedMetadata }, () => {
+            if (chrome.runtime.lastError) {
+              reject(chrome.runtime.lastError);
+            } else {
+              console.warn(`Evicted ${keysToDelete.length} entries to free storage space.`);
+              resolve();
+            }
+          });
+        });
+      });
+    });
+  }
+
+  /**
    * Saves the raw transcript for a specific YouTube video by video ID.
    * @param {string} videoId - The YouTube video ID.
    * @param {string} rawTranscript - The raw transcript text to save.
@@ -86,25 +171,40 @@ class StorageUtils {
     data[storageKey] = { rawTranscript };
 
     return new Promise((resolve, reject) => {
-      chrome.storage.local.get([storageKey], (result) => {
+      chrome.storage.local.get([storageKey, this.METADATA_KEY], (result) => {
         if (chrome.runtime.lastError) {
           console.error('Error retrieving existing data:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
           return;
         }
         const existingData = result[storageKey] || {};
-        const updatedData = { ...existingData, rawTranscript };
+        const metadata = result[this.METADATA_KEY] || {};
+        const updatedAt = Date.now();
+        const updatedData = { ...existingData, rawTranscript, _updatedAt: updatedAt };
+        const updatedMetadata = { ...metadata, [storageKey]: updatedAt };
         data[storageKey] = updatedData;
+        data[this.METADATA_KEY] = updatedMetadata;
 
-        chrome.storage.local.set(data, () => {
-          if (chrome.runtime.lastError) {
-            console.error('Error saving raw transcript:', chrome.runtime.lastError);
-            reject(chrome.runtime.lastError);
-          } else {
+        const attemptSave = () =>
+          new Promise((innerResolve, innerReject) => {
+            chrome.storage.local.set(data, () => {
+              if (chrome.runtime.lastError) {
+                innerReject(chrome.runtime.lastError);
+              } else {
+                innerResolve();
+              }
+            });
+          });
+
+        this.runWithEviction(attemptSave)
+          .then(() => {
             console.log('Raw transcript saved successfully for Video ID:', videoId);
             resolve();
-          }
-        });
+          })
+          .catch((error) => {
+            console.error('Error saving raw transcript:', error);
+            reject(error);
+          });
       });
     });
   }
@@ -125,7 +225,7 @@ class StorageUtils {
     const storageKey = this.generateStorageKey(videoId);
 
     return new Promise((resolve, reject) => {
-      chrome.storage.local.get([storageKey], (result) => {
+      chrome.storage.local.get([storageKey, this.METADATA_KEY], (result) => {
         if (chrome.runtime.lastError) {
           console.error('Error retrieving existing data:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
@@ -133,17 +233,34 @@ class StorageUtils {
         }
 
         const existingData = result[storageKey] || {};
-        const updatedData = { ...existingData, processedTranscript };
+        const metadata = result[this.METADATA_KEY] || {};
+        const updatedAt = Date.now();
+        const updatedData = { ...existingData, processedTranscript, _updatedAt: updatedAt };
+        const updatedMetadata = { ...metadata, [storageKey]: updatedAt };
 
-        chrome.storage.local.set({ [storageKey]: updatedData }, () => {
-          if (chrome.runtime.lastError) {
-            console.error('Error saving processed transcript:', chrome.runtime.lastError);
-            reject(chrome.runtime.lastError);
-          } else {
+        const attemptSave = () =>
+          new Promise((innerResolve, innerReject) => {
+            chrome.storage.local.set(
+              { [storageKey]: updatedData, [this.METADATA_KEY]: updatedMetadata },
+              () => {
+                if (chrome.runtime.lastError) {
+                  innerReject(chrome.runtime.lastError);
+                } else {
+                  innerResolve();
+                }
+              }
+            );
+          });
+
+        this.runWithEviction(attemptSave)
+          .then(() => {
             console.log(`Processed transcript saved successfully for Video ID: ${videoId}`);
             resolve();
-          }
-        });
+          })
+          .catch((error) => {
+            console.error('Error saving processed transcript:', error);
+            reject(error);
+          });
       });
     });
   }
@@ -195,14 +312,33 @@ class StorageUtils {
     const storageKey = this.generateStorageKey(videoId);
 
     return new Promise((resolve, reject) => {
-      chrome.storage.local.remove([storageKey], () => {
+      chrome.storage.local.get([this.METADATA_KEY], (result) => {
         if (chrome.runtime.lastError) {
-          console.error('Error removing transcripts:', chrome.runtime.lastError);
+          console.error('Error loading metadata:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
-        } else {
-          console.log('Transcripts removed successfully for Storage Key:', storageKey);
-          resolve();
+          return;
         }
+
+        const metadata = result[this.METADATA_KEY] || {};
+        delete metadata[storageKey];
+
+        chrome.storage.local.remove([storageKey], () => {
+          if (chrome.runtime.lastError) {
+            console.error('Error removing transcripts:', chrome.runtime.lastError);
+            reject(chrome.runtime.lastError);
+            return;
+          }
+
+          chrome.storage.local.set({ [this.METADATA_KEY]: metadata }, () => {
+            if (chrome.runtime.lastError) {
+              console.error('Error updating metadata after removal:', chrome.runtime.lastError);
+              reject(chrome.runtime.lastError);
+            } else {
+              console.log('Transcripts removed successfully for Storage Key:', storageKey);
+              resolve();
+            }
+          });
+        });
       });
     });
   }
@@ -284,6 +420,44 @@ class StorageUtils {
   }
 
   /**
+   * Persists the preferred LLM model to local storage
+   * @param {string} modelName
+   * @returns {Promise<void>}
+   */
+  saveModelPreference(modelName) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set({ 'llm_model_preference': modelName }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error saving model preference:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          console.log('Model preference saved successfully:', modelName);
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Loads the preferred LLM model from local storage
+   * @returns {Promise<string>}
+   */
+  loadModelPreference() {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(['llm_model_preference'], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error loading model preference:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+        } else {
+          const modelName = result.llm_model_preference || LLM_DEFAULTS.defaultModel;
+          console.log('Model preference loaded:', modelName);
+          resolve(modelName);
+        }
+      });
+    });
+  }
+
+  /**
    * Generates a storage key for highlights of a specific page
    * @param {string} videoId - The YouTube video ID
    * @param {number} pageNumber - The page number
@@ -309,14 +483,39 @@ class StorageUtils {
     const storageKey = this.generateHighlightsKey(videoId, pageNumber);
 
     return new Promise((resolve, reject) => {
-      chrome.storage.local.set({ [storageKey]: highlights }, () => {
+      chrome.storage.local.get([this.METADATA_KEY], (result) => {
         if (chrome.runtime.lastError) {
-          console.error('Error saving highlights:', chrome.runtime.lastError);
+          console.error('Error retrieving metadata:', chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
-        } else {
-          console.log(`Highlights saved successfully for Video ID: ${videoId}, Page: ${pageNumber}`);
-          resolve();
+          return;
         }
+
+        const metadata = result[this.METADATA_KEY] || {};
+        const updatedMetadata = { ...metadata, [storageKey]: Date.now() };
+
+        const attemptSave = () =>
+          new Promise((innerResolve, innerReject) => {
+            chrome.storage.local.set(
+              { [storageKey]: highlights, [this.METADATA_KEY]: updatedMetadata },
+              () => {
+                if (chrome.runtime.lastError) {
+                  innerReject(chrome.runtime.lastError);
+                } else {
+                  innerResolve();
+                }
+              }
+            );
+          });
+
+        this.runWithEviction(attemptSave)
+          .then(() => {
+            console.log(`Highlights saved successfully for Video ID: ${videoId}, Page: ${pageNumber}`);
+            resolve();
+          })
+          .catch((error) => {
+            console.error('Error saving highlights:', error);
+            reject(error);
+          });
       });
     });
   }
