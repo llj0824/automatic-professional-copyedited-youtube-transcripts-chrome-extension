@@ -29,8 +29,67 @@ function isTranscriptPanelOpen() {
   return !!document.querySelector(SELECTORS.transcriptPanels);
 }
 
+// Safely join YouTube's `runs` arrays into a string
+function textFromRuns(runs) {
+  return runs?.map(run => run.text).join('')?.trim() || '';
+}
+
+// Parse inline JSON blobs (ytInitialData/ytInitialPlayerResponse) from script tags
+function extractJsonFromScripts(varName) {
+  const scripts = document.querySelectorAll('script');
+  const regex = new RegExp(`${varName}\\s*=\\s*({[\\s\\S]*?});`);
+  
+  for (const script of scripts) {
+    const text = script.textContent;
+    if (!text || !text.includes(varName)) continue;
+    
+    const match = text.match(regex);
+    if (match) {
+      try {
+        return JSON.parse(match[1]);
+      } catch (error) {
+        console.warn(`Failed to parse ${varName} JSON`, error);
+      }
+    }
+  }
+  
+  return null;
+}
+
+// Fallback description extractor that reads structured data instead of DOM
+function extractDescriptionFromInitialData(initialData) {
+  const data = initialData;
+  if (!data) return null;
+
+  const contents = data?.contents?.twoColumnWatchNextResults?.results?.results?.contents || [];
+  for (const content of contents) {
+    const renderer = content?.videoSecondaryInfoRenderer;
+    if (!renderer) continue;
+
+    if (renderer.attributedDescription?.content) {
+      return renderer.attributedDescription.content.trim();
+    }
+
+    const attributedRuns = textFromRuns(renderer.attributedDescription?.runs);
+    if (attributedRuns) return attributedRuns;
+
+    if (renderer.description?.simpleText) {
+      return renderer.description.simpleText.trim();
+    }
+
+    const descriptionRuns = textFromRuns(renderer.description?.runs);
+    if (descriptionRuns) return descriptionRuns;
+  }
+
+  return null;
+}
+
 function extractVideoMetadata() {
   try {
+    // Grab structured data from DOM scripts because content scripts can't directly read page globals
+    const initialData = window.ytInitialData || extractJsonFromScripts('ytInitialData');
+    const playerResponse = window.ytInitialPlayerResponse || extractJsonFromScripts('ytInitialPlayerResponse');
+
     // Try to get title from multiple sources
     let titleElement = null;
     for (const selector of SELECTORS.videoTitle) {
@@ -45,7 +104,13 @@ function extractVideoMetadata() {
       descriptionElement = document.querySelector(selector);
       if (descriptionElement) break;
     }
-    let description = descriptionElement?.textContent?.trim() || 'No description available';
+    let description = (
+      descriptionElement?.textContent?.trim() ||
+      extractDescriptionFromInitialData(initialData) ||
+      playerResponse?.microformat?.playerMicroformatRenderer?.description?.simpleText?.trim() ||
+      playerResponse?.videoDetails?.shortDescription?.trim() ||
+      'No description available'
+    );
 
     // Extract first paragraph and timestamps
     if (description && description !== 'No description available') {
