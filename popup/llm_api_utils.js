@@ -118,6 +118,15 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
   decryptApiKey(encryptedHex) {
     const key = 'assoonasigetusersthisisgoingtobeabackendserverandyoucantstealmykeyanymoreha';
 
+    if (!encryptedHex || typeof encryptedHex !== 'string') {
+      return '';
+    }
+
+    // If the input isn't a valid hex payload, assume it's already plaintext.
+    if (encryptedHex.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(encryptedHex)) {
+      return encryptedHex;
+    }
+
     // Convert hex string to characters
     const encrypted = encryptedHex.match(/.{2}/g)
       .map(hex => String.fromCharCode(parseInt(hex, 16)))

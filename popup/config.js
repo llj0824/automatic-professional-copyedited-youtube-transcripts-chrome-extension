@@ -11,6 +11,7 @@ export const PROCESSING_DEFAULTS = {
   pageDurationSec: 30 * 60,
 };
 
+export const ZHIPUP_MODEL = 'z-ai/glm-4.7';
 
 // LLM-related defaults and per-model settings
 export const LLM_DEFAULTS = {
@@ -88,6 +89,15 @@ export const LLM_DEFAULTS = {
       openrouterOverrides: {
         reasoning: {
           effort: 'medium'
+        },
+      },
+    },
+    [ZHIPUP_MODEL]: {
+      label: 'Zhipu GLM-4.7 (OpenRouter)',
+      provider: 'openrouter',
+      openrouterOverrides: {
+        reasoning: {
+          effort: 'none'
         },
       },
     },
