@@ -338,7 +338,7 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
     } else if (message.content && typeof message.content === 'object' && typeof message.content.text === 'string') {
       content = message.content.text.trim();
     }
-
+    
     const reasoning = typeof message.reasoning === 'string'
       ? message.reasoning.trim()
       : Array.isArray(message.reasoning)
