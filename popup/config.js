@@ -27,7 +27,7 @@ export const LLM_DEFAULTS = {
     maxOutputTokens: 30000,
     openrouterOverrides: {
       reasoning: {
-        effort: 'medium'
+        effort: 'none'
       },
     },
   },
@@ -40,7 +40,7 @@ export const LLM_DEFAULTS = {
       maxOutputTokens: 200000,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'medium'
+          effort: 'none'
         },
       },
     },
@@ -52,7 +52,7 @@ export const LLM_DEFAULTS = {
       maxOutputTokens: 32768,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'medium'
+          effort: 'none'
         },
       },
     },
@@ -64,7 +64,7 @@ export const LLM_DEFAULTS = {
       maxOutputTokens: 30000,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'medium'
+          effort: 'none'
         },
       },
     },
@@ -76,7 +76,7 @@ export const LLM_DEFAULTS = {
       maxOutputTokens: 16384,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'medium'
+          effort: 'none'
         },
       },
     },
@@ -88,7 +88,7 @@ export const LLM_DEFAULTS = {
       maxOutputTokens: 65536,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'medium'
+          effort: 'none'
         },
       },
     },

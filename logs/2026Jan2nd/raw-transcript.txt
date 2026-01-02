@@ -1,0 +1,291 @@
+*** Background Context ***
+Title: Robin Hanson on AI and Large Language Models | Closer To Truth Chats
+Description: Robots may one day rule the world, but what is a robot-ruled Earth like? Dr. Robin Hanson explores the implications of a future world in which researchers have not created artificial general intelligence but have learned to copy humans onto computers, creating "ems," or emulated people, who quickly come to outnumber the real ones.
+
+*** Transcript ***
+[00:00] Well, I actually find it somewhat inspiring to think that once per million
+[00:05] galaxies is still a lot of alien civilizations out there that we'll eventually meet in a billion years. But
+[00:12] it means we have something to aspire to. We can hope to win their respect.
+[00:18] [Music]
+[00:26] Welcome to Closer to Truth. We are pleased to partner with Mindfest 2025
+[00:31] led by Professor Susan Schneider on this year's theme, sentience, autonomy, and
+[00:37] the future of human AI interaction. Closer to Truth is conducting a series of in-depth discussions with keynoters
+[00:44] and participants. I'm pleased to be speaking today with innovative economist
+[00:50] Robin Hansen, professor at George Mason University, known for his work on idea
+[00:55] futures and prediction markets. Great to meet Robin. Great to meet you.
+[01:01] Good. Let's begin with your talk here at at Mindfest. The age of LLM large
+[01:07] language models extending a deep analysis of a society dominated by brain
+[01:13] emulation AIS to LLM AI. So lots of
+[01:18] words there and a lots of meaning. What are the core themes?
+[01:23] So I wrote this book published in 2016 where I tried to forecast what a world
+[01:31] of brain emulations would look like from the outside. And that's seen as precient by some
+[01:37] because we're now finally seeing a pretty humanlike artificial intelligence in the form of large language models,
+[01:44] right? And we're all very interested in what this world would be like if LLMs
+[01:50] became much bigger deal and took over more of the economy. And so my analysis
+[01:55] of a different kind of AI seems somewhat relevant. And so that's why they asked
+[02:00] me to come here and present that but also try to say what it might speak about for a future of LLMs.
+[02:07] No question it is it is precient. Uh which was my initial reaction. But let
+[02:13] let's clearly um describe the articulation commonalities and differences between
+[02:20] brain emulation AI is the subject of your book and what has developed as LLM
+[02:25] AI. So right so the key thing is when we try to think about AI it's really this vast space of
+[02:32] possibilities. There are so many different kinds of AIs that might exist. It's really hard to
+[02:38] analyze what would happen with AI because you don't know which AI you're talking about. So a brain emulation is an admirably
+[02:47] specific kind of AI. There's a sense in which we know exactly what brain
+[02:52] emulation kind of AI do because it is basically a human brain
+[02:58] moved over into silicon. That is it would have the same input
+[03:04] output behavior as the original person. You could hook it up to artificial eyes, ears, and hands and mouth. And then when
+[03:11] you talk to it and ask it to do something, it would respond exactly like the original human would initially
+[03:19] and then only diverge because it would have new different experiences that humans don't have. But I'm a social
+[03:25] scientist and economist. So we know a lot about what humans do and how they behave.
+[03:31] So we can say a lot about how a human would change their behavior in this new context.
+[03:37] because we know so much about humans and so that's a way to analyze a very specific kind of AI.
+[03:44] Now this brain emulation it doesn't matter whether that first person
+[03:49] consciousness is part of the the new brain emula emulated AI or not because
+[03:56] you're looking at basically the the the society the sociological analysis of
+[04:02] what that would mean to the greater society. We you do have to assume that it's possible to make a workalike
+[04:08] emulation. So some people have a theory of consciousness where it's actually having a causal effect on the rest of
+[04:13] the brain and therefore if you didn't have that causal effect the brain wouldn't work the same and then that
+[04:19] would not be a successful emulation. Okay. So we're going to have to assume the sort of the the zombie scenario
+[04:27] where it's possible to make a complete work alike that has all the same behavior and then whether it's actually
+[04:33] conscious we're not we don't know and a sense we don't we don't care if
+[04:38] we're doing a sociological analog because it has the same behavior. So exactly we can predict everything that happens. We might care for how much we
+[04:45] like this world and whether we're eager for it. Sure. Sure. We don't have to care about it for working out what happens. Right. Right. So, sociologically we
+[04:52] don't care but I mean metaphysically and and humanly of course we we we would right. So, okay then. So, h how then
+[04:58] would your um thought experiment of a world that would become increasingly
+[05:04] dominated by brain emulated AIS? How how can that help us today in discerning the
+[05:12] proliferation of large language model AI? So my analysis is about brain emulations
+[05:20] that are cheap enough to basically take over. Yeah. To do most all the jobs humans do and
+[05:25] then figure out how that world is different. So it's most relevant for a scenario where AIs take over and end up
+[05:32] doing most of the jobs in our economy. So if we're just talking about minor assistant LLMs,
+[05:38] then this isn't really describing that world because that's not what we're focused on. are looking for a massive
+[05:45] overhaul of the whole society on the basis of very cheap AIs. I I mean that that's certainly uh as
+[05:52] we've seen the development uh perhaps exponential perhaps there are
+[05:58] some some um boundaries that have been speculated
+[06:04] but it it certainly seems like the LLMs will take more and more work. I know for
+[06:12] example in China there's a great emphasis on using um deepseat a cheaper
+[06:19] LLM model uh for industry specific activities and for developing uh greater
+[06:26] efficiencies and technologies on a very specific basis but just to set the context LLM market
+[06:33] is now roughly $5 billion a year the world economy is roughly a hundred
+[06:39] trillion dollars a a year. That's a factor of 20,000 difference. So even if LLMs grow by another factor of
+[06:45] 100 or a thousand, they're still a tiny fraction of the world economy so far. So we have to be imagining a huge enormous
+[06:53] change in the magnitude of their impact. But that could happen over the coming decades. But that's what we're looking
+[06:59] at. What would happen if they ended up being so cheap they did most all human jobs.
+[07:04] Okay. So in that case you have a a a similar socopolitical economic analysis
+[07:10] to the brain emulated AIs that you dealt with in your original book and the LLMs
+[07:16] as it would occur in the next few decades. So okay now that we've established that
+[07:21] commonality what are the results what happens? Okay one thing that happens is the new
+[07:28] economy grows faster. So today an ordinary factory produces as
+[07:34] much value stuff as the cost of the factory in a few months.
+[07:40] So our economy could double every few months if we could make everything in factories. But today we can't make the
+[07:46] people who work in the factories in factories which means the economy only doubles every 20 years now.
+[07:53] But if you can make the AIS in the factories, then you can make everything
+[07:58] the factory needs in the factory, then the world economy could double every few months.
+[08:04] So that's one of the straightforward predictions is the world economy grows much faster. Is that a good thing?
+[08:10] Well, it depends on whether you like what they're making, of course. You
+[08:15] know, we're when in our economy, when we're rich, we like it because we like to have a lot of wealth to spend to do what we like. Now they'd be spending
+[08:21] their wealth to do what they like. A second prediction is that you can make
+[08:27] robots faster than you can grow the economy. Even though you can grow it much faster, you can still make robots
+[08:33] even faster. So that means the wealth per robot falls
+[08:39] and the wages per robot fall and they fall down to what we call subsistence
+[08:44] level. It's a Malthusian story. It's the usual story through all of human history and all of animal history. Pretty much
+[08:51] all animals and humans have lived at a subsistence level. And then the M's or
+[08:57] the LLMs would be in that situation. They would working most of the time. They would barely make enough money to
+[09:03] survive and to be allowed to exist. And that would be for the benefit of
+[09:10] those of us who are not hum who are still human and not working. Well, if there's a rich uh owner capitalist class
+[09:18] who then owns a slave class, then the rich owners could enjoy the profit of
+[09:24] the slaves. But I don't assume they're slaves. That is, the M's or the LLMs
+[09:31] could be free autonomous creatures who are still just very poor.
+[09:37] And so that sounds like the uh um the beginning of the French Revolution for
+[09:43] AI. Well, no, we actually know a lot about revolutions in history and poverty is
+[09:49] not what causes revolutions. Often rising wealth and rising expectations
+[09:54] might cause resol revolutions, but people have just lived in poverty for very long times without revolutions.
+[10:00] And so the uh the M the Mis or the LMIs
+[10:06] are going to be happy to live in poverty when their masters are living in wealth and not working.
+[10:12] There may be may be no masters. Again, you you could imagine slavery and that's possible but it's not required. We have
+[10:19] had many societies in the past where there were lots of free poor people and we've also had societies where there
+[10:26] were slaves. So that's a separate question really. is not determined by the basic economics whether they're
+[10:32] slaves. Just like in our world today there could be slaves. We have prevented that to some degree but it's certainly a
+[10:39] possible feature of our world that there are slaves. Uh you have pioneered wonderful
+[10:44] socioeconomic thinking about biases. Um what's the difference between AI bias
+[10:51] and an AI hallucination? Oh I guess it could be the difference between a lie and
+[10:59] that is we have this idea in humans that sometimes they just and they're
+[11:05] not so much lying because they're not trying to tell the truth or trying to lie. They just enjoying the appearance
+[11:10] of you know saying things that sound like they mean something. So in that sense a hallucination is more like
+[11:16] It's um what it's saying but whether it really believes it is maybe
+[11:21] less clear. Based on your study of human biases, what can we learn about AI
+[11:29] biases? As a professional economist, a big part of my PhD research and afterwards is the
+[11:37] processes of information aggregations that human use to try to figure out what to believe after other people say
+[11:43] things. So we know that humans have a rich library of approaches to be
+[11:48] skeptical and to check or judge other things humans say and that over the
+[11:54] centuries we've had to collect more and more such tools because the entities saying things have become more
+[12:00] sophisticated. They've become large governments with propaganda. They've been companies with advertising. They've
+[12:05] been ideologues with agendas they're pushing. So over centuries, we've had to
+[12:12] develop thick skins and skepticism to some degree in order to deal with that richer world of potential deception.
+[12:20] Mhm. It seems to me that AI is just adding to that to a modest degree. AIS are now
+[12:26] entering the same world of propaganda, advertising or, you know, agenda based
+[12:33] communication and that we should rely on a similar range of tools. But now we can have AIs
+[12:39] help us in this process. That is AI isn't only what's fighting against you.
+[12:45] It can also be on your side. You can ask your AIS to read something and read between the lines and to guess what the
+[12:51] agenda might be and to check it against other sources. So AI adds to both the attack and the
+[12:57] defense in this war of, you know, trying to figure out what to believe. And how
+[13:03] do you discern the difference between AI doing a legitimate analysis and AI
+[13:10] introducing its own biases um inadvertently because of the programming
+[13:15] or potentially if AI has some sort of an internal state doing it deliberately.
+[13:23] We collect institutions and methods of dealing with other entities. And I think the robust approach is to not care
+[13:30] whether the other entity is an AI, but hold it to the same standards you would hold a human to
+[13:36] and check and judge in the same way. So we're going to talk a minute in a later about prediction markets and they
+[13:43] are one of the general mechanisms by which we can be more skeptical and more careful in deciding what to believe.
+[13:50] to to pick a specific example which which is a real example. Uh in certain
+[13:55] early AI um LLMs, there were clearly racial and perhaps gender um
+[14:02] discrimination or biases which then could be tweaked sort of uh uh with the
+[14:08] system. But the original bias was not because AI was racist, but because the
+[14:14] the data sets that it were training on had racist content.
+[14:20] And that's our generic human problem. Yes, we humans can't do everything
+[14:25] ourselves. Part of the very nature of society is we rely on other people and we specialize in some tasks and we
+[14:31] roughly trust other people on other tasks. So when we have a division of labor, we are at risk for other people
+[14:38] not doing their job with respect to the other parts of society we rely on them for. And so basically AI is the same
+[14:46] problem we've always faced, but perhaps more intensely.
+[14:51] With new costbenefit trade-offs, the AIs can write more things faster, but then
+[14:56] we can have other AIs check them faster. So maybe overall it'll be about the
+[15:02] same. Okay, let's uh do some short questions and very short answers. Uh
+[15:07] this is not to be taken too seriously but just to get your stream of consciousness. Uh the first question,
+[15:13] can AI ever become conscious as we are conscious? Zero to 100. Zero meaning
+[15:19] impossible in principle, 100 meaning it's absolutely sure at some point in
+[15:24] the future. 100 because you said the word can.
+[15:29] Yes, absolutely. In principle. Okay. Two. Is virtual immortality possible?
+[15:36] Uploading our first person consciousness, not a digital clone, but actually you where your first person
+[15:42] consciousness is transferred. Zero to 100. 80.
+[15:48] Three. Will AI generate some very unpleasant surprises for humanity? Zero
+[15:54] to 100. 100. Okay. Hey, making me a little pessimistic here. Um, the ultimate human
+[16:02] future is transhumanism, melding humans with AI. 0 to 100.
+[16:10] Um, 70. And finally, the ultimate future is
+[16:16] nonhuman. All AI, no more humans. Zero to 100.
+[16:21] 30. Robin, you are a pioneer and one of the founders of prediction markets. uh
+[16:28] what's the theory behind prediction markets? The theory is less than important than
+[16:35] the data. The data are just that when we have speculative markets like stock
+[16:41] markets or currency markets or betting markets and then we compare them to another institution
+[16:48] estimating the same thing at the same time be it a committee or a poll or some
+[16:53] other process. We consistently find that the betting markets, the speculative markets do about as well or much better.
+[17:01] They almost never do worse at estimating the same thing at the same time. So why would it be the case that
+[17:08] prediction markets are more reliable or certainly not less reliable than expert
+[17:14] opinion? When you bring a group of people together to try to jointly estimate
+[17:20] something, they often have dysfunctional social conflicts that make it hard for
+[17:25] them to be completely honest and completely careful in their analysis. Most people and say most large
+[17:31] organizations know that they can't just tell the truth to their boss, that they can't just blurt out the truth
+[17:38] as they see it in meetings. We face many obstacles to figuring out what's true
+[17:44] and being honest about it with each other. So a prediction market is a mechanism that makes us be more honest
+[17:50] and careful in a more reliable way than many of other social institutions.
+[17:56] Do prediction for example as you as a journalist might interview someone like me and I might pretend to
+[18:03] know something about whatever you ask me. But if if you were a betting market, I might say no thanks. I don't want to
+[18:09] bet in your market because I might lose money. But if you just ask me to answer some questions as a journalist, I might
+[18:16] well give you some answers. So, do prediction markets need betting
+[18:21] where you're you have something to to lose whether you're betting your own money? Because that that was my
+[18:27] assumption, just watching the prediction markets for the presidential election, which
+[18:33] which um uh would would be more reliable than the
+[18:38] collection of of opinion polls. It doesn't have to be money, but it does
+[18:43] have to be something you value. So sometimes there are communities where they have a leaderboard and people
+[18:48] really care about being on the leaderboard and then they don't want to lose their position and that makes them take things
+[18:54] seriously as well. And on the leaderboard, how how is that um how is that uh uh standardized or
+[19:02] benchmarked? Well, if you often you give people the same initial amount of money and then they look for their relative final
+[19:09] amount of money. Or you could look at a rate of return relative to initial capital. Uh there are just standard ways
+[19:15] to do rates of return on investment in these prediction markets. Uh in prediction markets uh do you have
+[19:22] statistical analysis of h of the size of the markets relative to the u the target
+[19:28] of the prediction that uh are required. Basically, in order to get information
+[19:35] out of the market, you need to offer strong enough incentives that people bother to pay attention.
+[19:41] So, that's about what does it take to get somebody to tell you what they know. Now, sometimes in sports, they've
+[19:47] already paid a lot of attention for some other reason and you just need to get them to say off the top of their head
+[19:53] what they've already figured out and then it doesn't need a lot of money. Could be $5 or $10. But if you need
+[20:00] someone to engage a new topic and think it through and they otherwise wouldn't even think about the topic, well then you'll need to offer more money to be at
+[20:07] stake so that they'll bother to spend maybe the half hour or hour it takes to think through your question and have a
+[20:13] thoughtful answer. uh the work that you did for DARPA in the defense industry on policy analysis
+[20:20] market uh what did that consist of and uh how was it used if it's not
+[20:26] classified uh at that time and what were the uh the ramifications of that
+[20:32] technology. So this was a long time ago basically 2003 so 22 years ago and at that time
+[20:40] the defense department research arm called DARPA thought they had heard a lot about prediction markets and they
+[20:46] said please people do proposals to show us how this could be applied to our
+[20:52] stuff in the defense industry. And so they had a call for proposals and some projects won and I was part of one of
+[20:58] the winning projects and they said a show with this for the department of
+[21:03] defense. So we were working on a combinatorial market to make predictions
+[21:08] about the Middle East and various geopolitical events that might happen in the Middle East. And there was a summer of 2003 where we
+[21:16] were ready to ask for beta testers for early sets of people to use the system to try it out and work out some details.
+[21:24] And right after we made our announcement about beta testing, two senators had a
+[21:29] pre press conference where they announced that this project that we were doing was a terrible evil thing because
+[21:36] we were going to have betting on terrorist attacks. Now our markets were about geopolitical
+[21:43] trends in the Middle East, but they had some basis for that. But the key idea was people are just offended by the idea
+[21:50] of betting on death. And because it was only a million-doll project uh nobody
+[21:56] wanted to defend it say in conference. So basically a day later the secretary of defense in front of Congress said oh
+[22:03] the project is canceled and nobody in that day asked us whether the accusations were correct.
+[22:10] The accusations were made when the DARPA PR person was you know unavailable
+[22:17] coincidentally perhaps and so the project was immediately killed. But then there were several months of discussion
+[22:23] in the media about what the value of such things whether these accusations correct what could they do. Mhm.
+[22:29] A decade later, a bit over a decade later, DARPA, a different arm of the government research called IRPA
+[22:37] funded a similar set of projects, but they didn't get a lot of attention in the media. And then we came back and did
+[22:44] combinatorial prediction markets in that market and those worked well in those
+[22:50] tests in that later market. And how many participants when it when it worked? I just want to get order of
+[22:56] magnitude understanding. Say a thousand. Oh, okay. And and what was the the relative to the topic, what
+[23:03] kind of people were selected? So, the project was set up so that each different group had to select their own
+[23:10] people. And so, unfortunately, this wasn't equal that some places who had very prestigious say universities could
+[23:17] get very high quality participants and other groups had less quality participants because where they came from. But nevertheless, we certainly got
+[23:24] hundreds of participants. But our specialty was to do basian combinatorial
+[23:30] markets. So we basically had a market with a thousand different questions with a basian network connecting all these
+[23:36] questions. So that updated any one question it propagated to update the entire network. And we could do exact
+[23:42] updates of the basian network not only of the probabilities but the exact updates of each trader's
+[23:48] representation of their assets to make sure nobody could ever make a trade that they couldn't back. So we showed that it
+[23:53] was possible to do exact basian prediction market. Okay. Well, that's very significant
+[23:58] because you you you're constantly updating the priors that that drive the
+[24:04] basian model, right? If you have a set of connected claims and somebody has bet that they
+[24:10] are connected, then that means the next time anybody bets on one, the other one changes too because the market has said,
+[24:16] "Oh, these are connected." So we had a full connection. people could add connections or take them away in the market.
+[24:22] You've created the concept of futuri if I'm pronouncing the word correctly.
+[24:29] What what is that? First, correct my pronunciation that you you have a a
+[24:35] new a new form of government. So, how would that work? Right. So, I initially started on this
+[24:41] topic of prediction markets 35 years ago. And initially I started everybody else
+[24:47] thinking about betting on things in the news and sort of things in policy. But then I realized over the next 10 years
+[24:53] that where we most need information aggregation is in our organizational decisions.
+[24:59] Uh that's where the value of information is the highest. So what we want are prediction markets can most directly
+[25:05] advise decisions and it turns out the obvious way to do that is to make decision conditional predictions.
+[25:13] So uh one example is imagine a for-profit company wonders whether they
+[25:19] should keep their CEO. Now uh ordinarily this company has a
+[25:24] stock market and the stock market might have a price say 22 which represents the average value of the company over all
+[25:30] possible scenarios the company could be in. But we can also make conditional markets where the trades are called off
+[25:38] if a condition isn't met. And that way we can get a stock price conditional if the CEO stays. Yeah.
+[25:44] Stock price conditional if the CEO leaves and then compare those two numbers. So the key idea is we can make markets
+[25:51] for any decision on if you make this decision what are the outcomes you care about and that's a market that directly
+[25:58] advises a decision. And you know, you could if you had two
+[26:04] colleges you were accepted to and you wanted to know which one to go to, which which one had the chance of a highest future income or graduating, you could
+[26:11] ask markets that as well. Any decision you had in the world that you had an
+[26:16] outcome that you knew is the thing you cared about and that you would eventually be able to see and yet you knew you had some discrete choices that
+[26:22] you would tell soon afterward which ones you picked. then you can ask for decision conditional outcomes and get
+[26:30] advice on key decisions. So I think this is a huge promise for governance everywhere not only in your churches or
+[26:36] firms but in nations and cities as well. And how would that work just on a uh m
+[26:43] municipal level say for a city government right? So for a city what you would need to pick is some measure of the outcome
+[26:51] value. So that could be for example the sum total of real estate values in the whole
+[26:56] city or it could be some measure of a poll afterwards over the whether people feel happy or it could be a breakdown of
+[27:04] many specific metrics with some overall weighted average of them. Okay, but the for government that you have to
+[27:09] pick this outcome. For the stocks, you see it was easier. In a company, most people agree what they want is a higher
+[27:14] stock price and they're going to make the decisions for that, right? And maybe a student agrees what they want to do is go to the college that
+[27:20] makes them the most income later. But for a city, we have to decide, well, what is it we care about?
+[27:26] And so my slogan is vote on values, but bet on beliefs. Decide what outcomes we want. We'll need
+[27:33] to vote on that. But then we can trust the speculator to decide how to get the thing we want. Robin, astrobiology is a
+[27:41] new area for uh for science and the so-called Fermy paradox has been a
+[27:47] critical part of driving that field and that's when the great physicist Enriquey Fermy wondered with so many stars in the
+[27:56] in the observable universe something like 10 to the 24th uh up up to that
+[28:01] number which would be 10 trillion trillion um or or a trillion trillion it
+[28:07] would be the 10 to the 24th number of stars, at least that many planets, and with over 14 billion years to work with.
+[28:13] And his question was, where are they? Where are why don't we see evidence of extraterrestrial intelligences? Uh,
+[28:20] you've talked about a great filter um as affecting this concept perhaps with even
+[28:28] greater usage. So, what what is the origin of that term? How did you develop it? How was it applied?
+[28:36] So Ferm's question was where is everybody and 25 years ago I reframed
+[28:42] that question as where is the great filter? So the idea is we look out in
+[28:49] the universe and we don't see the sort of things we were hoping to become. We've gone down this long path and we
+[28:55] see maybe in our near future less than a million years we were hoping to get big to spread out in the universe and to
+[29:02] make a lot of noise and to be very visible. But then when we look out there, we don't see that. So the
+[29:08] question might be, well, there's this whole process that started long ago when
+[29:14] our ancestors were basically simple dead matter and then some initial life form
+[29:20] that was very simple and then more complicated life and it added sex and multisellularity and eventually we get
+[29:26] to an intelligent civilization like ourselves and then eventually we have to continue down a further path to become
+[29:32] this visible civilization we might hope to be. And the point is when we look out there, we don't see anything like the
+[29:38] thing we hope to be. We have to figure that whole path is really hard. Something about that path means that you
+[29:45] get kicked off of it as you try to go down it. And then that's a way of reframing the question. Well, where is the great
+[29:52] filter along this path? Was it at the origin of life? Was it the origin of sex, multisellularity,
+[29:59] photosynthesis, civilization, or something ahead? So one
