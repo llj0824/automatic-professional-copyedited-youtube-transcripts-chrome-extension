@@ -4,6 +4,7 @@
 global.chrome = {
   runtime: {
     lastError: null, // Mock lastError property
+    getURL: jest.fn((path) => path),
     // Mock other runtime properties/methods if needed
   },
   downloads: {
