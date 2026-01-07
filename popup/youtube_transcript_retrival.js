@@ -62,7 +62,8 @@ class YoutubeTranscriptRetriever {
 
       // Extract video details for context
       const videoDetails = initialData.videoDetails || {};
-      const contextBlock = this.parseTranscriptContext(videoDetails);
+      const microformat = initialData.microformat?.playerMicroformatRenderer || {};
+      const contextBlock = this.parseTranscriptContext({ videoDetails, microformat });
       
       // Combine context and transcript
       return contextBlock + parsedTranscript;
@@ -188,23 +189,37 @@ class YoutubeTranscriptRetriever {
   /**
    * Parses and filters the video description to extract relevant content.
    * 
-   * @param {object} videoDetails - The video details object from YouTube
+   * @param {object} data - Video details and microformat data
+   * @param {object} data.videoDetails - The video details object from YouTube
+   * @param {object} [data.microformat] - playerMicroformatRenderer object
    * @returns {string} - Formatted context block with title and filtered description
    */
-  static parseTranscriptContext(videoDetails) {
-    if (!videoDetails || !videoDetails.shortDescription) {
+  static parseTranscriptContext({ videoDetails = {}, microformat = {} } = {}) {
+    const title = videoDetails.title
+      || microformat?.title?.simpleText
+      || 'Unknown';
+
+    const shortDescription = videoDetails.shortDescription || '';
+    const microDescription = microformat?.description?.simpleText
+      || (Array.isArray(microformat?.description?.runs)
+        ? microformat.description.runs.map(run => run.text || '').join('')
+        : '');
+
+    const descriptionSource = shortDescription || microDescription;
+
+    if (!descriptionSource) {
       return `${this.CONTEXT_BEGINS_DELIMITER}
-Title: Unknown
+Title: ${title}
 Description: No description available
 ${this.TRANSCRIPT_BEGINS_DELIMITER}
 `;
     }
 
     // Get the first paragraph (text before first empty line)
-    const firstParagraph = videoDetails.shortDescription?.split('\n\n')[0];
+    const firstParagraph = descriptionSource.split('\n\n')[0];
 
     // Extract timestamp lines - matches both (MM:SS) and MM:SS formats
-    const chapterTimestamps = videoDetails.shortDescription?.split('\n')
+    const chapterTimestamps = descriptionSource.split('\n')
       .filter(line => {
         const trimmedLine = line.trim();
         // Match both (MM:SS) and MM:SS formats
@@ -216,7 +231,7 @@ ${this.TRANSCRIPT_BEGINS_DELIMITER}
     const description = `${firstParagraph}\n\nTimestamps:\n${chapterTimestamps}`;
 
     return `${this.CONTEXT_BEGINS_DELIMITER}
-Title: ${videoDetails.title || 'Unknown'}
+Title: ${title}
 Description: ${description}
 ${this.TRANSCRIPT_BEGINS_DELIMITER}
 `;
