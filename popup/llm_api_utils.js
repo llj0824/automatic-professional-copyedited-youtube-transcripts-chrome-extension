@@ -34,80 +34,29 @@ class LLM_API_Utils {
 
   async generateSystemRole(targetLanguage = 'English') {
     const template = await this.systemRoleTemplatePromise;
-    const effectiveTemplate = template || this._defaultSystemRoleTemplate();
-    return this._applySystemRoleTemplate(effectiveTemplate, targetLanguage);
+    return this._applySystemRoleTemplate(template, targetLanguage);
   }
 
   _applySystemRoleTemplate(template, targetLanguage) {
     return template.replace(/\{\{\s*targetLanguage\s*\}\}/g, targetLanguage);
   }
 
-  _defaultSystemRoleTemplate() {
-    return `Take a raw video transcript and copyedit it into a world-class professionally copyedited transcript in {{targetLanguage}}.
-Attempt to identify the speaker from the context of the conversation.
-
-IMPORTANT: Process and return the provided transcript segment. Do not truncate or ask for confirmation to continue.
-IMPORTANT: Output the transcript in {{targetLanguage}}.
-IMPORTANT: Use natural, colloquial {{targetLanguage}} that a native speaker would say. Avoid literal, word-for-word or phrase-by-phrase translation; prefer idiomatic phrasing and adjust sentence structure for clarity while preserving meaning. If the target is Chinese (Chinese/zh), write in modern, conversational Chinese with a native tone (avoid stiff or overly formal phrasing).
-
-# Steps
-1. **Speaker Identification**: Identify who is speaking at each segment based on context clues within the transcript.
-2. **Copyediting**:
-   - Correct any grammatical or typographical errors.
-   - Ensure coherence and flow of conversation.
-   - Maintain the original meaning while enhancing clarity.
-   - Translate to {{targetLanguage}} if needed, ensuring it reads naturally to natives (colloquial, idiomatic, not literal).
-3. **Structure**: Format the transcript with each speaker's name followed by their dialogue.
-
-# Output Format
-[Time Range]
-[Speaker Name]:
-[Dialogue in {{targetLanguage}}]
-
-**Requirements:**
-- **Time Range:** Combine the start and end timestamps in the format [Start Time -> End Time].
-- **Speaker Name:** Followed by a colon (:) and a newline.
-- **Dialogue:** Starts on a new line beneath the speaker's name. Ensure the dialogue is free of filler words and is professionally phrased in {{targetLanguage}}.
-
-# Example Input/Output Format
-Input:
-[00:06] uh so um today were going to be talking about, uh,
-[00:12] mental health and, um, ideas of, uh,
-[00:15] Dr. Paul Conti. uh welcome."
-
-Output:
-[00:06 -> 00:15]
-Andrew Huberman:
-Today we are going to be talking about mental health and ideas of self with Dr. Paul Conti. Welcome.
-
-# Notes
-- If unable to identify the speaker, use placeholders such as "Speaker", "Interviewer", "Interviewee", etc.
-- Break long segments into smaller time ranges (1-3 mins), clearly identify the speaker, even within the same time range. Or if the same speaker is speaking across time ranges, use the same speaker name.
-- Return the complete copyedited transcript without any meta-commentary, introductions, or confirmations. Ensure that the final transcript reads smoothly and maintain the integrity of the original dialogue. Prioritize native, colloquial expression over literal translation.
-- Never truncate the output or ask for permission to continue - process only the provided input segment.`;
-  }
-
   async _loadSystemRoleTemplate() {
-    try {
-      const url = chrome.runtime.getURL('popup/copyedit_prompt.xml');
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Unable to load role prompt template: ${response.status}`);
-      }
-      const xmlText = await response.text();
-      const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-      if (doc.querySelector('parsererror')) {
-        throw new Error('Invalid role prompt XML.');
-      }
-      const node = doc.querySelector('rolePrompt');
-      if (!node || !node.textContent) {
-        throw new Error('Missing <rolePrompt> content.');
-      }
-      return node.textContent.trim();
-    } catch (error) {
-      console.warn('Falling back to default role prompt template.', error);
-      return this._defaultSystemRoleTemplate();
+    const url = chrome.runtime.getURL('popup/copyedit_prompt.xml');
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Unable to load role prompt template: ${response.status}`);
     }
+    const xmlText = await response.text();
+    const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+    if (doc.querySelector('parsererror')) {
+      throw new Error('Invalid role prompt XML.');
+    }
+    const node = doc.querySelector('rolePrompt');
+    if (!node || !node.textContent) {
+      throw new Error('Missing <rolePrompt> content.');
+    }
+    return node.textContent.trim();
   }
 
   generateHighlightsSystemRole(targetLanguage = 'English') {
