@@ -305,6 +305,12 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
       // Have saved transcript
       rawTranscript = savedTranscripts.rawTranscript;
       processedTranscript = savedTranscripts.processedTranscript || "";
+      logger.logEvent(Logger.EVENTS.TRANSCRIPT_FOUND_IN_STORAGE, {
+        [Logger.FIELDS.VIDEO_ID]: videoId,
+        [Logger.FIELDS.TRANSCRIPT_LENGTH]: rawTranscript.length,
+        [Logger.FIELDS.RAW_TRANSCRIPT]: rawTranscript,
+        [Logger.FIELDS.PROCESSED_TRANSCRIPT]: processedTranscript
+      });
       setState(AppState.READY);
       paginateBothTranscripts(rawTranscript, processedTranscript);
       displayCurrentPage();
@@ -319,6 +325,11 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
         setState(AppState.LOADING);
         rawTranscript = result.transcript;
         await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
+        logger.logEvent(Logger.EVENTS.TRANSCRIPT_RETRIEVED_FROM_YOUTUBE, {
+          [Logger.FIELDS.VIDEO_ID]: videoId,
+          [Logger.FIELDS.TRANSCRIPT_LENGTH]: rawTranscript.length,
+          [Logger.FIELDS.RAW_TRANSCRIPT]: rawTranscript
+        });
         processedTranscript = "";
         setState(AppState.READY);
         paginateBothTranscripts(rawTranscript, processedTranscript);
@@ -1078,6 +1089,11 @@ async function handleTranscriptFound(transcript, videoId, storageUtils) {
   // Save and display transcript
   rawTranscript = transcript;
   await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
+  logger.logEvent(Logger.EVENTS.TRANSCRIPT_RETRIEVED_FROM_YOUTUBE, {
+    [Logger.FIELDS.VIDEO_ID]: videoId,
+    [Logger.FIELDS.TRANSCRIPT_LENGTH]: rawTranscript.length,
+    [Logger.FIELDS.RAW_TRANSCRIPT]: rawTranscript
+  });
   processedTranscript = "";
   
   // Update to ready state
