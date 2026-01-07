@@ -1,3 +1,8 @@
+Note: this is using    
+'openai/gpt-oss-120b'
+
+--- 
+
 [00:00 -> 00:12]  
 Robin Hanson:  
 I actually find it somewhat inspiring to think that even if there’s only one alien civilization per million galaxies, that still means there are a lot out there, and we’ll eventually meet them in a billion years. It gives us something to aspire to—we can hope to earn their respect.
