@@ -56,39 +56,27 @@ export const LLM_DEFAULTS = {
         },
       },
     },
-    'x-ai/grok-4.1-fast': {
-      label: 'Grok 4.1 Fast (OpenRouter)',
-      provider: 'openrouter',
-      temperature: 0.7,           // OpenRouter default temperature
-      maxTokens: 2000000,         // from OpenRouter context_length
-      maxOutputTokens: 30000,     // from OpenRouter max_completion_tokens
-      openrouterOverrides: {
-        reasoning: {
-          effort: 'none'
-        },
-      },
-    },
-    'moonshotai/kimi-k2-thinking': {
-      label: 'MoonshotAI Kimi K2 Thinking (OpenRouter)',
+    'moonshotai/kimi-k2.5': {
+      label: 'MoonshotAI Kimi K2.5 Thinking (OpenRouter)',
       provider: 'openrouter',
       temperature: 0.1,
       maxTokens: 262144,          // from OpenRouter context_length
       maxOutputTokens: 16384,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'none'
+          effort: 'low'
         },
       },
     },
-    'google/gemini-3-pro-preview': {
-      label: 'Gemini 3 Pro Preview (OpenRouter)',
+    'google/gemini-3-flash-preview': {
+      label: 'Gemini 3 Flash Preview (OpenRouter)',
       provider: 'openrouter',
       temperature: 0.1,
       maxTokens: 1048576,         // from OpenRouter context_length
       maxOutputTokens: 65536,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'none'
+          effort: 'medium'
         },
       },
     },
