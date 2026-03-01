@@ -424,7 +424,7 @@ Two sentence summary of highlight in viewpoint of the reader (in ${targetLanguag
    * Splits a transcript into n roughly equal parts
    * each part should have prefix of the context, which provides context.
    * @param {string} transcript - The transcript to split
-   * @param {number} n - Number of partitions (default: 2)
+   * @param {number} n - Number of partitions (defaults to PROCESSING_DEFAULTS.partitions when omitted by caller)
    * @returns {string[]} Array of transcript partitions
    */
   splitTranscriptForProcessing(transcript, n) {

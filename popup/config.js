@@ -4,7 +4,7 @@
 // Processing defaults, including page/partition behavior
 export const PROCESSING_DEFAULTS = {
   // How many partitions a single transcript page is split into for parallel LLM calls
-  partitions: 2,
+  partitions: 4,
   // For highlights generation we currently do a single call per page
   highlightPartitions: 1,
   // How long (in seconds) a page covers in the UI pagination
@@ -27,7 +27,7 @@ export const LLM_DEFAULTS = {
     maxOutputTokens: 30000,
     openrouterOverrides: {
       reasoning: {
-        effort: 'none'
+        effort: 'minimal'
       },
     },
   },
@@ -40,7 +40,7 @@ export const LLM_DEFAULTS = {
       maxOutputTokens: 200000,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'none'
+          effort: 'minimal'
         },
       },
     },
@@ -52,7 +52,7 @@ export const LLM_DEFAULTS = {
       maxOutputTokens: 32768,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'none'
+          effort: 'minimal'
         },
       },
     },
@@ -64,7 +64,7 @@ export const LLM_DEFAULTS = {
       maxOutputTokens: 16384,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'low'
+          effort: 'minimal'
         },
       },
     },
@@ -76,7 +76,7 @@ export const LLM_DEFAULTS = {
       maxOutputTokens: 65536,     // from OpenRouter max_completion_tokens
       openrouterOverrides: {
         reasoning: {
-          effort: 'medium'
+          effort: 'minimal'
         },
       },
     },
@@ -85,7 +85,7 @@ export const LLM_DEFAULTS = {
       provider: 'openrouter',
       openrouterOverrides: {
         reasoning: {
-          effort: 'none'
+          effort: 'minimal'
         },
       },
     },
