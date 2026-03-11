@@ -3,14 +3,28 @@
 // --- CONFIGURATION: Update these selectors if YouTube changes their structure ---
 const SELECTORS = {
   // Transcript panel containers
-  transcriptPanels: 'ytd-transcript-renderer, ytd-transcript-body-renderer',
+  transcriptPanels: [
+    'ytd-transcript-renderer',
+    'ytd-transcript-body-renderer',
+    'ytd-engagement-panel-section-list-renderer[target-id*="transcript"]'
+  ].join(', '),
   
   // Transcript segments (individual lines)
-  transcriptSegments: 'ytd-transcript-segment-renderer',
+  transcriptSegments: [
+    'ytd-transcript-segment-renderer',
+    'transcript-segment-view-model'
+  ].join(', '),
   
   // Within each segment
-  timestamp: '.segment-timestamp',
-  text: '.segment-text, yt-formatted-string.segment-text',
+  timestamp: [
+    '.segment-timestamp',
+    '.ytwTranscriptSegmentViewModelTimestamp'
+  ].join(', '),
+  text: [
+    '.segment-text',
+    'yt-formatted-string.segment-text',
+    '.yt-core-attributed-string'
+  ].join(', '),
   
   // Video metadata
   videoTitle: [
@@ -24,7 +38,8 @@ const SELECTORS = {
   ]
 };
 
-const TRANSCRIPT_OPEN_TIMEOUT_MS = 5000;
+const TRANSCRIPT_OPEN_TIMEOUT_MS = 8000;
+const TRANSCRIPT_BUTTON_TIMEOUT_MS = 4000;
 
 // --- 1.  Shared helpers ----------------------------------------------------
 function isTranscriptPanelOpen() {
@@ -35,6 +50,21 @@ function hasTranscriptSegments() {
   return document.querySelectorAll(SELECTORS.transcriptSegments).length > 0;
 }
 
+function findDescriptionExpandButton() {
+  return Array.from(document.querySelectorAll('tp-yt-paper-button, button, [role="button"]')).find((element) => {
+    const ariaLabel = element.getAttribute('aria-label')?.trim().toLowerCase() || '';
+    const textContent = element.textContent?.trim().toLowerCase() || '';
+
+    return (
+      textContent === '...more' ||
+      textContent === 'show more' ||
+      textContent === 'more' ||
+      ariaLabel === 'show more' ||
+      ariaLabel === 'more'
+    );
+  }) || null;
+}
+
 function findShowTranscriptButton() {
   return Array.from(document.querySelectorAll('button, [role="button"]')).find((element) => {
     const ariaLabel = element.getAttribute('aria-label')?.trim().toLowerCase() || '';
@@ -42,6 +72,32 @@ function findShowTranscriptButton() {
 
     return ariaLabel === 'show transcript' || textContent === 'show transcript';
   }) || null;
+}
+
+function waitForShowTranscriptButton(timeoutMs = TRANSCRIPT_BUTTON_TIMEOUT_MS) {
+  const existingButton = findShowTranscriptButton();
+  if (existingButton) {
+    return Promise.resolve(existingButton);
+  }
+
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      const button = findShowTranscriptButton();
+      if (button) {
+        cleanup(button);
+      }
+    });
+
+    const timeoutId = setTimeout(() => cleanup(null), timeoutMs);
+
+    function cleanup(result) {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+      resolve(result);
+    }
+
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true });
+  });
 }
 
 function waitForTranscriptSegments(timeoutMs = TRANSCRIPT_OPEN_TIMEOUT_MS) {
@@ -73,7 +129,12 @@ async function ensureTranscriptPanelReady() {
     return true;
   }
 
-  const showTranscriptButton = findShowTranscriptButton();
+  let showTranscriptButton = await waitForShowTranscriptButton();
+  if (!showTranscriptButton) {
+    findDescriptionExpandButton()?.click();
+    showTranscriptButton = await waitForShowTranscriptButton();
+  }
+
   if (!showTranscriptButton) {
     return false;
   }
@@ -207,7 +268,7 @@ Description: ${description}
     const textElement = segment.querySelector(SELECTORS.text);
     
     const time = timeElement?.textContent?.trim() || '';
-    const text = textElement?.textContent?.trim() || '';
+    const text = textElement?.textContent?.trim() || segment.textContent?.replace(time, '').trim() || '';
     
     return time && text ? `[${time}] ${text}` : '';
   }).filter(line => line !== '').join('\n');
