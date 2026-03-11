@@ -22,11 +22,12 @@ import { UI_DEFAULTS, LLM_DEFAULTS } from './config.js';
  * Hello world. This is a test.
  */
 class StorageUtils {
-  constructor() {
+  constructor(options = {}) {
     if (!chrome || !chrome.storage) {
       console.error('chrome.storage API is not available.');
       throw new Error('chrome.storage API is not available.');
     }
+    this.targetTabId = Number.isInteger(options.tabId) ? options.tabId : null;
     this.KEY_PREFIX = 'youtube_video:'; // Prefix for human-readable keys
     this.METADATA_KEY = `${this.KEY_PREFIX}__metadata`; // Tracks last-updated timestamps
     this.EVICTION_FRACTION = 0.65; // Remove ~65% of oldest entries when over quota
@@ -38,17 +39,12 @@ class StorageUtils {
    */
   getCurrentYouTubeVideoId() {
     return new Promise((resolve, reject) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (chrome.runtime.lastError) {
-          console.error('Error querying tabs:', chrome.runtime.lastError);
-          return resolve(null);
-        }
-        if (tabs.length === 0) {
+      const handleTab = (activeTab) => {
+        if (!activeTab) {
           console.error('No active tab found.');
           return resolve(null);
         }
 
-        const activeTab = tabs[0];
         const url = activeTab.url ? new URL(activeTab.url) : null;
         const videoId = url ? url.searchParams.get('v') : null;
         if (videoId) {
@@ -57,6 +53,27 @@ class StorageUtils {
           console.error('Video ID not found in URL.');
           return resolve(null);
         }
+      };
+
+      if (this.targetTabId !== null) {
+        chrome.tabs.get(this.targetTabId, (tab) => {
+          if (chrome.runtime.lastError) {
+            console.error('Error retrieving target tab:', chrome.runtime.lastError);
+            return resolve(null);
+          }
+
+          handleTab(tab);
+        });
+        return;
+      }
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error querying tabs:', chrome.runtime.lastError);
+          return resolve(null);
+        }
+
+        handleTab(tabs[0] || null);
       });
     });
   }
