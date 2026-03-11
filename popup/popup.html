@@ -15,12 +15,9 @@
     <!-- Guide State (shown when no transcript) -->
     <div id="guide-state" class="state-container hidden">
       <div class="guide-content">
-        <h3>📺 Action Required</h3>
-        <p>To load the transcript, please:</p>
-        <ol>
-          <li>In the Video Description (click expand "...")</li>
-          <li> Click "Show Transcript" Button</li>
-        </ol>
+        <h3>⏳ Waiting On YouTube</h3>
+        <p>We try to open the YouTube transcript automatically.</p>
+        <p>If it still has not appeared, YouTube may still be rendering captions for this page or the video may not offer a transcript.</p>
         <button id="check-again-btn" class="primary-btn">👀 Check Again</button>
         <div class="auto-check-indicator">
           <span>Checking automatically</span>
@@ -36,7 +33,7 @@
         <div class="progress-bar">
           <div class="progress-fill"></div>
         </div>
-        <p id="loading-status">Extracting transcript segments...</p>
+        <p id="loading-status">Opening YouTube transcript and extracting segments...</p>
       </div>
     </div>
 

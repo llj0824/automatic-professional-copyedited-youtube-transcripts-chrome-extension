@@ -3,14 +3,28 @@
 // --- CONFIGURATION: Update these selectors if YouTube changes their structure ---
 const SELECTORS = {
   // Transcript panel containers
-  transcriptPanels: 'ytd-transcript-renderer, ytd-transcript-body-renderer',
+  transcriptPanels: [
+    'ytd-transcript-renderer',
+    'ytd-transcript-body-renderer',
+    'ytd-engagement-panel-section-list-renderer[target-id*="transcript"]'
+  ].join(', '),
   
   // Transcript segments (individual lines)
-  transcriptSegments: 'ytd-transcript-segment-renderer',
+  transcriptSegments: [
+    'ytd-transcript-segment-renderer',
+    'transcript-segment-view-model'
+  ].join(', '),
   
   // Within each segment
-  timestamp: '.segment-timestamp',
-  text: '.segment-text, yt-formatted-string.segment-text',
+  timestamp: [
+    '.segment-timestamp',
+    '.ytwTranscriptSegmentViewModelTimestamp'
+  ].join(', '),
+  text: [
+    '.segment-text',
+    'yt-formatted-string.segment-text',
+    '.yt-core-attributed-string'
+  ].join(', '),
   
   // Video metadata
   videoTitle: [
@@ -24,9 +38,122 @@ const SELECTORS = {
   ]
 };
 
+const TRANSCRIPT_OPEN_TIMEOUT_MS = 8000;
+const TRANSCRIPT_BUTTON_TIMEOUT_MS = 4000;
+const TRANSCRIPT_SETTLE_IDLE_MS = 1200;
+
 // --- 1.  Shared helpers ----------------------------------------------------
 function isTranscriptPanelOpen() {
   return !!document.querySelector(SELECTORS.transcriptPanels);
+}
+
+function hasTranscriptSegments() {
+  return document.querySelectorAll(SELECTORS.transcriptSegments).length > 0;
+}
+
+function findDescriptionExpandButton() {
+  return Array.from(document.querySelectorAll('tp-yt-paper-button, button, [role="button"]')).find((element) => {
+    const ariaLabel = element.getAttribute('aria-label')?.trim().toLowerCase() || '';
+    const textContent = element.textContent?.trim().toLowerCase() || '';
+
+    return (
+      textContent === '...more' ||
+      textContent === 'show more' ||
+      textContent === 'more' ||
+      ariaLabel === 'show more' ||
+      ariaLabel === 'more'
+    );
+  }) || null;
+}
+
+function findShowTranscriptButton() {
+  return Array.from(document.querySelectorAll('button, [role="button"]')).find((element) => {
+    const ariaLabel = element.getAttribute('aria-label')?.trim().toLowerCase() || '';
+    const textContent = element.textContent?.trim().toLowerCase() || '';
+
+    return ariaLabel === 'show transcript' || textContent === 'show transcript';
+  }) || null;
+}
+
+function waitForShowTranscriptButton(timeoutMs = TRANSCRIPT_BUTTON_TIMEOUT_MS) {
+  const existingButton = findShowTranscriptButton();
+  if (existingButton) {
+    return Promise.resolve(existingButton);
+  }
+
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      const button = findShowTranscriptButton();
+      if (button) {
+        cleanup(button);
+      }
+    });
+
+    const timeoutId = setTimeout(() => cleanup(null), timeoutMs);
+
+    function cleanup(result) {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+      resolve(result);
+    }
+
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true });
+  });
+}
+
+function waitForTranscriptSegments(timeoutMs = TRANSCRIPT_OPEN_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    let lastSegmentCount = document.querySelectorAll(SELECTORS.transcriptSegments).length;
+    let settledTimeoutId = null;
+
+    const scheduleSettleCheck = () => {
+      clearTimeout(settledTimeoutId);
+      if (!lastSegmentCount) {
+        return;
+      }
+
+      settledTimeoutId = setTimeout(() => cleanup(true), TRANSCRIPT_SETTLE_IDLE_MS);
+    };
+
+    const observer = new MutationObserver(() => {
+      const nextSegmentCount = document.querySelectorAll(SELECTORS.transcriptSegments).length;
+      if (nextSegmentCount !== lastSegmentCount) {
+        lastSegmentCount = nextSegmentCount;
+        scheduleSettleCheck();
+      }
+    });
+
+    const timeoutId = setTimeout(() => cleanup(false), timeoutMs);
+
+    function cleanup(result) {
+      clearTimeout(timeoutId);
+      clearTimeout(settledTimeoutId);
+      observer.disconnect();
+      resolve(result);
+    }
+
+    observer.observe(document.body, { subtree: true, childList: true });
+    scheduleSettleCheck();
+  });
+}
+
+async function ensureTranscriptPanelReady() {
+  if (hasTranscriptSegments()) {
+    return true;
+  }
+
+  let showTranscriptButton = await waitForShowTranscriptButton();
+  if (!showTranscriptButton) {
+    findDescriptionExpandButton()?.click();
+    showTranscriptButton = await waitForShowTranscriptButton();
+  }
+
+  if (!showTranscriptButton) {
+    return false;
+  }
+
+  showTranscriptButton.click();
+  return waitForTranscriptSegments();
 }
 
 // Safely join YouTube's `runs` arrays into a string
@@ -154,7 +281,7 @@ Description: ${description}
     const textElement = segment.querySelector(SELECTORS.text);
     
     const time = timeElement?.textContent?.trim() || '';
-    const text = textElement?.textContent?.trim() || '';
+    const text = textElement?.textContent?.trim() || segment.textContent?.replace(time, '').trim() || '';
     
     return time && text ? `[${time}] ${text}` : '';
   }).filter(line => line !== '').join('\n');
@@ -167,21 +294,33 @@ Description: ${description}
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   console.log('Content script received message:', msg);
   if (msg?.type !== 'CHECK_TRANSCRIPT') return;
-  
-  console.log('Checking for transcript panel...');
-  const panelOpen = isTranscriptPanelOpen();
-  console.log('Panel open:', panelOpen);
-  
-  if (panelOpen) {
+
+  (async () => {
+    console.log('Ensuring transcript panel is ready...');
+    const panelReady = await ensureTranscriptPanelReady();
+    console.log('Transcript panel ready:', panelReady, 'panel open:', isTranscriptPanelOpen());
+
+    if (!panelReady) {
+      respond({ success: false, reason: 'TRANSCRIPT_UNAVAILABLE' });
+      return;
+    }
+
     const transcript = extractTranscript();
     console.log('Transcript extracted, length:', transcript.length);
-    respond({success: true, transcript: transcript});
-  } else {
-    console.log('No transcript panel found');
-    respond({success: false});
-  }
-  // Return true to keep the channel open for async respond() if needed
-  return false;
+
+    if (!transcript) {
+      respond({ success: false, reason: 'TRANSCRIPT_EMPTY' });
+      return;
+    }
+
+    respond({ success: true, transcript });
+  })().catch((error) => {
+    console.error('Error preparing transcript:', error);
+    respond({ success: false, reason: 'TRANSCRIPT_ERROR' });
+  });
+
+  // Return true to keep the channel open for async respond()
+  return true;
 });
 
 // --- 3.  UX helper (overlay) ----------------------------------------------

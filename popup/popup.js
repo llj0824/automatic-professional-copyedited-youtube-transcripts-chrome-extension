@@ -71,6 +71,31 @@ const AppState = {
 
 let currentState = null;
 
+function getConfiguredTargetTabId() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const tabIdParam = new URLSearchParams(window.location.search).get('tabId');
+  if (!tabIdParam) {
+    return null;
+  }
+
+  const parsedTabId = Number.parseInt(tabIdParam, 10);
+  return Number.isInteger(parsedTabId) ? parsedTabId : null;
+}
+
+async function getTargetTab() {
+  const configuredTabId = getConfiguredTargetTabId();
+
+  if (configuredTabId !== null) {
+    return chrome.tabs.get(configuredTabId);
+  }
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab || null;
+}
+
 function setState(state) {
   currentState = state;
   
@@ -173,19 +198,7 @@ function setupClipService(storageUtils) {
     if (id) {
       videoId = id;
       // Get the current tab's URL directly
-      return new Promise((resolve, reject) => {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (chrome.runtime.lastError) {
-            console.error('Error querying tabs for URL:', chrome.runtime.lastError);
-            return reject(chrome.runtime.lastError);
-          }
-          if (tabs.length > 0 && tabs[0].url) {
-            resolve(tabs[0].url); // Resolve with the URL
-          } else {
-            resolve(null); // Resolve with null if no URL
-          }
-        });
-      });
+      return getTargetTab().then((tab) => tab?.url || null);
     } else {
       // If no ID, resolve immediately with null URL
     return Promise.resolve(null); 
@@ -257,7 +270,7 @@ function setupClipService(storageUtils) {
  * @param {StorageUtils} storageUtils - The StorageUtils instance.
  * @param {YoutubeTranscriptRetriever} youtubeTranscriptRetriever - The YoutubeTranscriptRetriever instance.
  */
-async function initializePopup(doc = document, storageUtils = new StorageUtils()) {
+async function initializePopup(doc = document, storageUtils = new StorageUtils({ tabId: getConfiguredTargetTabId() })) {
   try {
     // Keep a module-level reference for handlers that cannot receive DI params
     storageUtilsRef = storageUtils;
@@ -316,13 +329,11 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
       displayCurrentPage();
       updatePaginationUI();
     } else {
-      // No saved transcript - check if transcript panel is open
-      setState(AppState.GUIDE);
+      // No saved transcript - try to open and load the transcript automatically
+      setState(AppState.LOADING);
       const result = await checkTranscriptViaContentScript();
       
       if (result?.success && result.transcript) {
-        // Transcript panel is open - load it
-        setState(AppState.LOADING);
         rawTranscript = result.transcript;
         await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
         logger.logEvent(Logger.EVENTS.TRANSCRIPT_RETRIEVED_FROM_YOUTUBE, {
@@ -646,7 +657,8 @@ function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
       processedTranscriptPages = [];
       currentPageIndex = 0;
 
-      // Check if transcript panel is open
+      // Try to open and load the transcript automatically
+      setState(AppState.LOADING);
       const result = await checkTranscriptViaContentScript();
       
       if (result?.success && result.transcript) {
@@ -973,7 +985,7 @@ function formatTime(seconds) {
 // New function to check transcript via content script
 async function checkTranscriptViaContentScript() {
   try {
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    const tab = await getTargetTab();
     if (!tab?.id) throw new Error('No active tab found');
     
     console.log('Sending CHECK_TRANSCRIPT to tab:', tab.id, tab.url);
