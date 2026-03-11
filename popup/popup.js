@@ -316,13 +316,11 @@ async function initializePopup(doc = document, storageUtils = new StorageUtils()
       displayCurrentPage();
       updatePaginationUI();
     } else {
-      // No saved transcript - check if transcript panel is open
-      setState(AppState.GUIDE);
+      // No saved transcript - try to open and load the transcript automatically
+      setState(AppState.LOADING);
       const result = await checkTranscriptViaContentScript();
       
       if (result?.success && result.transcript) {
-        // Transcript panel is open - load it
-        setState(AppState.LOADING);
         rawTranscript = result.transcript;
         await storageUtils.saveRawTranscriptById(videoId, rawTranscript);
         logger.logEvent(Logger.EVENTS.TRANSCRIPT_RETRIEVED_FROM_YOUTUBE, {
@@ -646,7 +644,8 @@ function setupClearTranscriptButton(resetTranscriptBtn, storageUtils, videoId) {
       processedTranscriptPages = [];
       currentPageIndex = 0;
 
-      // Check if transcript panel is open
+      // Try to open and load the transcript automatically
+      setState(AppState.LOADING);
       const result = await checkTranscriptViaContentScript();
       
       if (result?.success && result.transcript) {

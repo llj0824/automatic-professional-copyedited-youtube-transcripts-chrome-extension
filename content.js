@@ -24,9 +24,62 @@ const SELECTORS = {
   ]
 };
 
+const TRANSCRIPT_OPEN_TIMEOUT_MS = 5000;
+
 // --- 1.  Shared helpers ----------------------------------------------------
 function isTranscriptPanelOpen() {
   return !!document.querySelector(SELECTORS.transcriptPanels);
+}
+
+function hasTranscriptSegments() {
+  return document.querySelectorAll(SELECTORS.transcriptSegments).length > 0;
+}
+
+function findShowTranscriptButton() {
+  return Array.from(document.querySelectorAll('button, [role="button"]')).find((element) => {
+    const ariaLabel = element.getAttribute('aria-label')?.trim().toLowerCase() || '';
+    const textContent = element.textContent?.trim().toLowerCase() || '';
+
+    return ariaLabel === 'show transcript' || textContent === 'show transcript';
+  }) || null;
+}
+
+function waitForTranscriptSegments(timeoutMs = TRANSCRIPT_OPEN_TIMEOUT_MS) {
+  if (hasTranscriptSegments()) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      if (hasTranscriptSegments()) {
+        cleanup(true);
+      }
+    });
+
+    const timeoutId = setTimeout(() => cleanup(false), timeoutMs);
+
+    function cleanup(result) {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+      resolve(result);
+    }
+
+    observer.observe(document.body, { subtree: true, childList: true });
+  });
+}
+
+async function ensureTranscriptPanelReady() {
+  if (hasTranscriptSegments()) {
+    return true;
+  }
+
+  const showTranscriptButton = findShowTranscriptButton();
+  if (!showTranscriptButton) {
+    return false;
+  }
+
+  showTranscriptButton.click();
+  return waitForTranscriptSegments();
 }
 
 // Safely join YouTube's `runs` arrays into a string
@@ -167,21 +220,33 @@ Description: ${description}
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   console.log('Content script received message:', msg);
   if (msg?.type !== 'CHECK_TRANSCRIPT') return;
-  
-  console.log('Checking for transcript panel...');
-  const panelOpen = isTranscriptPanelOpen();
-  console.log('Panel open:', panelOpen);
-  
-  if (panelOpen) {
+
+  (async () => {
+    console.log('Ensuring transcript panel is ready...');
+    const panelReady = await ensureTranscriptPanelReady();
+    console.log('Transcript panel ready:', panelReady, 'panel open:', isTranscriptPanelOpen());
+
+    if (!panelReady) {
+      respond({ success: false, reason: 'TRANSCRIPT_UNAVAILABLE' });
+      return;
+    }
+
     const transcript = extractTranscript();
     console.log('Transcript extracted, length:', transcript.length);
-    respond({success: true, transcript: transcript});
-  } else {
-    console.log('No transcript panel found');
-    respond({success: false});
-  }
-  // Return true to keep the channel open for async respond() if needed
-  return false;
+
+    if (!transcript) {
+      respond({ success: false, reason: 'TRANSCRIPT_EMPTY' });
+      return;
+    }
+
+    respond({ success: true, transcript });
+  })().catch((error) => {
+    console.error('Error preparing transcript:', error);
+    respond({ success: false, reason: 'TRANSCRIPT_ERROR' });
+  });
+
+  // Return true to keep the channel open for async respond()
+  return true;
 });
 
 // --- 3.  UX helper (overlay) ----------------------------------------------
