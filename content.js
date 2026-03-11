@@ -40,6 +40,7 @@ const SELECTORS = {
 
 const TRANSCRIPT_OPEN_TIMEOUT_MS = 8000;
 const TRANSCRIPT_BUTTON_TIMEOUT_MS = 4000;
+const TRANSCRIPT_SETTLE_IDLE_MS = 1200;
 
 // --- 1.  Shared helpers ----------------------------------------------------
 function isTranscriptPanelOpen() {
@@ -101,14 +102,24 @@ function waitForShowTranscriptButton(timeoutMs = TRANSCRIPT_BUTTON_TIMEOUT_MS) {
 }
 
 function waitForTranscriptSegments(timeoutMs = TRANSCRIPT_OPEN_TIMEOUT_MS) {
-  if (hasTranscriptSegments()) {
-    return Promise.resolve(true);
-  }
-
   return new Promise((resolve) => {
+    let lastSegmentCount = document.querySelectorAll(SELECTORS.transcriptSegments).length;
+    let settledTimeoutId = null;
+
+    const scheduleSettleCheck = () => {
+      clearTimeout(settledTimeoutId);
+      if (!lastSegmentCount) {
+        return;
+      }
+
+      settledTimeoutId = setTimeout(() => cleanup(true), TRANSCRIPT_SETTLE_IDLE_MS);
+    };
+
     const observer = new MutationObserver(() => {
-      if (hasTranscriptSegments()) {
-        cleanup(true);
+      const nextSegmentCount = document.querySelectorAll(SELECTORS.transcriptSegments).length;
+      if (nextSegmentCount !== lastSegmentCount) {
+        lastSegmentCount = nextSegmentCount;
+        scheduleSettleCheck();
       }
     });
 
@@ -116,11 +127,13 @@ function waitForTranscriptSegments(timeoutMs = TRANSCRIPT_OPEN_TIMEOUT_MS) {
 
     function cleanup(result) {
       clearTimeout(timeoutId);
+      clearTimeout(settledTimeoutId);
       observer.disconnect();
       resolve(result);
     }
 
     observer.observe(document.body, { subtree: true, childList: true });
+    scheduleSettleCheck();
   });
 }
 
